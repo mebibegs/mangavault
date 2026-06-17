@@ -1,7 +1,6 @@
-import { db } from "@/db";
-import { requestLogs, blockedIps } from "@/db/schema";
+// Simple console-based logging (Vercel captures these in their logs)
 
-export async function logRequest(params: {
+export function logRequest(params: {
   ipAddress: string;
   endpoint: string;
   method: string;
@@ -9,39 +8,28 @@ export async function logRequest(params: {
   query?: string;
   errorMessage?: string;
 }) {
-  // Skip logging if DATABASE_URL is not set (e.g., during build or if DB is optional)
-  if (!process.env.DATABASE_URL) return;
-
-  try {
-    await db.insert(requestLogs).values({
-      ipAddress: params.ipAddress,
-      endpoint: params.endpoint,
-      method: params.method,
-      statusCode: params.statusCode ?? null,
-      query: params.query ?? null,
-      errorMessage: params.errorMessage ?? null,
-    });
-  } catch {
-    // Silent fail - don't crash the request over logging
-    console.error("Failed to log request");
+  const timestamp = new Date().toISOString();
+  const logEntry = {
+    timestamp,
+    ip: params.ipAddress,
+    method: params.method,
+    endpoint: params.endpoint,
+    status: params.statusCode,
+    query: params.query,
+    error: params.errorMessage,
+  };
+  
+  if (params.errorMessage || (params.statusCode && params.statusCode >= 400)) {
+    console.warn("[API]", JSON.stringify(logEntry));
+  } else {
+    console.log("[API]", JSON.stringify(logEntry));
   }
 }
 
-export async function logBlockedIp(ip: string, reason: string, permanent = false) {
-  // Skip logging if DATABASE_URL is not set
-  if (!process.env.DATABASE_URL) return;
-
-  try {
-    await db
-      .insert(blockedIps)
-      .values({
-        ipAddress: ip,
-        reason,
-        permanent,
-        expiresAt: permanent ? null : new Date(Date.now() + 3600 * 1000),
-      })
-      .onConflictDoNothing();
-  } catch {
-    console.error("Failed to log blocked IP");
-  }
+export function logBlockedIp(ip: string, reason: string) {
+  console.warn("[BLOCKED]", JSON.stringify({
+    timestamp: new Date().toISOString(),
+    ip,
+    reason,
+  }));
 }

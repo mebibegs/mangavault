@@ -62,14 +62,14 @@ export async function GET(req: NextRequest) {
     // Bot detection
     if (isBotRequest(req)) {
       blockIp(ip, 86400);
-      logBlockedIp(ip, "Bot detected").catch(() => {});
+      logBlockedIp(ip, "Bot detected");
       logRequest({
         ipAddress: ip,
         endpoint,
         method,
         statusCode: 403,
         errorMessage: "Bot detected",
-      }).catch(() => {});
+      });
       return NextResponse.json(
         { error: "Access denied." },
         { status: 403 }
@@ -80,16 +80,14 @@ export async function GET(req: NextRequest) {
     const rateCheck = checkRateLimit(ip);
 
     if (rateCheck.blocked) {
-      logBlockedIp(ip, rateCheck.reason || "Blocked by rate limiter").catch(
-        () => {}
-      );
+      logBlockedIp(ip, rateCheck.reason || "Blocked by rate limiter");
       logRequest({
         ipAddress: ip,
         endpoint,
         method,
         statusCode: 403,
         errorMessage: "IP blocked",
-      }).catch(() => {});
+      });
       return NextResponse.json(
         { error: "Access denied." },
         { status: 403 }
@@ -103,7 +101,7 @@ export async function GET(req: NextRequest) {
         method,
         statusCode: 429,
         errorMessage: "Rate limit exceeded",
-      }).catch(() => {});
+      });
       return NextResponse.json(
         {
           error: "Rate limit exceeded. Please try again later.",
@@ -131,7 +129,7 @@ export async function GET(req: NextRequest) {
         method,
         statusCode: 400,
         errorMessage: "Missing query",
-      }).catch(() => {});
+      });
       return NextResponse.json(
         { error: "Query parameter 'q' is required." },
         { status: 400 }
@@ -157,7 +155,7 @@ export async function GET(req: NextRequest) {
       method,
       statusCode: 200,
       query,
-    }).catch(() => {});
+    });
 
     return NextResponse.json(
       {
@@ -183,7 +181,7 @@ export async function GET(req: NextRequest) {
       method,
       statusCode: 500,
       errorMessage: "Internal error",
-    }).catch(() => {});
+    });
 
     return NextResponse.json(
       { error: "An error occurred while processing your request." },
