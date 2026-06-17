@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
+import AntiInspect from "@/components/AntiInspect";
 
 export const metadata: Metadata = {
   title: "MangaVault — Universal Search Engine",
@@ -16,6 +17,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <meta name="theme-color" content="#0a0a0a" />
       </head>
       <body className="bg-bg-primary text-text-primary antialiased min-h-screen">
+        <AntiInspect />
         {children}
       </body>
     </html>
