@@ -123,7 +123,7 @@ async function searchSource1(query: string): Promise<MangaResult[]> {
       if (href&&t&&t.length>0&&!links.find(l=>l.href===href)) links.push({title:t,href:href.startsWith("http")?href:`https://asurascans.com${href}`});
     });
     const results: MangaResult[] = [];
-    const details = await Promise.all(links.slice(0,8).map(async l => { const h = await fetchSafe(l.href); return h ? parseSource1Detail(h,l.href,l.title) : null; }));
+    const details = await Promise.all(links.map(async l => { const h = await fetchSafe(l.href); return h ? parseSource1Detail(h,l.href,l.title) : null; }));
     for (const d of details) if (d) results.push(d);
     return results;
   } catch { return []; }
@@ -237,7 +237,7 @@ async function searchSource2(query: string): Promise<MangaResult[]> {
     const slug=query.trim().split(" ").map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join("-");
     if(!links.find(l=>l.href.includes(slug))) links.push({title:query,href:`https://demonicscans.org/manga/${slug}`});
     const results: MangaResult[] = [];
-    const details = await Promise.all(links.slice(0,8).map(async l => { const h = await fetchSafe(l.href); return h ? parseSource2Detail(h,l.href) : null; }));
+    const details = await Promise.all(links.map(async l => { const h = await fetchSafe(l.href); return h ? parseSource2Detail(h,l.href) : null; }));
     for (const d of details) if (d) results.push(d);
     return results;
   } catch { return []; }
@@ -396,7 +396,7 @@ async function searchSource3(query: string): Promise<MangaResult[]> {
     $("a[href*='/manga/']").each((_,el)=>{const h=$(el).attr("href");const t=$(el).find("h3,h4,.post-title").text().trim()||$(el).text().trim();if(h&&h.includes("/manga/")&&!h.includes("/manga/page/")&&t&&t.length>1&&!links.find(l=>l.href===h))links.push({title:t,href:h.startsWith("http")?h:`https://scythescans.com${h}`});});
     if(links.length===0){const s=query.trim().toLowerCase().replace(/\s+/g,"-").replace(/[^a-z0-9-]/g,"");links.push({title:query,href:`https://scythescans.com/manga/${s}/`});}
     const results:MangaResult[]=[];
-    const details = await Promise.all(links.slice(0,8).map(async l => { const h=await fetchSafe(l.href); return h?parseSource3Detail(h,l.href):null; }));
+    const details = await Promise.all(links.map(async l => { const h=await fetchSafe(l.href); return h?parseSource3Detail(h,l.href):null; }));
     for(const d of details)if(d)results.push(d);
     return results;
   } catch { return []; }
@@ -525,7 +525,7 @@ async function searchSource4(query: string): Promise<MangaResult[]> {
     });
     
     const results: MangaResult[] = [];
-    for (const e of matched.slice(0, 10)) {
+    for (const e of matched) {
       const r = comixEntryToResult(e);
       if (r) results.push(r);
     }
