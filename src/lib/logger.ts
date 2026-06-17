@@ -9,6 +9,9 @@ export async function logRequest(params: {
   query?: string;
   errorMessage?: string;
 }) {
+  // Skip logging if DATABASE_URL is not set (e.g., during build or if DB is optional)
+  if (!process.env.DATABASE_URL) return;
+
   try {
     await db.insert(requestLogs).values({
       ipAddress: params.ipAddress,
@@ -25,6 +28,9 @@ export async function logRequest(params: {
 }
 
 export async function logBlockedIp(ip: string, reason: string, permanent = false) {
+  // Skip logging if DATABASE_URL is not set
+  if (!process.env.DATABASE_URL) return;
+
   try {
     await db
       .insert(blockedIps)
