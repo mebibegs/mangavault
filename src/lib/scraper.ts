@@ -436,6 +436,141 @@ async function browseSource3(page: number): Promise<MangaResult[]> {
 }
 
 // ════════════════════════════════════════════════════════════════════
+// SOURCE 4: COMIX.TO  (SPA with embedded JSON)
+// ════════════════════════════════════════════════════════════════════
+
+interface ComixEntry {
+  title?: string;
+  hid?: string;
+  type?: string;
+  status?: string;
+  synopsis?: string;
+  poster?: { medium?: string; large?: string };
+  latestChapter?: number;
+  ratedAvg?: number;
+  ratedCount?: number;
+  url?: string;
+  year?: number;
+  genres?: { name: string }[];
+  authors?: { name: string }[];
+  artists?: { name: string }[];
+}
+
+function comixEntryToResult(e: ComixEntry): MangaResult | null {
+  if (!e.title || e.title.length < 2) return null;
+  const status = e.status === "releasing" ? "Ongoing" : e.status === "completed" ? "Completed" : e.status === "hiatus" ? "Hiatus" : (e.status || "Unknown");
+  const type = (e.type || "manhwa").charAt(0).toUpperCase() + (e.type || "manhwa").slice(1);
+  return {
+    title: e.title,
+    description: e.synopsis || "No description available.",
+    rating: e.ratedAvg ? String(e.ratedAvg) : "N/A",
+    status: status.charAt(0).toUpperCase() + status.slice(1),
+    type,
+    genres: e.genres?.map(g => g.name) || [],
+    chapters: [],
+    chapterCount: e.latestChapter ? String(e.latestChapter) : "0",
+    coverUrl: e.poster?.medium || e.poster?.large || "",
+    url: e.url ? `https://comix.to${e.url}` : "https://comix.to",
+    source: "Source D",
+    author: e.authors?.map(a => a.name).join(", ") || "Unknown",
+    artist: e.artists?.map(a => a.name).join(", ") || "Unknown",
+  };
+}
+
+function parseComixPageJson(html: string): ComixEntry[] {
+  try {
+    const match = html.match(/<script[^>]*id="initial-data"[^>]*>(\{[\s\S]*?\})<\/script>/);
+    if (!match) return [];
+    const data = JSON.parse(match[1]);
+    const entries: ComixEntry[] = [];
+    const queries = data.queries || {};
+    for (const key of Object.keys(queries)) {
+      const val = queries[key];
+      if (Array.isArray(val)) {
+        for (const item of val) {
+          if (item && typeof item === "object" && item.title && item.poster) {
+            entries.push(item as ComixEntry);
+          }
+        }
+      }
+    }
+    return entries;
+  } catch {
+    return [];
+  }
+}
+
+async function searchSource4(query: string): Promise<MangaResult[]> {
+  try {
+    // Comix.to doesn't have a server-side search, so we pull the homepage
+    // data (100 trending items) and filter by query match
+    const html = await fetchSafe("https://comix.to/");
+    if (!html) return [];
+    
+    const entries = parseComixPageJson(html);
+    const ql = query.toLowerCase();
+    const qWords = ql.split(/\s+/).filter(w => w.length > 1);
+    
+    const matched = entries.filter(e => {
+      const titleLower = (e.title || "").toLowerCase();
+      const synLower = (e.synopsis || "").toLowerCase();
+      return qWords.some(w => titleLower.includes(w) || synLower.includes(w));
+    });
+    
+    // Sort: more word matches = higher rank
+    matched.sort((a, b) => {
+      const aScore = qWords.filter(w => (a.title || "").toLowerCase().includes(w)).length;
+      const bScore = qWords.filter(w => (b.title || "").toLowerCase().includes(w)).length;
+      return bScore - aScore;
+    });
+    
+    const results: MangaResult[] = [];
+    for (const e of matched.slice(0, 10)) {
+      const r = comixEntryToResult(e);
+      if (r) results.push(r);
+    }
+    return results;
+  } catch {
+    return [];
+  }
+}
+
+async function browseSource4(_page: number): Promise<MangaResult[]> {
+  try {
+    // Homepage has ~100 items (50 trending + 50 follows)
+    // Only useful for page 1-2 effectively
+    const html = await fetchSafe("https://comix.to/");
+    if (!html) return [];
+    
+    const entries = parseComixPageJson(html);
+    
+    // Deduplicate by hid
+    const seen = new Set<string>();
+    const unique: ComixEntry[] = [];
+    for (const e of entries) {
+      const key = e.hid || e.title || "";
+      if (!seen.has(key)) {
+        seen.add(key);
+        unique.push(e);
+      }
+    }
+    
+    // Paginate: page 1 = items 0-29, page 2 = 30-59, etc.
+    const start = ((_page - 1) % 3) * 30;
+    const slice = unique.slice(start, start + 30);
+    
+    const results: MangaResult[] = [];
+    for (const e of slice) {
+      const r = comixEntryToResult(e);
+      if (r) results.push(r);
+    }
+    return results;
+  } catch {
+    return [];
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════
 // RELEVANCE CHECK
 // ════════════════════════════════════════════════════════════════════
 
@@ -461,11 +596,12 @@ function isValidEntry(r: MangaResult): boolean {
 // ════════════════════════════════════════════════════════════════════
 
 export async function searchAllSources(query: string): Promise<MangaResult[]> {
-  const [r1,r2,r3] = await Promise.allSettled([searchSource1(query),searchSource2(query),searchSource3(query)]);
+  const [r1,r2,r3,r4] = await Promise.allSettled([searchSource1(query),searchSource2(query),searchSource3(query),searchSource4(query)]);
   const results: MangaResult[] = [];
   if(r1.status==="fulfilled")results.push(...r1.value);
   if(r2.status==="fulfilled")results.push(...r2.value);
   if(r3.status==="fulfilled")results.push(...r3.value);
+  if(r4.status==="fulfilled")results.push(...r4.value);
   const relevant=results.filter(r=>isRelevant(r,query));
   const seen=new Set<string>(); const unique:MangaResult[]=[];
   for(const r of relevant){const k=r.title.toLowerCase().replace(/[^a-z0-9]/g,"");if(!seen.has(k)&&k.length>2){seen.add(k);unique.push(r);}}
@@ -479,16 +615,18 @@ export async function searchAllSources(query: string): Promise<MangaResult[]> {
 
 export async function browseCatalog(page: number): Promise<{ results: MangaResult[]; hasMore: boolean }> {
   // Each source contributes to the catalog
-  const [r1, r2, r3] = await Promise.allSettled([
+  const [r1, r2, r3, r4] = await Promise.allSettled([
     browseSource1(page),
     browseSource2(page),
     browseSource3(page),
+    browseSource4(page),
   ]);
 
   const results: MangaResult[] = [];
   if (r1.status === "fulfilled") results.push(...r1.value);
   if (r2.status === "fulfilled") results.push(...r2.value);
   if (r3.status === "fulfilled") results.push(...r3.value);
+  if (r4.status === "fulfilled") results.push(...r4.value);
 
   // Filter valid entries
   const valid = results.filter(isValidEntry);
