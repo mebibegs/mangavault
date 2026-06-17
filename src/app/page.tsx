@@ -60,7 +60,6 @@ export default function Home() {
       if (e) e.preventDefault();
       if (!query.trim() || query.trim().length < 2) return;
 
-      // Abort previous request
       if (abortRef.current) abortRef.current.abort();
       abortRef.current = new AbortController();
 
@@ -69,7 +68,6 @@ export default function Home() {
       setShowChapters(false);
       setError("");
 
-      // Smooth phase transitions
       setPhase("connecting");
       setStatusText(phaseLabels.connecting);
       await sleep(600);
@@ -117,6 +115,8 @@ export default function Home() {
     [query]
   );
 
+  const showHero = results.length === 0 && phase !== "done";
+
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header */}
@@ -149,29 +149,23 @@ export default function Home() {
 
       {/* Main content */}
       <main className="flex-1 flex flex-col">
-        {/* Hero/Search area */}
         <div
           className={`transition-all duration-700 ease-out ${
-            results.length > 0 || phase === "done"
-              ? "pt-6 sm:pt-8"
-              : "pt-16 sm:pt-28 md:pt-36"
+            showHero ? "pt-8 sm:pt-12 md:pt-16" : "pt-6 sm:pt-8"
           }`}
         >
           <div className="max-w-3xl mx-auto px-4 sm:px-6">
-            {/* Title - only show prominently when no results */}
+            {/* ─── Circular Hero ─── */}
             <div
-              className={`text-center transition-all duration-700 overflow-hidden ${
-                results.length > 0 || phase === "done"
-                  ? "max-h-0 opacity-0 mb-0"
-                  : "max-h-48 opacity-100 mb-8 sm:mb-12"
+              className={`flex flex-col items-center transition-all duration-700 overflow-hidden ${
+                showHero
+                  ? "max-h-[500px] opacity-100 mb-6 sm:mb-10"
+                  : "max-h-0 opacity-0 mb-0"
               }`}
             >
-              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-3">
-                Search{" "}
-                <span className="text-text-muted">Everything</span>
-              </h2>
-              <p className="text-text-secondary text-sm sm:text-base max-w-lg mx-auto">
-                Instantly search across multiple manga &amp; manhwa databases.
+              <CircleHero />
+              <p className="text-text-secondary text-xs sm:text-sm max-w-md mx-auto text-center mt-4 sm:mt-5">
+                Instantly search across multiple databases.
                 Results aggregated from parallel sources in real-time.
               </p>
             </div>
@@ -247,7 +241,7 @@ export default function Home() {
               </div>
             </form>
 
-            {/* Loading / Status indicator */}
+            {/* Loading */}
             {phase !== "idle" && phase !== "done" && phase !== "error" && (
               <div className="mt-6 animate-fade-in-up">
                 <LoadingIndicator phase={phase} statusText={statusText} />
@@ -263,7 +257,7 @@ export default function Home() {
               </div>
             )}
 
-            {/* Status text for done */}
+            {/* Done text */}
             {phase === "done" && (
               <p className="text-text-muted text-xs sm:text-sm mt-3 text-center animate-fade-in-up">
                 {statusText}
@@ -272,7 +266,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Results grid */}
+        {/* Results */}
         {results.length > 0 && (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-6 sm:mt-8 pb-12 w-full animate-fade-in-up">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -329,7 +323,78 @@ export default function Home() {
   );
 }
 
-/* ─── Sub-components ─── */
+/* ═══════════════════════════════════════════════════════════════
+   CIRCULAR HERO — words spin in a ring, "Search" in the center
+   ═══════════════════════════════════════════════════════════════ */
+
+function CircleHero() {
+  // The text that goes around the circle
+  // Arranged: Y · MANGA · MANHWA · DONGHUA · MANHUA · (completing the circle)
+  const circleText =
+    "Y · MANGA · MANHWA · DONGHUA · MANHUA · ";
+
+  return (
+    <div className="relative w-48 h-48 sm:w-60 sm:h-60 md:w-72 md:h-72">
+      {/* Outer glow ring */}
+      <div className="absolute inset-0 rounded-full opacity-20 blur-xl bg-gradient-to-br from-white/20 to-transparent" />
+
+      {/* Subtle border ring */}
+      <div className="absolute inset-2 sm:inset-3 rounded-full border border-white/[0.06]" />
+      <div className="absolute inset-4 sm:inset-6 rounded-full border border-white/[0.04]" />
+
+      {/* Spinning circle text */}
+      <svg
+        className="absolute inset-0 w-full h-full animate-spin-slow"
+        viewBox="0 0 300 300"
+      >
+        <defs>
+          <path
+            id="circlePath"
+            d="M 150,150 m -120,0 a 120,120 0 1,1 240,0 a 120,120 0 1,1 -240,0"
+          />
+        </defs>
+        <text className="fill-white/40" style={{ fontSize: "15px", letterSpacing: "6px", fontWeight: 600, fontFamily: "system-ui, sans-serif" }}>
+          <textPath href="#circlePath" startOffset="0%">
+            {circleText}
+          </textPath>
+        </text>
+      </svg>
+
+      {/* Counter-spinning inner ring (reversed text) */}
+      <svg
+        className="absolute inset-0 w-full h-full animate-spin-slow-reverse"
+        viewBox="0 0 300 300"
+      >
+        <defs>
+          <path
+            id="innerCirclePath"
+            d="M 150,150 m -80,0 a 80,80 0 1,1 160,0 a 80,80 0 1,1 -160,0"
+          />
+        </defs>
+        <text className="fill-white/15" style={{ fontSize: "10px", letterSpacing: "4px", fontWeight: 400, fontFamily: "system-ui, sans-serif" }}>
+          <textPath href="#innerCirclePath" startOffset="0%">
+            MANGA · MANHWA · DONGHUA · MANHUA · 
+          </textPath>
+        </text>
+      </svg>
+
+      {/* Center content */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        {/* Dot above */}
+        <div className="w-1 h-1 rounded-full bg-white/50 mb-2 sm:mb-3" />
+        <span className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-white">
+          Search
+        </span>
+        {/* Small line below */}
+        <div className="w-8 sm:w-10 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent mt-2 sm:mt-3" />
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════
+   LOADING INDICATOR (vertical)
+   ═══════════════════════════════ */
 
 function LoadingIndicator({
   phase,
@@ -358,7 +423,6 @@ function LoadingIndicator({
             <div key={step.key} className="flex items-stretch gap-3 sm:gap-4">
               {/* Vertical line + circle */}
               <div className="flex flex-col items-center">
-                {/* Circle */}
                 <div
                   className={`relative z-10 flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 transition-all duration-500 flex-shrink-0 ${
                     isCompleted
@@ -369,18 +433,8 @@ function LoadingIndicator({
                   }`}
                 >
                   {isCompleted ? (
-                    <svg
-                      className="w-3.5 h-3.5 text-black"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth={3}
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M5 13l4 4L19 7"
-                      />
+                    <svg className="w-3.5 h-3.5 text-black" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
                   ) : isActive ? (
                     <div className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse" />
@@ -388,10 +442,9 @@ function LoadingIndicator({
                     <div className="w-2 h-2 rounded-full bg-border-bright" />
                   )}
                 </div>
-
-                {/* Connector line */}
                 {idx < steps.length - 1 && (
-                  <div className="w-0.5 flex-1 min-h-6 my-0.5 transition-colors duration-500 rounded-full"
+                  <div
+                    className="w-0.5 flex-1 min-h-6 my-0.5 transition-colors duration-500 rounded-full"
                     style={{
                       background: isCompleted
                         ? "#22c55e"
@@ -406,41 +459,19 @@ function LoadingIndicator({
               {/* Content */}
               <div className={`pb-5 ${idx === steps.length - 1 ? "pb-0" : ""}`}>
                 <div className="flex items-center gap-2">
-                  <h4
-                    className={`text-sm font-semibold transition-colors duration-300 ${
-                      isCompleted
-                        ? "text-green-400"
-                        : isActive
-                          ? "text-white"
-                          : "text-text-muted"
-                    }`}
-                  >
+                  <h4 className={`text-sm font-semibold transition-colors duration-300 ${isCompleted ? "text-green-400" : isActive ? "text-white" : "text-text-muted"}`}>
                     {step.label}
                   </h4>
                   {isCompleted && (
-                    <span className="text-[10px] font-medium text-green-500/80 bg-green-500/10 px-1.5 py-0.5 rounded-full leading-none">
-                      Done
-                    </span>
+                    <span className="text-[10px] font-medium text-green-500/80 bg-green-500/10 px-1.5 py-0.5 rounded-full leading-none">Done</span>
                   )}
                   {isActive && (
-                    <span className="text-[10px] font-medium text-green-400/80 bg-green-500/10 px-1.5 py-0.5 rounded-full leading-none animate-pulse">
-                      In Progress
-                    </span>
+                    <span className="text-[10px] font-medium text-green-400/80 bg-green-500/10 px-1.5 py-0.5 rounded-full leading-none animate-pulse">In Progress</span>
                   )}
                 </div>
-                <p
-                  className={`text-xs mt-0.5 transition-colors duration-300 ${
-                    isActive
-                      ? "text-text-secondary"
-                      : isPending
-                        ? "text-text-muted/50"
-                        : "text-text-muted"
-                  }`}
-                >
+                <p className={`text-xs mt-0.5 transition-colors duration-300 ${isActive ? "text-text-secondary" : isPending ? "text-text-muted/50" : "text-text-muted"}`}>
                   {step.desc}
                 </p>
-
-                {/* Active step spinner */}
                 {isActive && (
                   <div className="flex items-center gap-2 mt-2">
                     <div className="dot-loading-green flex gap-1">
@@ -460,6 +491,10 @@ function LoadingIndicator({
   );
 }
 
+/* ═══════════════════
+   RESULT CARD
+   ═══════════════════ */
+
 function ResultCard({
   result,
   index,
@@ -476,7 +511,6 @@ function ResultCard({
       style={{ animationDelay: `${index * 80}ms` }}
     >
       <div className="flex gap-4">
-        {/* Cover image */}
         {result.coverUrl ? (
           <div className="w-16 h-22 sm:w-20 sm:h-28 rounded-lg overflow-hidden flex-shrink-0 bg-bg-hover">
             <img
@@ -490,18 +524,8 @@ function ResultCard({
           </div>
         ) : (
           <div className="w-16 h-22 sm:w-20 sm:h-28 rounded-lg bg-bg-hover flex-shrink-0 flex items-center justify-center">
-            <svg
-              className="w-8 h-8 text-text-muted"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1}
-                d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-              />
+            <svg className="w-8 h-8 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
             </svg>
           </div>
         )}
@@ -514,30 +538,17 @@ function ResultCard({
             {result.description.substring(0, 120)}
             {result.description.length > 120 ? "..." : ""}
           </p>
-
           <div className="flex flex-wrap items-center gap-2 mt-3">
             {result.rating !== "N/A" && (
               <span className="inline-flex items-center gap-1 text-xs bg-white/10 px-2 py-0.5 rounded-md">
-                <svg
-                  className="w-3 h-3 text-yellow-400"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
+                <svg className="w-3 h-3 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                 </svg>
                 {result.rating}
               </span>
             )}
-            <span className="text-xs text-text-muted">
-              {result.chapterCount} chs
-            </span>
-            <span
-              className={`text-xs px-2 py-0.5 rounded-md ${
-                result.status.toLowerCase() === "completed"
-                  ? "bg-green-500/10 text-green-400"
-                  : "bg-blue-500/10 text-blue-400"
-              }`}
-            >
+            <span className="text-xs text-text-muted">{result.chapterCount} chs</span>
+            <span className={`text-xs px-2 py-0.5 rounded-md ${result.status.toLowerCase() === "completed" ? "bg-green-500/10 text-green-400" : "bg-blue-500/10 text-blue-400"}`}>
               {result.status}
             </span>
           </div>
@@ -546,6 +557,10 @@ function ResultCard({
     </button>
   );
 }
+
+/* ═══════════════════
+   DETAIL MODAL
+   ═══════════════════ */
 
 function DetailModal({
   result,
@@ -571,89 +586,42 @@ function DetailModal({
           <div className="flex gap-4 flex-1 min-w-0">
             {result.coverUrl ? (
               <div className="w-20 h-28 sm:w-24 sm:h-32 rounded-lg overflow-hidden flex-shrink-0 bg-bg-hover">
-                <img
-                  src={result.coverUrl}
-                  alt=""
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = "none";
-                  }}
-                />
+                <img src={result.coverUrl} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
               </div>
             ) : (
               <div className="w-20 h-28 sm:w-24 sm:h-32 rounded-lg bg-bg-card flex-shrink-0 flex items-center justify-center">
-                <svg
-                  className="w-10 h-10 text-text-muted"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1}
-                    d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                  />
+                <svg className="w-10 h-10 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                 </svg>
               </div>
             )}
-
             <div className="flex-1 min-w-0">
-              <h2 className="text-lg sm:text-xl font-bold text-white leading-snug">
-                {result.title}
-              </h2>
+              <h2 className="text-lg sm:text-xl font-bold text-white leading-snug">{result.title}</h2>
               <div className="flex flex-wrap gap-2 mt-2">
                 {result.rating !== "N/A" && (
                   <span className="inline-flex items-center gap-1 text-xs bg-white/10 px-2 py-1 rounded-md">
-                    <svg
-                      className="w-3 h-3 text-yellow-400"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
+                    <svg className="w-3 h-3 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
                       <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                     </svg>
                     {result.rating}
                   </span>
                 )}
-                <span
-                  className={`text-xs px-2 py-1 rounded-md ${
-                    result.status.toLowerCase() === "completed"
-                      ? "bg-green-500/10 text-green-400"
-                      : "bg-blue-500/10 text-blue-400"
-                  }`}
-                >
+                <span className={`text-xs px-2 py-1 rounded-md ${result.status.toLowerCase() === "completed" ? "bg-green-500/10 text-green-400" : "bg-blue-500/10 text-blue-400"}`}>
                   {result.status}
                 </span>
-                <span className="text-xs px-2 py-1 rounded-md bg-white/5 text-text-secondary">
-                  {result.type}
-                </span>
+                <span className="text-xs px-2 py-1 rounded-md bg-white/5 text-text-secondary">{result.type}</span>
               </div>
             </div>
           </div>
-
-          <button
-            onClick={onClose}
-            className="ml-3 p-2 rounded-lg hover:bg-bg-hover transition-colors text-text-muted hover:text-white flex-shrink-0"
-          >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
+          <button onClick={onClose} className="ml-3 p-2 rounded-lg hover:bg-bg-hover transition-colors text-text-muted hover:text-white flex-shrink-0">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
-        {/* Body - scrollable */}
+        {/* Body */}
         <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5">
-          {/* Meta info */}
           <div className="grid grid-cols-2 gap-3">
             <MetaItem label="Author" value={result.author} />
             <MetaItem label="Artist" value={result.artist} />
@@ -661,93 +629,39 @@ function DetailModal({
             <MetaItem label="Source" value={result.source} />
           </div>
 
-          {/* Genres */}
           {result.genres.length > 0 && (
             <div>
-              <h4 className="text-xs text-text-muted uppercase tracking-wider mb-2">
-                Genres
-              </h4>
+              <h4 className="text-xs text-text-muted uppercase tracking-wider mb-2">Genres</h4>
               <div className="flex flex-wrap gap-1.5">
                 {result.genres.map((g) => (
-                  <span
-                    key={g}
-                    className="text-xs px-2.5 py-1 rounded-full bg-white/5 text-text-secondary border border-border-subtle"
-                  >
-                    {g}
-                  </span>
+                  <span key={g} className="text-xs px-2.5 py-1 rounded-full bg-white/5 text-text-secondary border border-border-subtle">{g}</span>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Description */}
           <div>
-            <h4 className="text-xs text-text-muted uppercase tracking-wider mb-2">
-              Description
-            </h4>
-            <p className="text-sm text-text-secondary leading-relaxed">
-              {result.description}
-            </p>
+            <h4 className="text-xs text-text-muted uppercase tracking-wider mb-2">Description</h4>
+            <p className="text-sm text-text-secondary leading-relaxed">{result.description}</p>
           </div>
 
-          {/* Chapters toggle */}
           {result.chapters.length > 0 && (
             <div>
-              <button
-                onClick={onToggleChapters}
-                className="w-full flex items-center justify-between py-3 px-4 rounded-xl bg-bg-card border border-border-subtle hover:border-border-bright transition-all"
-              >
-                <span className="text-sm font-medium text-white">
-                  Chapters ({result.chapters.length})
-                </span>
-                <svg
-                  className={`w-4 h-4 text-text-muted transition-transform duration-200 ${
-                    showChapters ? "rotate-180" : ""
-                  }`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 9l-7 7-7-7"
-                  />
+              <button onClick={onToggleChapters} className="w-full flex items-center justify-between py-3 px-4 rounded-xl bg-bg-card border border-border-subtle hover:border-border-bright transition-all">
+                <span className="text-sm font-medium text-white">Chapters ({result.chapters.length})</span>
+                <svg className={`w-4 h-4 text-text-muted transition-transform duration-200 ${showChapters ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
-
               {showChapters && (
                 <div className="mt-2 max-h-64 overflow-y-auto rounded-xl border border-border-subtle divide-y divide-border-subtle">
                   {result.chapters.map((ch, idx) => (
-                    <a
-                      key={idx}
-                      href={ch.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center justify-between px-4 py-2.5 hover:bg-bg-hover transition-colors group"
-                    >
-                      <span className="text-sm text-text-secondary group-hover:text-white transition-colors truncate">
-                        {ch.title}
-                      </span>
+                    <a key={idx} href={ch.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between px-4 py-2.5 hover:bg-bg-hover transition-colors group">
+                      <span className="text-sm text-text-secondary group-hover:text-white transition-colors truncate">{ch.title}</span>
                       <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-                        {ch.date && (
-                          <span className="text-xs text-text-muted">
-                            {ch.date}
-                          </span>
-                        )}
-                        <svg
-                          className="w-3.5 h-3.5 text-text-muted group-hover:text-white transition-colors"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                          />
+                        {ch.date && <span className="text-xs text-text-muted">{ch.date}</span>}
+                        <svg className="w-3.5 h-3.5 text-text-muted group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                         </svg>
                       </div>
                     </a>
@@ -757,13 +671,7 @@ function DetailModal({
             </div>
           )}
 
-          {/* Visit link */}
-          <a
-            href={result.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block w-full text-center py-3 rounded-xl bg-white text-black font-medium text-sm hover:bg-gray-200 transition-colors"
-          >
+          <a href={result.url} target="_blank" rel="noopener noreferrer" className="block w-full text-center py-3 rounded-xl bg-white text-black font-medium text-sm hover:bg-gray-200 transition-colors">
             Visit Source →
           </a>
         </div>
@@ -775,12 +683,8 @@ function DetailModal({
 function MetaItem({ label, value }: { label: string; value: string }) {
   return (
     <div className="bg-bg-card rounded-lg p-3 border border-border-subtle">
-      <p className="text-xs text-text-muted uppercase tracking-wider mb-1">
-        {label}
-      </p>
-      <p className="text-sm text-text-primary truncate">
-        {value || "Unknown"}
-      </p>
+      <p className="text-xs text-text-muted uppercase tracking-wider mb-1">{label}</p>
+      <p className="text-sm text-text-primary truncate">{value || "Unknown"}</p>
     </div>
   );
 }
