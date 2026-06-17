@@ -64,7 +64,6 @@ async function searchSource1(query: string): Promise<MangaResult[]> {
     const results: MangaResult[] = [];
     const links: { title: string; href: string }[] = [];
 
-    // Find manga links in search results
     $("a[href*='/comics/']").each((_, el) => {
       const href = $(el).attr("href");
       const title = $(el).find("h3").text().trim() || $(el).text().trim();
@@ -76,8 +75,7 @@ async function searchSource1(query: string): Promise<MangaResult[]> {
       }
     });
 
-    // Fetch details for up to 5 results
-    const detailPromises = links.slice(0, 5).map(async (link) => {
+    const detailPromises = links.slice(0, 8).map(async (link) => {
       try {
         const detailRes = await fetchWithTimeout(link.href);
         const detailHtml = await detailRes.text();
@@ -99,6 +97,49 @@ async function searchSource1(query: string): Promise<MangaResult[]> {
   }
 }
 
+// Fetch trending/popular from Source 1
+async function getTrendingSource1(): Promise<MangaResult[]> {
+  try {
+    const res = await fetchWithTimeout("https://asurascans.com/browse?sort=rating");
+    const html = await res.text();
+    const $ = cheerio.load(html);
+
+    const results: MangaResult[] = [];
+    const links: { title: string; href: string }[] = [];
+
+    $("a[href*='/comics/']").each((_, el) => {
+      const href = $(el).attr("href");
+      const title = $(el).find("h3").text().trim();
+      if (href && title && title.length > 0 && !links.find((l) => l.href === href)) {
+        links.push({
+          title,
+          href: href.startsWith("http") ? href : `https://asurascans.com${href}`,
+        });
+      }
+    });
+
+    const detailPromises = links.slice(0, 12).map(async (link) => {
+      try {
+        const detailRes = await fetchWithTimeout(link.href);
+        const detailHtml = await detailRes.text();
+        return parseSource1Detail(detailHtml, link.href, link.title);
+      } catch {
+        return null;
+      }
+    });
+
+    const details = await Promise.all(detailPromises);
+    for (const d of details) {
+      if (d) results.push(d);
+    }
+
+    return results;
+  } catch (err) {
+    console.error("Source 1 trending error:", err);
+    return [];
+  }
+}
+
 function parseSource1Detail(
   html: string,
   url: string,
@@ -107,10 +148,8 @@ function parseSource1Detail(
   try {
     const $ = cheerio.load(html);
 
-    // Extract the actual page title from <title> tag first
     const pageTitle = $("title").text().trim().replace(/\s*[\|–—-]\s*Asura\s*Scans?.*/i, "").trim();
     
-    // Extract data from astro-island props
     let title = pageTitle || "";
     let description = "";
     let rating = "N/A";
@@ -123,56 +162,44 @@ function parseSource1Detail(
     const genres: string[] = [];
     const chapters: ChapterInfo[] = [];
 
-    // Parse astro-island component props for rich data
     $("astro-island").each((_, el) => {
       const props = $(el).attr("props");
       if (props) {
         try {
-          // Parse the Astro serialized format
           const propsStr = props;
 
-          // Extract title only from component that has description (DescriptionModal)
           if (propsStr.includes('"description"')) {
             const titleMatch = propsStr.match(/"title":\[0,"([^"]+)"\]/);
             if (titleMatch && !title) title = titleMatch[1];
           }
 
-          // Extract rating
           const ratingMatch = propsStr.match(/"rating":\[0,([\d.]+)\]/);
           if (ratingMatch) rating = parseFloat(ratingMatch[1]).toFixed(1);
 
-          // Extract status
           const statusMatch = propsStr.match(/"status":\[0,"([^"]+)"\]/);
           if (statusMatch) status = statusMatch[1];
 
-          // Extract type
           const typeMatch = propsStr.match(/"type":\[0,"([^"]+)"\]/);
           if (typeMatch) type = typeMatch[1];
 
-          // Extract author
           const authorMatch = propsStr.match(/"author":\[0,"([^"]+)"\]/);
           if (authorMatch) author = authorMatch[1];
 
-          // Extract artist
           const artistMatch = propsStr.match(/"artist":\[0,"([^"]+)"\]/);
           if (artistMatch) artist = artistMatch[1];
 
-          // Extract coverUrl
           const coverMatch = propsStr.match(/"coverUrl":\[0,"([^"]+)"\]/);
           if (coverMatch) coverUrl = coverMatch[1];
 
-          // Extract chapter count
           const chCountMatch = propsStr.match(/"chapterCount":\[0,(\d+)\]/);
           if (chCountMatch) chapterCount = chCountMatch[1];
 
-          // Extract genres
           const EXCLUDED_GENRES = new Set(["home", "bookmarks", "browse", "search", "login", "register", "latest", "popular"]);
           const genreMatches = propsStr.matchAll(/"name":\[0,"([^"]+)"\]/g);
           for (const m of genreMatches) {
             if (!genres.includes(m[1]) && !EXCLUDED_GENRES.has(m[1].toLowerCase())) genres.push(m[1]);
           }
 
-          // Extract description
           const descMatch = propsStr.match(
             /"description":\[0,"<p>([\s\S]*?)<\/p>"\]/
           );
@@ -184,12 +211,11 @@ function parseSource1Detail(
               .trim();
           }
         } catch {
-          // Silent fail on prop parsing
+          // Silent fail
         }
       }
     });
 
-    // Fallback: parse description from page
     if (!description) {
       const descEl = $("div p").first();
       if (descEl.length) {
@@ -197,7 +223,6 @@ function parseSource1Detail(
       }
     }
 
-    // Parse chapter list
     $("a[href*='/chapter-']").each((_, el) => {
       const chTitle = $(el).text().replace(/\s+/g, " ").trim();
       const chUrl = $(el).attr("href") || "";
@@ -210,14 +235,6 @@ function parseSource1Detail(
       }
     });
 
-    // Resolve title: prefer the one extracted from props, then page title, then fallback
-    if (!title) {
-      const pageTitle = $("title").text().trim();
-      if (pageTitle) {
-        // Remove site name suffix like " | Asura Scans"
-        title = pageTitle.replace(/\s*[\|–—-]\s*Asura\s*Scans?.*/i, "").trim();
-      }
-    }
     if (!title) title = fallbackTitle;
     if (!title || title.length === 0) return null;
 
@@ -244,7 +261,6 @@ function parseSource1Detail(
 // ─── Source 2: Demonic Scans ───
 async function searchSource2(query: string): Promise<MangaResult[]> {
   try {
-    // Try searching
     const searchUrl = `https://demonicscans.org/search?q=${encodeURIComponent(query)}`;
     const res = await fetchWithTimeout(searchUrl);
     const html = await res.text();
@@ -253,7 +269,6 @@ async function searchSource2(query: string): Promise<MangaResult[]> {
     const results: MangaResult[] = [];
     const links: { title: string; href: string }[] = [];
 
-    // Find manga links
     $("a[href*='/manga/']").each((_, el) => {
       const href = $(el).attr("href");
       const title = $(el).text().trim();
@@ -271,7 +286,6 @@ async function searchSource2(query: string): Promise<MangaResult[]> {
       }
     });
 
-    // Also try direct URL pattern
     if (links.length === 0) {
       const slug = query
         .trim()
@@ -289,7 +303,7 @@ async function searchSource2(query: string): Promise<MangaResult[]> {
       }
     }
 
-    const detailPromises = links.slice(0, 5).map(async (link) => {
+    const detailPromises = links.slice(0, 8).map(async (link) => {
       try {
         const detailRes = await fetchWithTimeout(link.href);
         const detailHtml = await detailRes.text();
@@ -311,6 +325,54 @@ async function searchSource2(query: string): Promise<MangaResult[]> {
   }
 }
 
+async function getTrendingSource2(): Promise<MangaResult[]> {
+  try {
+    const res = await fetchWithTimeout("https://demonicscans.org/");
+    const html = await res.text();
+    const $ = cheerio.load(html);
+
+    const results: MangaResult[] = [];
+    const links: { title: string; href: string }[] = [];
+
+    $("a[href*='/manga/']").each((_, el) => {
+      const href = $(el).attr("href");
+      const title = $(el).text().trim();
+      if (
+        href &&
+        title &&
+        title.length > 2 &&
+        !href.includes("/manga/page/") &&
+        !links.find((l) => l.href === href)
+      ) {
+        links.push({
+          title,
+          href: href.startsWith("http") ? href : `https://demonicscans.org${href}`,
+        });
+      }
+    });
+
+    const detailPromises = links.slice(0, 10).map(async (link) => {
+      try {
+        const detailRes = await fetchWithTimeout(link.href);
+        const detailHtml = await detailRes.text();
+        return parseSource2Detail(detailHtml, link.href, link.title);
+      } catch {
+        return null;
+      }
+    });
+
+    const details = await Promise.all(detailPromises);
+    for (const d of details) {
+      if (d) results.push(d);
+    }
+
+    return results;
+  } catch (err) {
+    console.error("Source 2 trending error:", err);
+    return [];
+  }
+}
+
 function parseSource2Detail(
   html: string,
   url: string,
@@ -324,7 +386,6 @@ function parseSource2Detail(
       $(".entry-title").text().trim() ||
       fallbackTitle;
 
-    // Get description
     let description = "";
     const summaryEl = $(".summary__content p, .description-summary p, .manga-excerpt p");
     if (summaryEl.length) {
@@ -343,7 +404,6 @@ function parseSource2Detail(
       });
     }
 
-    // Get rating
     let rating = "N/A";
     const ratingEl = $(".rating, .score, .num, [class*='rating']");
     if (ratingEl.length) {
@@ -353,7 +413,6 @@ function parseSource2Detail(
       }
     }
 
-    // Get status & type
     let status = "Unknown";
     let type = "Manhwa";
     let author = "Unknown";
@@ -365,7 +424,6 @@ function parseSource2Detail(
       if (g && !genres.includes(g)) genres.push(g);
     });
 
-    // Try meta data
     $("div.post-content_item, .post-content_item").each((_, el) => {
       const label = $(el).find("h5, .summary-heading").text().toLowerCase().trim();
       const value = $(el).find(".summary-content, .artist-content").text().trim();
@@ -375,12 +433,10 @@ function parseSource2Detail(
       if (label.includes("artist")) artist = value || artist;
     });
 
-    // Parse chapters
     const chapters: ChapterInfo[] = [];
     $("a[href*='/chapter'], li.wp-manga-chapter a, .chapter-link a").each(
       (_, el) => {
         const rawTitle = $(el).text().replace(/\s+/g, " ").trim();
-        // Split chapter title from date if they're concatenated
         const titleDateMatch = rawTitle.match(/^(Chapter\s+[\d.]+)\s+([\d-]+)$/);
         const chTitle = titleDateMatch ? titleDateMatch[1] : rawTitle;
         const inlineDate = titleDateMatch ? titleDateMatch[2] : "";
@@ -424,10 +480,9 @@ function parseSource2Detail(
   }
 }
 
-// ─── Source 3: Scythe Scans (Madara/WordPress) ───
+// ─── Source 3: Scythe Scans ───
 async function searchSource3(query: string): Promise<MangaResult[]> {
   try {
-    // WordPress search
     const searchUrl = `https://scythescans.com/?s=${encodeURIComponent(query)}&post_type=wp-manga`;
     const res = await fetchWithTimeout(searchUrl);
     const html = await res.text();
@@ -436,7 +491,6 @@ async function searchSource3(query: string): Promise<MangaResult[]> {
     const results: MangaResult[] = [];
     const links: { title: string; href: string }[] = [];
 
-    // Search results page
     $(
       ".c-tabs-item__content a, .post-title a, h3 a, h4 a, .item-thumb a, a[href*='/manga/']"
     ).each((_, el) => {
@@ -456,7 +510,6 @@ async function searchSource3(query: string): Promise<MangaResult[]> {
       }
     });
 
-    // If no results, try direct URL
     if (links.length === 0) {
       const slug = query.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
       const directUrl = `https://scythescans.com/manga/${slug}/`;
@@ -470,7 +523,7 @@ async function searchSource3(query: string): Promise<MangaResult[]> {
       }
     }
 
-    const detailPromises = links.slice(0, 5).map(async (link) => {
+    const detailPromises = links.slice(0, 8).map(async (link) => {
       try {
         const detailRes = await fetchWithTimeout(link.href);
         if (!detailRes.ok) return null;
@@ -493,6 +546,55 @@ async function searchSource3(query: string): Promise<MangaResult[]> {
   }
 }
 
+async function getTrendingSource3(): Promise<MangaResult[]> {
+  try {
+    const res = await fetchWithTimeout("https://scythescans.com/");
+    const html = await res.text();
+    const $ = cheerio.load(html);
+
+    const results: MangaResult[] = [];
+    const links: { title: string; href: string }[] = [];
+
+    $("a[href*='/manga/']").each((_, el) => {
+      const href = $(el).attr("href");
+      const title = $(el).find(".post-title, h3, h4").text().trim() || $(el).text().trim();
+      if (
+        href &&
+        href.includes("/manga/") &&
+        title &&
+        title.length > 2 &&
+        !links.find((l) => l.href === href)
+      ) {
+        links.push({
+          title,
+          href: href.startsWith("http") ? href : `https://scythescans.com${href}`,
+        });
+      }
+    });
+
+    const detailPromises = links.slice(0, 10).map(async (link) => {
+      try {
+        const detailRes = await fetchWithTimeout(link.href);
+        if (!detailRes.ok) return null;
+        const detailHtml = await detailRes.text();
+        return parseSource3Detail(detailHtml, link.href, link.title);
+      } catch {
+        return null;
+      }
+    });
+
+    const details = await Promise.all(detailPromises);
+    for (const d of details) {
+      if (d) results.push(d);
+    }
+
+    return results;
+  } catch (err) {
+    console.error("Source 3 trending error:", err);
+    return [];
+  }
+}
+
 function parseSource3Detail(
   html: string,
   url: string,
@@ -506,7 +608,6 @@ function parseSource3Detail(
       $("h1").first().text().trim() ||
       fallbackTitle;
 
-    // Description
     let description = "";
     $(
       ".summary__content p, .description-summary .summary__content p, .manga-excerpt p, .entry-content p"
@@ -522,7 +623,6 @@ function parseSource3Detail(
       });
     }
 
-    // Rating
     let rating = "N/A";
     const ratingEl = $(
       ".post-total-rating .score, .total_votes, .post-total-rating .num"
@@ -538,7 +638,6 @@ function parseSource3Detail(
     let artist = "Unknown";
     const genres: string[] = [];
 
-    // Madara theme metadata
     $(".post-content_item, .post-content .post-content_item").each((_, el) => {
       const label = $(el)
         .find(".summary-heading h5, .summary-heading")
@@ -552,13 +651,11 @@ function parseSource3Detail(
       if (label.includes("artist")) artist = value || artist;
     });
 
-    // Genres
     $(".genres-content a, .tags-content a").each((_, el) => {
       const g = $(el).text().trim();
       if (g && !genres.includes(g)) genres.push(g);
     });
 
-    // Chapters
     const chapters: ChapterInfo[] = [];
     $("li.wp-manga-chapter a, .version-chap a, ul.main a").each((_, el) => {
       const chTitle = $(el).text().trim();
@@ -606,27 +703,24 @@ function parseSource3Detail(
   }
 }
 
-// Check if a result is relevant to the query
+// Check if result is relevant
 function isRelevant(result: MangaResult, query: string): boolean {
   const q = query.toLowerCase().replace(/[^a-z0-9\s]/g, "");
   const qWords = q.split(/\s+/).filter(w => w.length > 1);
   const titleLower = result.title.toLowerCase();
   const descLower = result.description.toLowerCase();
 
-  // Skip garbage titles
   const SKIP_TITLES = ["manga lists", "latest updates", "popular", "home", "search"];
   if (SKIP_TITLES.some(s => titleLower === s)) return false;
 
-  // Check if any query word appears in title or description
   const matchCount = qWords.filter(w => titleLower.includes(w) || descLower.includes(w)).length;
   return matchCount >= Math.max(1, Math.floor(qWords.length * 0.5));
 }
 
-// ─── Main parallel search ───
+// ─── Main search (parallel) ───
 export async function searchAllSources(
   query: string
 ): Promise<MangaResult[]> {
-  // Search all sources in parallel
   const [r1, r2, r3] = await Promise.allSettled([
     searchSource1(query),
     searchSource2(query),
@@ -639,10 +733,8 @@ export async function searchAllSources(
   if (r2.status === "fulfilled") results.push(...r2.value);
   if (r3.status === "fulfilled") results.push(...r3.value);
 
-  // Filter for relevance
   const relevant = results.filter(r => isRelevant(r, query));
 
-  // Deduplicate by similar titles
   const seen = new Set<string>();
   const unique: MangaResult[] = [];
   for (const r of relevant) {
@@ -654,4 +746,45 @@ export async function searchAllSources(
   }
 
   return unique;
+}
+
+// ─── Get trending/featured (for homepage) ───
+export async function getTrendingAll(): Promise<MangaResult[]> {
+  const [r1, r2, r3] = await Promise.allSettled([
+    getTrendingSource1(),
+    getTrendingSource2(),
+    getTrendingSource3(),
+  ]);
+
+  const results: MangaResult[] = [];
+
+  if (r1.status === "fulfilled") results.push(...r1.value);
+  if (r2.status === "fulfilled") results.push(...r2.value);
+  if (r3.status === "fulfilled") results.push(...r3.value);
+
+  // Filter out bad entries
+  const valid = results.filter(r => 
+    r.title && 
+    r.title.length > 2 && 
+    !["manga lists", "latest updates", "home", "search"].includes(r.title.toLowerCase())
+  );
+
+  // Deduplicate
+  const seen = new Set<string>();
+  const unique: MangaResult[] = [];
+  for (const r of valid) {
+    const key = r.title.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (!seen.has(key) && key.length > 2) {
+      seen.add(key);
+      unique.push(r);
+    }
+  }
+
+  // Shuffle for variety
+  for (let i = unique.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [unique[i], unique[j]] = [unique[j], unique[i]];
+  }
+
+  return unique.slice(0, 30); // Return up to 30 items
 }
