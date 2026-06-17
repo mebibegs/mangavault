@@ -23,20 +23,27 @@ function sanitizeQuery(q: string): string {
 function isBotRequest(req: NextRequest): boolean {
   const ua = req.headers.get("user-agent") || "";
   const botPatterns = [
-    /bot/i,
+    /bot\b/i,
     /crawler/i,
     /spider/i,
     /scraper/i,
-    /curl/i,
-    /wget/i,
+    /^curl\//i,
+    /^wget\//i,
     /python-requests/i,
-    /httpie/i,
+    /^httpie\//i,
+    /^java\//i,
+    /^php\//i,
   ];
   // Only block obvious automated bots, not browsers
-  const browserIndicators = [/mozilla/i, /chrome/i, /safari/i, /firefox/i, /edge/i];
+  const browserIndicators = [/mozilla/i, /chrome/i, /safari/i, /firefox/i, /edge/i, /opera/i];
   const isBot = botPatterns.some((p) => p.test(ua));
   const isBrowser = browserIndicators.some((p) => p.test(ua));
-  return isBot && !isBrowser;
+  
+  // If it looks like a browser, allow it even if it has "bot" somewhere
+  if (isBrowser) return false;
+  
+  // Block only if it matches bot patterns and has no browser indicators
+  return isBot;
 }
 
 /**
@@ -44,14 +51,14 @@ function isBotRequest(req: NextRequest): boolean {
  *
  * Searches multiple manga/manhwa sources in parallel.
  *
- * Rate Limit: 10 requests/minute per IP
+ * Rate Limit: 15 requests/minute per IP
  *
  * Response:
- *   200 - { success: true, results: [...], count: number, cached: boolean }
+ *   200 - { success: true, results: [...], count: number }
  *   400 - { error: "Query parameter 'q' is required" }
  *   429 - { error: "Rate limit exceeded", retryAfter: number }
- *   403 - { error: "Access denied" }
- *   500 - { error: "An error occurred while processing your request" }
+ *   403 - { error: "Access denied" } (only for blocked IPs/bots)
+ *   500 - { error: "An error occurred" }
  */
 export async function GET(req: NextRequest) {
   const ip = getClientIp(req);
@@ -59,7 +66,7 @@ export async function GET(req: NextRequest) {
   const method = "GET";
 
   try {
-    // Bot detection
+    // Bot detection - returns 403 (this is appropriate for bots)
     if (isBotRequest(req)) {
       blockIp(ip, 86400);
       logBlockedIp(ip, "Bot detected");
@@ -71,16 +78,20 @@ export async function GET(req: NextRequest) {
         errorMessage: "Bot detected",
       });
       return NextResponse.json(
-        { error: "Access denied." },
+        { 
+          error: "Access denied.",
+          message: "Automated requests are not allowed. Please use a browser."
+        },
         { status: 403 }
       );
     }
 
-    // Rate limiting
+    // Rate limiting check
     const rateCheck = checkRateLimit(ip);
 
+    // IP is blocked for abuse (severe cases only) - 403
     if (rateCheck.blocked) {
-      logBlockedIp(ip, rateCheck.reason || "Blocked by rate limiter");
+      logBlockedIp(ip, rateCheck.reason || "Blocked for abuse");
       logRequest({
         ipAddress: ip,
         endpoint,
@@ -89,30 +100,45 @@ export async function GET(req: NextRequest) {
         errorMessage: "IP blocked",
       });
       return NextResponse.json(
-        { error: "Access denied." },
-        { status: 403 }
+        {
+          error: "Access temporarily restricted.",
+          message: rateCheck.reason,
+          retryAfter: rateCheck.retryAfter,
+        },
+        {
+          status: 403,
+          headers: {
+            "Retry-After": String(rateCheck.retryAfter),
+          },
+        }
       );
     }
 
-    if (!rateCheck.allowed) {
+    // Rate limited (not blocked) - 429 Too Many Requests
+    if (rateCheck.limited) {
       logRequest({
         ipAddress: ip,
         endpoint,
         method,
         statusCode: 429,
-        errorMessage: "Rate limit exceeded",
+        errorMessage: "Rate limited",
       });
       return NextResponse.json(
         {
-          error: "Rate limit exceeded. Please try again later.",
-          retryAfter: rateCheck.resetIn,
+          error: "Too Many Requests",
+          message: rateCheck.reason,
+          retryAfter: rateCheck.retryAfter,
+          limit: 15,
+          remaining: 0,
+          resetIn: rateCheck.resetIn,
         },
         {
           status: 429,
           headers: {
-            "Retry-After": String(rateCheck.resetIn),
+            "Retry-After": String(rateCheck.retryAfter),
+            "X-RateLimit-Limit": "15",
             "X-RateLimit-Remaining": "0",
-            "X-RateLimit-Reset": String(rateCheck.resetIn),
+            "X-RateLimit-Reset": String(Math.floor(Date.now() / 1000) + rateCheck.resetIn),
           },
         }
       );
@@ -131,7 +157,7 @@ export async function GET(req: NextRequest) {
         errorMessage: "Missing query",
       });
       return NextResponse.json(
-        { error: "Query parameter 'q' is required." },
+        { error: "Bad Request", message: "Query parameter 'q' is required." },
         { status: 400 }
       );
     }
@@ -140,7 +166,7 @@ export async function GET(req: NextRequest) {
 
     if (query.length < 2) {
       return NextResponse.json(
-        { error: "Query must be at least 2 characters." },
+        { error: "Bad Request", message: "Query must be at least 2 characters." },
         { status: 400 }
       );
     }
@@ -163,12 +189,18 @@ export async function GET(req: NextRequest) {
         results,
         count: results.length,
         query,
+        rateLimit: {
+          limit: 15,
+          remaining: rateCheck.remaining,
+          resetIn: rateCheck.resetIn,
+        },
       },
       {
         status: 200,
         headers: {
+          "X-RateLimit-Limit": "15",
           "X-RateLimit-Remaining": String(rateCheck.remaining),
-          "X-RateLimit-Reset": String(rateCheck.resetIn),
+          "X-RateLimit-Reset": String(Math.floor(Date.now() / 1000) + rateCheck.resetIn),
           "Cache-Control": "public, max-age=300",
         },
       }
@@ -184,7 +216,7 @@ export async function GET(req: NextRequest) {
     });
 
     return NextResponse.json(
-      { error: "An error occurred while processing your request." },
+      { error: "Internal Server Error", message: "An error occurred while processing your request." },
       { status: 500 }
     );
   }

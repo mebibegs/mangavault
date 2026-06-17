@@ -8,121 +8,163 @@ interface RateLimitEntry {
 interface AbuseTracker {
   totalRequests: number;
   windowStart: number;
-  spikeCount: number;
 }
 
 const rateLimitCache = new NodeCache({ stdTTL: 60, checkperiod: 30 });
 const abuseCache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
 const blockedCache = new NodeCache({ stdTTL: 3600, checkperiod: 120 });
 
-const RATE_LIMIT = 10; // requests per minute
-const ABUSE_THRESHOLD = 50; // requests per 5 minutes triggers block
-const SPIKE_THRESHOLD = 20; // requests in 10 seconds
+// --- Configuration (less aggressive, more user-friendly) ---
+const RATE_LIMIT = 15; // requests per minute (increased from 10)
+const BURST_LIMIT = 5; // allow burst of 5 requests per 5 seconds
+const ABUSE_THRESHOLD = 100; // requests per 5 minutes triggers temp block (increased from 50)
+const SPIKE_THRESHOLD = 30; // requests in 10 seconds (increased from 20)
+const BLOCK_DURATION_SPIKE = 600; // 10 minutes for spike abuse (reduced from 30)
+const BLOCK_DURATION_SUSTAINED = 1800; // 30 minutes for sustained abuse (reduced from 60)
 
-export function isBlocked(ip: string): boolean {
-  return blockedCache.get<boolean>(`blocked:${ip}`) === true;
+export interface RateLimitResult {
+  allowed: boolean;
+  remaining: number;
+  resetIn: number;
+  retryAfter: number; // seconds until they can retry
+  limited: boolean; // true if rate limited (not blocked)
+  blocked: boolean; // true if IP is blocked for abuse
+  reason?: string;
+}
+
+export function isBlocked(ip: string): { blocked: boolean; expiresIn: number } {
+  const ttl = blockedCache.getTtl(`blocked:${ip}`);
+  if (ttl) {
+    const expiresIn = Math.ceil((ttl - Date.now()) / 1000);
+    return { blocked: true, expiresIn: Math.max(0, expiresIn) };
+  }
+  return { blocked: false, expiresIn: 0 };
 }
 
 export function blockIp(ip: string, durationSeconds: number = 3600): void {
   blockedCache.set(`blocked:${ip}`, true, durationSeconds);
 }
 
-export function checkRateLimit(ip: string): {
-  allowed: boolean;
-  remaining: number;
-  resetIn: number;
-  blocked: boolean;
-  reason?: string;
-} {
-  // Check if IP is already blocked
-  if (isBlocked(ip)) {
+export function checkRateLimit(ip: string): RateLimitResult {
+  const now = Date.now();
+
+  // Check if IP is already blocked (for severe abuse only)
+  const blockStatus = isBlocked(ip);
+  if (blockStatus.blocked) {
     return {
       allowed: false,
       remaining: 0,
-      resetIn: 0,
+      resetIn: blockStatus.expiresIn,
+      retryAfter: blockStatus.expiresIn,
+      limited: false,
       blocked: true,
-      reason: "IP temporarily blocked due to abuse",
+      reason: "Temporarily blocked due to abuse. Please wait.",
     };
   }
 
-  const now = Date.now();
   const key = `rate:${ip}`;
   const abuseKey = `abuse:${ip}`;
 
-  // Check abuse patterns
+  // Track abuse patterns (only for DDoS/bot detection)
   let abuse = abuseCache.get<AbuseTracker>(abuseKey);
   if (!abuse) {
-    abuse = { totalRequests: 0, windowStart: now, spikeCount: 0 };
+    abuse = { totalRequests: 0, windowStart: now };
   }
 
   abuse.totalRequests++;
-
-  // Detect sudden spikes (many requests in short time)
   const timeSinceWindow = (now - abuse.windowStart) / 1000;
+
+  // Detect DDoS-like spike (many requests in very short time)
   if (timeSinceWindow < 10 && abuse.totalRequests > SPIKE_THRESHOLD) {
-    blockIp(ip, 1800); // Block for 30 minutes
+    blockIp(ip, BLOCK_DURATION_SPIKE);
     return {
       allowed: false,
       remaining: 0,
-      resetIn: 1800,
+      resetIn: BLOCK_DURATION_SPIKE,
+      retryAfter: BLOCK_DURATION_SPIKE,
+      limited: false,
       blocked: true,
-      reason: "Suspicious activity detected",
+      reason: "Too many requests. Temporarily blocked.",
     };
   }
 
-  // Detect sustained abuse
+  // Detect sustained high-volume abuse
   if (abuse.totalRequests > ABUSE_THRESHOLD) {
-    blockIp(ip, 3600); // Block for 1 hour
+    blockIp(ip, BLOCK_DURATION_SUSTAINED);
     return {
       allowed: false,
       remaining: 0,
-      resetIn: 3600,
+      resetIn: BLOCK_DURATION_SUSTAINED,
+      retryAfter: BLOCK_DURATION_SUSTAINED,
+      limited: false,
       blocked: true,
-      reason: "Rate limit exceeded - temporary block",
+      reason: "Excessive requests. Temporarily blocked.",
     };
   }
 
   // Reset abuse window every 5 minutes
   if (timeSinceWindow > 300) {
-    abuse = { totalRequests: 1, windowStart: now, spikeCount: 0 };
+    abuse = { totalRequests: 1, windowStart: now };
   }
 
   abuseCache.set(abuseKey, abuse);
 
-  // Standard rate limiting
+  // --- Standard rate limiting (returns 429, not block) ---
   let entry = rateLimitCache.get<RateLimitEntry>(key);
 
   if (!entry) {
     entry = { count: 1, firstRequest: now };
     rateLimitCache.set(key, entry, 60);
-    return { allowed: true, remaining: RATE_LIMIT - 1, resetIn: 60, blocked: false };
+    return {
+      allowed: true,
+      remaining: RATE_LIMIT - 1,
+      resetIn: 60,
+      retryAfter: 0,
+      limited: false,
+      blocked: false,
+    };
   }
 
   const elapsed = (now - entry.firstRequest) / 1000;
 
+  // Reset window after 60 seconds
   if (elapsed > 60) {
     entry = { count: 1, firstRequest: now };
     rateLimitCache.set(key, entry, 60);
-    return { allowed: true, remaining: RATE_LIMIT - 1, resetIn: 60, blocked: false };
+    return {
+      allowed: true,
+      remaining: RATE_LIMIT - 1,
+      resetIn: 60,
+      retryAfter: 0,
+      limited: false,
+      blocked: false,
+    };
   }
 
   entry.count++;
   rateLimitCache.set(key, entry);
 
+  const resetIn = Math.ceil(60 - elapsed);
+
+  // Rate limited - return 429 with retry info
   if (entry.count > RATE_LIMIT) {
     return {
       allowed: false,
       remaining: 0,
-      resetIn: Math.ceil(60 - elapsed),
+      resetIn,
+      retryAfter: resetIn, // Tell user exactly when they can retry
+      limited: true,
       blocked: false,
-      reason: "Rate limit exceeded (10 requests/minute)",
+      reason: `Rate limit exceeded. Try again in ${resetIn} seconds.`,
     };
   }
 
   return {
     allowed: true,
     remaining: RATE_LIMIT - entry.count,
-    resetIn: Math.ceil(60 - elapsed),
+    resetIn,
+    retryAfter: 0,
+    limited: false,
     blocked: false,
   };
 }
