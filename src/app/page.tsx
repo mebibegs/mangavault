@@ -237,8 +237,8 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-text-muted">
           <span>© {new Date().getFullYear()} MangaVault · v1.0.0 · Public Beta</span>
           <div className="flex items-center gap-4">
-            <a href="/docs" className="hover:text-white transition-colors">API Docs</a>
-            <a href="/about" className="hover:text-white transition-colors">About</a>
+            <a href="/docs" className="hover:text-white transition-colors cursor-pointer">Docs</a>
+            <a href="/about" className="hover:text-white transition-colors cursor-pointer">About</a>
           </div>
         </div>
       </footer>

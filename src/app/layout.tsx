@@ -6,17 +6,17 @@ import AntiInspect from "@/components/AntiInspect";
 export const metadata: Metadata = {
   title: "MangaVault — Search Manga, Manhwa & Webtoons Across Multiple Sources",
   description:
-    "One search across multiple manga, manhwa, manhua, anime, donghua, and webtoon databases. Aggregated results with covers, ratings, and chapters. Free public API included.",
+    "Type a title once. MangaVault queries multiple manga, manhwa, and webtoon databases in parallel, deduplicates results, and returns a single ranked list with covers, ratings, and chapter counts.",
   openGraph: {
     title: "MangaVault — One Search, Every Manga Source",
-    description: "Type a title once and MangaVault queries multiple databases in parallel, then merges results into a single ranked list.",
+    description: "Stop checking multiple sites. MangaVault runs one query across several manga and manhwa databases simultaneously and merges the results into a clean, ranked feed.",
     siteName: "MangaVault",
     type: "website",
   },
   twitter: {
     card: "summary",
-    title: "MangaVault — Unified Manga & Manhwa Search",
-    description: "Search manga, manhwa, and webtoons across multiple sources. Deduplicated, ranked, with a free JSON API.",
+    title: "MangaVault",
+    description: "Parallel manga search engine. One query, multiple sources, deduplicated results. Free public JSON API at /api/search.",
   },
 };
 
