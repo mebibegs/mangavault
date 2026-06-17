@@ -1,9 +1,13 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
+import dynamic from "next/dynamic";
+
+const ShaderBackground = dynamic(() => import("@/components/ShaderBackground"), { ssr: false });
+const InkReveal = dynamic(() => import("@/components/InkReveal"), { ssr: false });
+const OrbitalLoader = dynamic(() => import("@/components/OrbitalLoader"), { ssr: false });
 
 interface ChapterInfo { title: string; url: string; date: string; }
-
 interface MangaResult {
   title: string; description: string; rating: string; status: string;
   type: string; genres: string[]; chapters: ChapterInfo[];
@@ -21,6 +25,13 @@ const SAMPLE_QUERIES: { title: string; type: string }[] = [
   { title: "Magic Emperor", type: "Manhua" },
 ];
 
+const PHASE_MESSAGES: Record<string, string> = {
+  connecting: "Connecting to sources...",
+  scanning: "Scanning databases in parallel...",
+  analyzing: "Deduplicating and ranking...",
+  compiling: "Assembling results...",
+};
+
 export default function Home() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<MangaResult[]>([]);
@@ -36,23 +47,13 @@ export default function Home() {
   const [statusText, setStatusText] = useState("");
   const abortRef = useRef<AbortController | null>(null);
 
-  const phaseLabels: Record<SearchPhase, string> = {
-    idle: "", connecting: "Establishing secure connections...",
-    scanning: "Scanning databases in parallel...",
-    analyzing: "Analyzing and cross-referencing data...",
-    compiling: "Compiling results...", done: "", error: "",
-  };
-
   const loadTrendingPage = useCallback(async (page: number) => {
     if (page === 1) setLoadingTrending(true); else setLoadingPage(true);
-    try {
-      const res = await fetch(`/api/trending?page=${page}`);
-      if (res.ok) { const data = await res.json(); setTrendingResults(data.results || []); setTrendingPage(data.page || page); setHasMorePages(data.hasMore ?? false); }
-    } catch { /* ignore */ } finally { setLoadingTrending(false); setLoadingPage(false); }
+    try { const res = await fetch(`/api/trending?page=${page}`); if (res.ok) { const d = await res.json(); setTrendingResults(d.results || []); setTrendingPage(d.page || page); setHasMorePages(d.hasMore ?? false); } } catch { /* */ } finally { setLoadingTrending(false); setLoadingPage(false); }
   }, []);
 
   useEffect(() => { loadTrendingPage(1); }, [loadTrendingPage]);
-  const goToPage = (page: number) => { window.scrollTo({ top: 0, behavior: "smooth" }); loadTrendingPage(page); };
+  const goToPage = (p: number) => { window.scrollTo({ top: 0, behavior: "smooth" }); loadTrendingPage(p); };
 
   const handleSearch = useCallback(async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -60,34 +61,33 @@ export default function Home() {
     if (abortRef.current) abortRef.current.abort();
     abortRef.current = new AbortController();
     setResults([]); setSelectedResult(null); setShowChapters(false); setError("");
-    setPhase("connecting"); setStatusText(phaseLabels.connecting); await sleep(600);
-    setPhase("scanning"); setStatusText(phaseLabels.scanning);
+    setPhase("connecting"); setStatusText(PHASE_MESSAGES.connecting); await sleep(500);
+    setPhase("scanning"); setStatusText(PHASE_MESSAGES.scanning);
     try {
       const res = await fetch(`/api/search?q=${encodeURIComponent(query.trim())}`, { signal: abortRef.current.signal });
-      setPhase("analyzing"); setStatusText(phaseLabels.analyzing); await sleep(400);
-      if (!res.ok) { const data = await res.json(); throw new Error(data.error || "Search failed"); }
-      const data = await res.json();
-      setPhase("compiling"); setStatusText(phaseLabels.compiling); await sleep(300);
-      setResults(data.results || []);
-      setPhase("done");
-      setStatusText(data.results?.length > 0 ? `Found ${data.results.length} result${data.results.length !== 1 ? "s" : ""} across multiple sources` : "");
+      setPhase("analyzing"); setStatusText(PHASE_MESSAGES.analyzing); await sleep(300);
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || "Search failed"); }
+      const d = await res.json();
+      setPhase("compiling"); setStatusText(PHASE_MESSAGES.compiling); await sleep(200);
+      setResults(d.results || []); setPhase("done");
+      setStatusText(d.results?.length > 0 ? `Found ${d.results.length} result${d.results.length !== 1 ? "s" : ""} across multiple sources` : "");
     } catch (err: unknown) {
       if (err instanceof Error && err.name === "AbortError") return;
       setPhase("error"); setError(err instanceof Error ? err.message : "An unexpected error occurred"); setStatusText("");
     }
   }, [query]);
 
-  const searchSample = (sample: string) => { setQuery(sample); setTimeout(() => { document.querySelector("form")?.requestSubmit(); }, 50); };
+  const searchSample = (s: string) => { setQuery(s); setTimeout(() => document.querySelector("form")?.requestSubmit(), 50); };
   const clearSearch = () => { setQuery(""); setResults([]); setPhase("idle"); setSelectedResult(null); setError(""); };
 
   const showHero = results.length === 0 && phase !== "done";
   const isSearching = phase !== "idle" && phase !== "done" && phase !== "error";
   const displayResults = results.length > 0 ? results : (phase === "idle" ? trendingResults : []);
-  const showTrendingSection = results.length === 0 && phase === "idle";
+  const showTrending = results.length === 0 && phase === "idle";
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* ─── Header ─── */}
+      {/* Header */}
       <header className="border-b border-border-subtle bg-bg-secondary/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
           <div className="flex items-center gap-3 cursor-pointer" onClick={clearSearch} role="link" tabIndex={0} onKeyDown={e => e.key === "Enter" && clearSearch()}>
@@ -96,52 +96,66 @@ export default function Home() {
             </div>
             <span className="text-lg sm:text-xl font-bold tracking-tight">Manga<span className="text-text-muted">Vault</span></span>
           </div>
-          {/* Fix: single Docs link, no duplicate */}
           <nav className="flex items-center gap-3 sm:gap-4" aria-label="Main">
-            <a href="/docs" className="text-xs sm:text-sm text-text-secondary hover:text-white transition-colors">Docs</a>
-            <a href="/about" className="text-xs sm:text-sm text-text-secondary hover:text-white transition-colors">About</a>
+            <a href="/docs" className="text-xs sm:text-sm text-text-secondary hover:text-white transition-colors cursor-pointer">Docs</a>
+            <a href="/about" className="text-xs sm:text-sm text-text-secondary hover:text-white transition-colors cursor-pointer">About</a>
           </nav>
         </div>
       </header>
 
       <main className="flex-1 flex flex-col">
-        <div className={`transition-all duration-700 ease-out ${showHero ? "pt-8 sm:pt-14 md:pt-20" : "pt-6 sm:pt-8"}`}>
-          <div className="max-w-3xl mx-auto px-4 sm:px-6">
-            {/* ─── Hero ─── */}
-            <div className={`flex flex-col items-center transition-all duration-700 overflow-hidden ${showHero ? "max-h-[600px] opacity-100 mb-6 sm:mb-8" : "max-h-0 opacity-0 mb-0"}`}>
-              {/* Static category line — replaces scrolling ticker */}
-              <p className="text-text-muted text-[11px] sm:text-xs tracking-[0.25em] uppercase mb-4 sm:mb-5">
+        {/* ─── Hero with Shader Background ─── */}
+        <div className={`relative transition-all duration-700 ease-out ${showHero ? "pt-0" : "pt-6 sm:pt-8"}`}>
+          {/* Change 1: WebGL shader background behind hero */}
+          {showHero && (
+            <div className="absolute inset-0 overflow-hidden" style={{ height: "100%", maxHeight: "520px" }}>
+              <ShaderBackground />
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-bg-primary" style={{ zIndex: 1 }} />
+            </div>
+          )}
+
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 relative" style={{ zIndex: 2 }}>
+            {/* Hero content */}
+            <div className={`flex flex-col items-center transition-all duration-700 overflow-hidden ${showHero ? "max-h-[600px] opacity-100 mb-6 sm:mb-8 pt-10 sm:pt-16 md:pt-20" : "max-h-0 opacity-0 mb-0"}`}>
+              <p className="text-white/40 text-[11px] sm:text-xs tracking-[0.25em] uppercase mb-4 sm:mb-5">
                 Manga · Manhwa · Manhua · Anime · Donghua · Webtoon
               </p>
-              <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white text-center leading-snug max-w-xl">
+              <h2 className="text-xl sm:text-2xl md:text-4xl font-bold text-white text-center leading-snug max-w-xl drop-shadow-lg">
                 One search. Every manga source.
               </h2>
-              <p className="text-text-secondary text-xs sm:text-sm max-w-lg mx-auto text-center mt-3 leading-relaxed">
-                Type a title once and MangaVault checks multiple manga, manhwa, manhua, anime, donghua, and webtoon databases in parallel — then merges the results into a single ranked, deduplicated list with covers, ratings, and chapter counts.
+              <p className="text-white/60 text-xs sm:text-sm max-w-lg mx-auto text-center mt-3 leading-relaxed">
+                Type a title once and MangaVault checks multiple databases in parallel — then merges the results into a single ranked, deduplicated list with covers, ratings, and chapter counts.
               </p>
             </div>
 
-            {/* ─── Search Bar ─── */}
+            {/* ─── Change 2: Animated Search Bar ─── */}
             <form onSubmit={handleSearch} className="relative" role="search" aria-label="Search manga and manhwa">
-              <div className="search-glow rounded-2xl transition-all duration-300 bg-bg-card">
-                <div className="flex items-center">
+              <div className="relative flex items-center justify-center group">
+                {/* Glow layers */}
+                <div className="absolute z-0 overflow-hidden h-full w-full rounded-2xl blur-[3px] before:absolute before:content-[''] before:z-[-1] before:w-[800px] before:h-[800px] before:bg-no-repeat before:top-1/2 before:left-1/2 before:-translate-x-1/2 before:-translate-y-1/2 before:rotate-[60deg] before:bg-[conic-gradient(#000,#402fb5_5%,#000_38%,#000_50%,#cf30aa_60%,#000_87%)] before:transition-all before:duration-[2000ms] group-hover:before:rotate-[-120deg] group-focus-within:before:rotate-[420deg] group-focus-within:before:duration-[4000ms]" />
+                <div className="absolute z-0 overflow-hidden h-full w-full rounded-2xl blur-[2px] before:absolute before:content-[''] before:z-[-1] before:w-[600px] before:h-[600px] before:bg-no-repeat before:top-1/2 before:left-1/2 before:-translate-x-1/2 before:-translate-y-1/2 before:rotate-[82deg] before:bg-[conic-gradient(rgba(0,0,0,0),#18116a,rgba(0,0,0,0)_10%,rgba(0,0,0,0)_50%,#6e1b60,rgba(0,0,0,0)_60%)] before:transition-all before:duration-[2000ms] group-hover:before:rotate-[-98deg] group-focus-within:before:rotate-[442deg] group-focus-within:before:duration-[4000ms]" />
+                <div className="absolute z-0 overflow-hidden h-full w-full rounded-2xl blur-[0.5px] before:absolute before:content-[''] before:z-[-1] before:w-[600px] before:h-[600px] before:bg-no-repeat before:top-1/2 before:left-1/2 before:-translate-x-1/2 before:-translate-y-1/2 before:rotate-[70deg] before:bg-[conic-gradient(#09090b,#402fb5_5%,#09090b_14%,#09090b_50%,#cf30aa_60%,#09090b_64%)] before:transition-all before:duration-[2000ms] group-hover:before:rotate-[-110deg] group-focus-within:before:rotate-[430deg] group-focus-within:before:duration-[4000ms]" />
+
+                {/* Input container */}
+                <div className="relative z-10 w-full bg-[#0a0a0e] rounded-2xl flex items-center">
                   <label htmlFor="search-input" className="pl-4 sm:pl-5 pr-2 sm:pr-3 text-text-muted">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" viewBox="0 0 24 24" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" height="20" fill="none">
+                      <circle stroke="url(#sg)" r="8" cy="11" cx="11" /><line stroke="url(#sl)" y2="16.65" y1="22" x2="16.65" x1="22" />
+                      <defs><linearGradient gradientTransform="rotate(50)" id="sg"><stop stopColor="#f8e7f8" offset="0%" /><stop stopColor="#b6a9b7" offset="50%" /></linearGradient><linearGradient id="sl"><stop stopColor="#b6a9b7" offset="0%" /><stop stopColor="#837484" offset="50%" /></linearGradient></defs>
+                    </svg>
                   </label>
-                  <input id="search-input" type="text" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search for a title — e.g. Solo Leveling, Tower of God, One Piece" className="flex-1 bg-transparent py-4 sm:py-5 text-sm sm:text-base text-white placeholder-text-muted outline-none" autoFocus />
+                  <input id="search-input" type="text" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search for a title — e.g. Solo Leveling, Tower of God" className="flex-1 bg-transparent py-4 sm:py-5 text-sm sm:text-base text-white placeholder-text-muted outline-none" autoFocus />
                   {query && (
-                    <button type="button" onClick={clearSearch} className="px-2 text-text-muted hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-white/20 rounded" aria-label="Clear search">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
+                    <button type="button" onClick={clearSearch} className="px-2 text-text-muted hover:text-white transition-colors cursor-pointer focus:outline-none" aria-label="Clear"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
                   )}
-                  <button type="submit" disabled={!query.trim() || isSearching} className="mr-2 sm:mr-3 px-4 sm:px-6 py-2 sm:py-2.5 bg-white text-black font-medium text-sm rounded-xl hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/40">Search</button>
+                  <button type="submit" disabled={!query.trim() || isSearching} className="mr-2 sm:mr-3 px-4 sm:px-6 py-2 sm:py-2.5 bg-white text-black font-medium text-sm rounded-xl hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/40">Search</button>
                 </div>
               </div>
             </form>
 
-            {/* Try a search — mini result cards */}
+            {/* Sample queries */}
             {showHero && (
-              <div className="mt-4 sm:mt-5 animate-fade-in-up">
+              <div className="mt-4 sm:mt-5 animate-fade-in-up relative" style={{ zIndex: 2 }}>
                 <p className="text-text-muted text-[11px] uppercase tracking-wider mb-2 text-center">Try a search</p>
                 <div className="flex flex-wrap justify-center gap-2 stagger-children">
                   {SAMPLE_QUERIES.map(s => (
@@ -154,33 +168,41 @@ export default function Home() {
               </div>
             )}
 
-            {/* Loading */}
-            {isSearching && <div className="mt-6 animate-fade-in-up"><LoadingIndicator phase={phase} statusText={statusText} /></div>}
-            {/* Error */}
+            {/* ─── Change 3: Orbital loader replaces step-by-step indicator ─── */}
+            {isSearching && (
+              <div className="mt-8 mb-4 animate-fade-in-up">
+                <OrbitalLoader message={statusText} />
+              </div>
+            )}
+
             {phase === "error" && <div className="mt-6 animate-fade-in-up"><div className="glass-card rounded-xl p-4 border border-red-900/30"><p className="text-red-400 text-sm">{error}</p></div></div>}
-            {/* Done */}
             {phase === "done" && results.length > 0 && <p className="text-text-muted text-xs sm:text-sm mt-3 text-center animate-fade-in-up">{statusText}</p>}
-            {/* Empty — guidance */}
             {phase === "done" && results.length === 0 && (
               <div className="text-center py-10 animate-fade-in-up">
                 <p className="text-text-secondary text-sm mb-2">No results found for &ldquo;{query}&rdquo;</p>
                 <p className="text-text-muted text-xs mb-4">Try an exact title, an alternate spelling, or a shorter keyword.</p>
-                <button onClick={clearSearch} className="text-xs text-white bg-bg-card border border-border-subtle rounded-lg px-4 py-2 hover:border-border-bright transition-colors focus:outline-none focus:ring-2 focus:ring-white/20">Browse trending instead</button>
+                <button onClick={clearSearch} className="text-xs text-white bg-bg-card border border-border-subtle rounded-lg px-4 py-2 hover:border-border-bright transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/20">Browse trending instead</button>
               </div>
             )}
           </div>
         </div>
 
-        {/* ─── Results / Trending ─── */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-6 sm:mt-8 pb-12 w-full">
-          {showTrendingSection && trendingResults.length > 0 && (
-            <div className="flex items-center gap-3 mb-5 animate-fade-in-up">
-              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border-subtle to-transparent" />
-              <h3 className="text-xs sm:text-sm font-medium text-text-muted uppercase tracking-wider">Trending Now</h3>
-              <div className="h-px flex-1 bg-gradient-to-l from-transparent via-border-subtle to-transparent" />
+        {/* ─── Change 4: Ink Reveal overlay between hero and trending ─── */}
+        {showTrending && trendingResults.length > 0 && (
+          <div className="relative w-full" style={{ height: "120px" }}>
+            <InkReveal />
+            <div className="absolute inset-0 flex items-center justify-center" style={{ zIndex: 2 }}>
+              <div className="flex items-center gap-3">
+                <div className="h-px w-16 sm:w-24 bg-gradient-to-r from-transparent to-border-subtle" />
+                <h3 className="text-xs sm:text-sm font-medium text-text-muted uppercase tracking-wider">Trending Now</h3>
+                <div className="h-px w-16 sm:w-24 bg-gradient-to-l from-transparent to-border-subtle" />
+              </div>
             </div>
-          )}
+          </div>
+        )}
 
+        {/* Results Grid */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-2 sm:mt-4 pb-12 w-full">
           {(loadingTrending || loadingPage) && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3 sm:gap-4">
               {[...Array(6)].map((_, i) => (
@@ -194,34 +216,30 @@ export default function Home() {
           {!loadingTrending && !loadingPage && displayResults.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3 sm:gap-4 stagger-children">
               {displayResults.map((result, idx) => (
-                <ResultCard key={`${result.title}-${result.source}-${idx}`} result={result} index={idx} onClick={() => { setSelectedResult(result); setShowChapters(false); }} />
+                <ResultCard key={`${result.title}-${result.source}-${idx}`} result={result} onClick={() => { setSelectedResult(result); setShowChapters(false); }} />
               ))}
             </div>
           )}
 
-          {showTrendingSection && !loadingTrending && !loadingPage && trendingResults.length > 0 && (
+          {showTrending && !loadingTrending && !loadingPage && trendingResults.length > 0 && (
             <div className="mt-8 animate-fade-in-up"><Pagination currentPage={trendingPage} hasMore={hasMorePages} onPageChange={goToPage} /></div>
           )}
         </div>
 
-        {/* ─── How It Works ─── */}
+        {/* How It Works */}
         {showHero && !loadingTrending && (
           <div className="max-w-4xl mx-auto px-4 sm:px-6 pb-12 w-full animate-fade-in-up">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border-subtle to-transparent" />
-              <h3 className="text-xs sm:text-sm font-medium text-text-muted uppercase tracking-wider">How It Works</h3>
-              <div className="h-px flex-1 bg-gradient-to-l from-transparent via-border-subtle to-transparent" />
-            </div>
+            <div className="flex items-center gap-3 mb-6"><div className="h-px flex-1 bg-gradient-to-r from-transparent via-border-subtle to-transparent" /><h3 className="text-xs sm:text-sm font-medium text-text-muted uppercase tracking-wider">How It Works</h3><div className="h-px flex-1 bg-gradient-to-l from-transparent via-border-subtle to-transparent" /></div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 stagger-children">
               {[
-                { step: "1", title: "Search", desc: "Type any title, keyword, or genre. Exact names, partial matches, and alternate spellings all work." },
-                { step: "2", title: "Aggregate", desc: "Your query fans out to every connected source at the same time. Results are deduplicated and ranked by relevance." },
-                { step: "3", title: "Discover", desc: "View covers, ratings, synopses, and chapter lists. Click through to read on the original source." },
+                { n: "1", t: "Search", d: "Type any title, keyword, or genre. Exact names, partial matches, and alternate spellings all work." },
+                { n: "2", t: "Aggregate", d: "Your query fans out to every connected source at the same time. Results are deduplicated and ranked." },
+                { n: "3", t: "Discover", d: "View covers, ratings, synopses, and chapter lists. Click through to read on the original source." },
               ].map(s => (
-                <div key={s.step} className="glass-card rounded-xl p-4 sm:p-5 hover:translate-y-[-2px] transition-transform duration-200">
-                  <span className="text-xs font-bold text-text-muted bg-bg-hover rounded-full w-6 h-6 flex items-center justify-center mb-3">{s.step}</span>
-                  <h4 className="text-sm font-semibold text-white mb-1">{s.title}</h4>
-                  <p className="text-text-muted text-xs leading-relaxed">{s.desc}</p>
+                <div key={s.n} className="glass-card rounded-xl p-4 sm:p-5 hover:translate-y-[-2px] transition-transform duration-200">
+                  <span className="text-xs font-bold text-text-muted bg-bg-hover rounded-full w-6 h-6 flex items-center justify-center mb-3">{s.n}</span>
+                  <h4 className="text-sm font-semibold text-white mb-1">{s.t}</h4>
+                  <p className="text-text-muted text-xs leading-relaxed">{s.d}</p>
                 </div>
               ))}
             </div>
@@ -229,10 +247,8 @@ export default function Home() {
         )}
       </main>
 
-      {/* Modal */}
       {selectedResult && <DetailModal result={selectedResult} showChapters={showChapters} onToggleChapters={() => setShowChapters(!showChapters)} onClose={() => { setSelectedResult(null); setShowChapters(false); }} />}
 
-      {/* ─── Footer ─── */}
       <footer className="border-t border-border-subtle py-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-text-muted">
           <span>© {new Date().getFullYear()} MangaVault · v1.0.0 · Public Beta</span>
@@ -248,78 +264,31 @@ export default function Home() {
 
 /* ═══════════════════ PAGINATION ═══════════════════ */
 function Pagination({ currentPage, hasMore, onPageChange }: { currentPage: number; hasMore: boolean; onPageChange: (p: number) => void }) {
-  const totalPages = 17;
-  const getVisiblePages = (): (number | "...")[] => {
-    const pages: (number | "...")[] = [];
-    if (totalPages <= 7) { for (let i = 1; i <= totalPages; i++) pages.push(i); return pages; }
-    pages.push(1);
-    if (currentPage > 3) pages.push("...");
-    for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) pages.push(i);
-    if (currentPage < totalPages - 2) pages.push("...");
-    pages.push(totalPages);
-    return pages;
+  const total = 17;
+  const vis = (): (number | "...")[] => {
+    const p: (number | "...")[] = []; if (total <= 7) { for (let i = 1; i <= total; i++) p.push(i); return p; }
+    p.push(1); if (currentPage > 3) p.push("...");
+    for (let i = Math.max(2, currentPage - 1); i <= Math.min(total - 1, currentPage + 1); i++) p.push(i);
+    if (currentPage < total - 2) p.push("..."); p.push(total); return p;
   };
   return (
     <div className="flex items-center justify-center gap-1.5 sm:gap-2" role="navigation" aria-label="Pagination">
-      <button onClick={() => onPageChange(currentPage - 1)} disabled={currentPage <= 1} aria-label="Previous page" className="flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl border border-border-subtle bg-bg-card text-text-secondary text-xs sm:text-sm hover:bg-bg-hover hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all focus:outline-none focus:ring-2 focus:ring-white/20">
-        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg><span className="hidden sm:inline">Prev</span>
-      </button>
-      {getVisiblePages().map((p, i) => p === "..." ? <span key={`d${i}`} className="px-1.5 py-2 text-text-muted text-xs">…</span> : (
-        <button key={p} onClick={() => onPageChange(p)} aria-label={`Page ${p}`} aria-current={p === currentPage ? "page" : undefined} className={`min-w-[36px] sm:min-w-[40px] h-9 sm:h-10 rounded-xl text-xs sm:text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-white/20 ${p === currentPage ? "bg-white text-black" : "border border-border-subtle bg-bg-card text-text-secondary hover:bg-bg-hover hover:text-white"}`}>{p}</button>
+      <button onClick={() => onPageChange(currentPage - 1)} disabled={currentPage <= 1} aria-label="Previous page" className="flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl border border-border-subtle bg-bg-card text-text-secondary text-xs sm:text-sm hover:bg-bg-hover hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/20"><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg><span className="hidden sm:inline">Prev</span></button>
+      {vis().map((p, i) => p === "..." ? <span key={`d${i}`} className="px-1.5 py-2 text-text-muted text-xs">…</span> : (
+        <button key={p} onClick={() => onPageChange(p)} aria-label={`Page ${p}`} aria-current={p === currentPage ? "page" : undefined} className={`min-w-[36px] sm:min-w-[40px] h-9 sm:h-10 rounded-xl text-xs sm:text-sm font-medium transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/20 ${p === currentPage ? "bg-white text-black" : "border border-border-subtle bg-bg-card text-text-secondary hover:bg-bg-hover hover:text-white"}`}>{p}</button>
       ))}
-      <button onClick={() => onPageChange(currentPage + 1)} disabled={!hasMore} aria-label="Next page" className="flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl border border-border-subtle bg-bg-card text-text-secondary text-xs sm:text-sm hover:bg-bg-hover hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all focus:outline-none focus:ring-2 focus:ring-white/20">
-        <span className="hidden sm:inline">Next</span><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-      </button>
-    </div>
-  );
-}
-
-/* ═══════════════════ LOADING ═══════════════════ */
-function LoadingIndicator({ phase, statusText }: { phase: SearchPhase; statusText: string }) {
-  const steps = [
-    { key: "connecting", label: "Connecting", desc: "Establishing secure connections to sources..." },
-    { key: "scanning", label: "Scanning", desc: "Querying multiple databases in parallel..." },
-    { key: "analyzing", label: "Analyzing", desc: "Cross-referencing and deduplicating results..." },
-    { key: "compiling", label: "Compiling", desc: "Ranking and assembling final results..." },
-  ] as const;
-  const currentIdx = steps.findIndex((s) => s.key === phase);
-  return (
-    <div className="glass-card rounded-xl p-5 sm:p-6" role="status" aria-live="polite">
-      <div className="flex flex-col gap-0">
-        {steps.map((step, idx) => {
-          const done = idx < currentIdx, active = idx === currentIdx, pending = idx > currentIdx;
-          return (
-            <div key={step.key} className="flex items-stretch gap-3 sm:gap-4">
-              <div className="flex flex-col items-center">
-                <div className={`relative z-10 flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 transition-all duration-500 flex-shrink-0 ${done ? "border-green-500 bg-green-500" : active ? "border-green-400 bg-green-500/20 shadow-[0_0_12px_rgba(34,197,94,0.4)]" : "border-border-bright bg-bg-card"}`}>
-                  {done ? <svg className="w-3.5 h-3.5 text-black" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg> : active ? <div className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse" /> : <div className="w-2 h-2 rounded-full bg-border-bright" />}
-                </div>
-                {idx < steps.length - 1 && <div className="w-0.5 flex-1 min-h-6 my-0.5 rounded-full" style={{ background: done ? "#22c55e" : active ? "linear-gradient(to bottom, #22c55e, #222)" : "#222" }} />}
-              </div>
-              <div className={`pb-5 ${idx === steps.length - 1 ? "pb-0" : ""}`}>
-                <div className="flex items-center gap-2">
-                  <h4 className={`text-sm font-semibold transition-colors ${done ? "text-green-400" : active ? "text-white" : "text-text-muted"}`}>{step.label}</h4>
-                  {done && <span className="text-[10px] font-medium text-green-500/80 bg-green-500/10 px-1.5 py-0.5 rounded-full leading-none">Done</span>}
-                  {active && <span className="text-[10px] font-medium text-green-400/80 bg-green-500/10 px-1.5 py-0.5 rounded-full leading-none animate-pulse">In Progress</span>}
-                </div>
-                <p className={`text-xs mt-0.5 ${active ? "text-text-secondary" : pending ? "text-text-muted/50" : "text-text-muted"}`}>{step.desc}</p>
-                {active && <div className="flex items-center gap-2 mt-2"><div className="dot-loading-green flex gap-1"><span /><span /><span /></div><p className="text-xs text-green-400/70">{statusText}</p></div>}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      <button onClick={() => onPageChange(currentPage + 1)} disabled={!hasMore} aria-label="Next page" className="flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl border border-border-subtle bg-bg-card text-text-secondary text-xs sm:text-sm hover:bg-bg-hover hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/20"><span className="hidden sm:inline">Next</span><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg></button>
     </div>
   );
 }
 
 /* ═══════════════════ RESULT CARD ═══════════════════ */
-function ResultCard({ result, index, onClick }: { result: MangaResult; index: number; onClick: () => void }) {
+function ResultCard({ result, onClick }: { result: MangaResult; onClick: () => void }) {
   return (
     <button onClick={onClick} className="glass-card rounded-xl p-3 sm:p-4 md:p-5 text-left transition-all duration-200 hover:translate-y-[-2px] group cursor-pointer w-full focus:outline-none focus:ring-2 focus:ring-white/20 focus:ring-offset-1 focus:ring-offset-bg-primary">
       <div className="flex gap-3 sm:gap-4">
         {result.coverUrl ? (
-          <div className="w-14 h-20 sm:w-16 sm:h-22 md:w-20 md:h-28 rounded-lg overflow-hidden flex-shrink-0 bg-bg-hover"><img src={result.coverUrl} alt={`Cover of ${result.title}`} className="w-full h-full object-cover" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} /></div>
+          <div className="w-14 h-20 sm:w-16 sm:h-22 md:w-20 md:h-28 rounded-lg overflow-hidden flex-shrink-0 bg-bg-hover"><img src={result.coverUrl} alt={`Cover of ${result.title}`} className="w-full h-full object-cover" loading="lazy" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} /></div>
         ) : (
           <div className="w-14 h-20 sm:w-16 sm:h-22 md:w-20 md:h-28 rounded-lg bg-bg-hover flex-shrink-0 flex items-center justify-center"><svg className="w-6 h-6 sm:w-8 sm:h-8 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg></div>
         )}
@@ -341,7 +310,7 @@ function ResultCard({ result, index, onClick }: { result: MangaResult; index: nu
 function DetailModal({ result, showChapters, onToggleChapters, onClose }: { result: MangaResult; showChapters: boolean; onToggleChapters: () => void; onClose: () => void }) {
   useEffect(() => { const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); }; document.addEventListener("keydown", h); return () => document.removeEventListener("keydown", h); }, [onClose]);
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }} role="dialog" aria-modal="true" aria-label={result.title}>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in" onClick={e => { if (e.target === e.currentTarget) onClose(); }} role="dialog" aria-modal="true" aria-label={result.title}>
       <div className="w-full sm:max-w-2xl max-h-[90vh] bg-bg-secondary border border-border-subtle rounded-t-2xl sm:rounded-2xl overflow-hidden animate-slide-up flex flex-col">
         <div className="flex items-start justify-between p-5 sm:p-6 border-b border-border-subtle">
           <div className="flex gap-4 flex-1 min-w-0">
@@ -355,27 +324,27 @@ function DetailModal({ result, showChapters, onToggleChapters, onClose }: { resu
               </div>
             </div>
           </div>
-          <button onClick={onClose} className="ml-3 p-2 rounded-lg hover:bg-bg-hover transition-colors text-text-muted hover:text-white flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-white/20" aria-label="Close"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
+          <button onClick={onClose} className="ml-3 p-2 rounded-lg hover:bg-bg-hover transition-colors text-text-muted hover:text-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/20" aria-label="Close"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
         </div>
         <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5">
-          <div className="grid grid-cols-2 gap-3"><MetaItem label="Author" value={result.author} /><MetaItem label="Artist" value={result.artist} /><MetaItem label="Chapters" value={result.chapterCount} /><MetaItem label="Source" value={result.source} /></div>
+          <div className="grid grid-cols-2 gap-3"><MI l="Author" v={result.author} /><MI l="Artist" v={result.artist} /><MI l="Chapters" v={result.chapterCount} /><MI l="Source" v={result.source} /></div>
           {result.genres.length > 0 && <div><h4 className="text-xs text-text-muted uppercase tracking-wider mb-2">Genres</h4><div className="flex flex-wrap gap-1.5">{result.genres.map(g => <span key={g} className="text-xs px-2.5 py-1 rounded-full bg-white/5 text-text-secondary border border-border-subtle">{g}</span>)}</div></div>}
           <div><h4 className="text-xs text-text-muted uppercase tracking-wider mb-2">Description</h4><p className="text-sm text-text-secondary leading-relaxed">{result.description}</p></div>
           {result.chapters.length > 0 && (
             <div>
-              <button onClick={onToggleChapters} className="w-full flex items-center justify-between py-3 px-4 rounded-xl bg-bg-card border border-border-subtle hover:border-border-bright transition-all focus:outline-none focus:ring-2 focus:ring-white/20"><span className="text-sm font-medium text-white">Chapters ({result.chapters.length})</span><svg className={`w-4 h-4 text-text-muted transition-transform duration-200 ${showChapters ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg></button>
-              {showChapters && <div className="mt-2 max-h-64 overflow-y-auto rounded-xl border border-border-subtle divide-y divide-border-subtle">{result.chapters.map((ch, idx) => <a key={idx} href={ch.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between px-4 py-2.5 hover:bg-bg-hover transition-colors group"><span className="text-sm text-text-secondary group-hover:text-white transition-colors truncate">{ch.title}</span><div className="flex items-center gap-2 flex-shrink-0 ml-2">{ch.date && <span className="text-xs text-text-muted">{ch.date}</span>}<svg className="w-3.5 h-3.5 text-text-muted group-hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg></div></a>)}</div>}
+              <button onClick={onToggleChapters} className="w-full flex items-center justify-between py-3 px-4 rounded-xl bg-bg-card border border-border-subtle hover:border-border-bright transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/20"><span className="text-sm font-medium text-white">Chapters ({result.chapters.length})</span><svg className={`w-4 h-4 text-text-muted transition-transform duration-200 ${showChapters ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg></button>
+              {showChapters && <div className="mt-2 max-h-64 overflow-y-auto rounded-xl border border-border-subtle divide-y divide-border-subtle">{result.chapters.map((ch, i) => <a key={i} href={ch.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between px-4 py-2.5 hover:bg-bg-hover transition-colors group cursor-pointer"><span className="text-sm text-text-secondary group-hover:text-white truncate">{ch.title}</span><div className="flex items-center gap-2 flex-shrink-0 ml-2">{ch.date && <span className="text-xs text-text-muted">{ch.date}</span>}<svg className="w-3.5 h-3.5 text-text-muted group-hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg></div></a>)}</div>}
             </div>
           )}
-          <a href={result.url} target="_blank" rel="noopener noreferrer" className="block w-full text-center py-3 rounded-xl bg-white text-black font-medium text-sm hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-white/40">Visit Source →</a>
+          <a href={result.url} target="_blank" rel="noopener noreferrer" className="block w-full text-center py-3 rounded-xl bg-white text-black font-medium text-sm hover:bg-gray-200 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/40">Visit Source →</a>
         </div>
       </div>
     </div>
   );
 }
 
-function MetaItem({ label, value }: { label: string; value: string }) {
-  return <div className="bg-bg-card rounded-lg p-3 border border-border-subtle"><p className="text-xs text-text-muted uppercase tracking-wider mb-1">{label}</p><p className="text-sm text-text-primary truncate">{value || "Unknown"}</p></div>;
+function MI({ l, v }: { l: string; v: string }) {
+  return <div className="bg-bg-card rounded-lg p-3 border border-border-subtle"><p className="text-xs text-text-muted uppercase tracking-wider mb-1">{l}</p><p className="text-sm text-text-primary truncate">{v || "Unknown"}</p></div>;
 }
 
-function sleep(ms: number) { return new Promise((r) => setTimeout(r, ms)); }
+function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
