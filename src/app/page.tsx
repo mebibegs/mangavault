@@ -331,8 +331,7 @@ export default function Home() {
    ═══════════════════════════════════════════════════ */
 
 function CircleHero() {
-  // Circle text: MANGA · MANHWA · ANIME · DONGHUA · MANHUA · (repeats to complete)
-  const circleText = "MANGA · MANHWA · ANIME · DONGHUA · MANHUA · MANGA · MANHWA · ANIME · ";
+  const circleText = "MANGA · MANHWA · ANIME · DONGHUA · MANHUA · WEBTOON · ";
 
   return (
     <div className="relative w-48 h-48 sm:w-60 sm:h-60 md:w-72 md:h-72">
@@ -362,7 +361,7 @@ function CircleHero() {
         </defs>
         <text className="fill-white/20" style={{ fontSize: "9px", letterSpacing: "3px", fontWeight: 400, fontFamily: "system-ui, sans-serif" }}>
           <textPath href="#innerCirclePath" startOffset="0%">
-            MANGA · MANHWA · ANIME · DONGHUA · MANHUA · 
+            MANGA · MANHWA · ANIME · DONGHUA · MANHUA · WEBTOON · 
           </textPath>
         </text>
       </svg>
