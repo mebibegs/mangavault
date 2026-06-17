@@ -151,7 +151,6 @@ export default function Home() {
               <h3 className="text-xs sm:text-sm font-medium text-text-muted uppercase tracking-wider flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
                 Trending Now
-                <span className="text-text-muted/50 font-normal normal-case">— Page {trendingPage}</span>
               </h3>
               <div className="h-px flex-1 bg-gradient-to-l from-transparent via-border-subtle to-transparent" />
             </div>
@@ -177,7 +176,7 @@ export default function Home() {
 
           {/* Grid */}
           {!loadingTrending && !loadingPage && displayResults.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-fade-in-up">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 gap-3 sm:gap-4 animate-fade-in-up">
               {displayResults.map((result, idx) => (
                 <ResultCard key={`${result.title}-${result.source}-${idx}`} result={result} index={idx} onClick={() => { setSelectedResult(result); setShowChapters(false); }} />
               ))}
@@ -283,10 +282,6 @@ function Pagination({ currentPage, hasMore, onPageChange }: { currentPage: numbe
         </button>
       </div>
 
-      {/* Page info */}
-      <p className="text-text-muted text-xs">
-        Page {currentPage} of {totalPages} · ~{currentPage * 30} of 500+ titles
-      </p>
     </div>
   );
 }
@@ -367,21 +362,21 @@ function LoadingIndicator({ phase, statusText }: { phase: SearchPhase; statusTex
 
 function ResultCard({ result, index, onClick }: { result: MangaResult; index: number; onClick: () => void }) {
   return (
-    <button onClick={onClick} className="glass-card rounded-xl p-4 sm:p-5 text-left transition-all duration-300 hover:scale-[1.02] group cursor-pointer w-full" style={{ animationDelay: `${index * 50}ms` }}>
-      <div className="flex gap-4">
+    <button onClick={onClick} className="glass-card rounded-xl p-3 sm:p-4 md:p-5 text-left transition-all duration-300 hover:scale-[1.01] sm:hover:scale-[1.02] group cursor-pointer w-full" style={{ animationDelay: `${index * 50}ms` }}>
+      <div className="flex gap-3 sm:gap-4">
         {result.coverUrl ? (
-          <div className="w-16 h-22 sm:w-20 sm:h-28 rounded-lg overflow-hidden flex-shrink-0 bg-bg-hover">
+          <div className="w-14 h-20 sm:w-16 sm:h-22 md:w-20 md:h-28 rounded-lg overflow-hidden flex-shrink-0 bg-bg-hover">
             <img src={result.coverUrl} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
           </div>
         ) : (
-          <div className="w-16 h-22 sm:w-20 sm:h-28 rounded-lg bg-bg-hover flex-shrink-0 flex items-center justify-center">
-            <svg className="w-8 h-8 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
+          <div className="w-14 h-20 sm:w-16 sm:h-22 md:w-20 md:h-28 rounded-lg bg-bg-hover flex-shrink-0 flex items-center justify-center">
+            <svg className="w-6 h-6 sm:w-8 sm:h-8 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
           </div>
         )}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 overflow-hidden">
           <h3 className="font-semibold text-sm sm:text-base text-white truncate group-hover:text-gray-200 transition-colors">{result.title}</h3>
-          <p className="text-text-muted text-xs mt-1 line-clamp-2">{result.description.substring(0, 120)}{result.description.length > 120 ? "..." : ""}</p>
-          <div className="flex flex-wrap items-center gap-2 mt-3">
+          <p className="text-text-muted text-[11px] sm:text-xs mt-1 line-clamp-2">{result.description.substring(0, 120)}{result.description.length > 120 ? "..." : ""}</p>
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-2 sm:mt-3">
             {result.rating !== "N/A" && (
               <span className="inline-flex items-center gap-1 text-xs bg-white/10 px-2 py-0.5 rounded-md">
                 <svg className="w-3 h-3 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
