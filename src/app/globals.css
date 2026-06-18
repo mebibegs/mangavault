@@ -121,6 +121,17 @@ body {
 .dot-loading-green span:nth-child(2) { animation-delay: -0.16s; }
 .dot-loading-green span:nth-child(3) { animation-delay: 0s; }
 
+/* ─── Orbital loader ─── */
+@keyframes orbital-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes orbital-spin-reverse {
+  from { transform: rotate(360deg); }
+  to { transform: rotate(0deg); }
+}
+
 /* ─── Reduced motion ─── */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
