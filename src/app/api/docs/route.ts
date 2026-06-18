@@ -1,13 +1,16 @@
 import { NextResponse } from "next/server";
 
 export async function GET() {
+  const SEC_MSG = "Hidden — URLs are not exposed via the public API for security purposes.";
   const docs = {
     name: "MangaVault Search API",
     version: "1.0.0",
     baseUrl: "/api",
+    note: "All source URLs, cover URLs, and chapter URLs are hidden in public API responses for security purposes.",
     endpoints: {
       "GET /api/search": {
-        description: "Search for manga/manhwa across multiple sources in parallel",
+        description:
+          "Search for manga/manhwa across multiple sources in parallel. Results are deduplicated and ranked by relevance.",
         parameters: {
           q: {
             type: "string",
@@ -16,17 +19,7 @@ export async function GET() {
             example: "solo leveling",
           },
         },
-        headers: {
-          "Content-Type": "application/json",
-        },
-        rateLimit: {
-          limit: "10 requests per minute per IP",
-          headers: {
-            "X-RateLimit-Remaining": "Remaining requests in current window",
-            "X-RateLimit-Reset": "Seconds until rate limit resets",
-            "Retry-After": "Seconds to wait (only on 429 response)",
-          },
-        },
+        rateLimit: "15 requests per minute per IP",
         responses: {
           200: {
             description: "Successful search",
@@ -41,15 +34,11 @@ export async function GET() {
                   type: "string",
                   genres: ["string"],
                   chapters: [
-                    {
-                      title: "string",
-                      url: "string",
-                      date: "string",
-                    },
+                    { title: "string", url: SEC_MSG, date: "string" },
                   ],
                   chapterCount: "string",
-                  coverUrl: "string",
-                  url: "string",
+                  coverUrl: SEC_MSG,
+                  url: SEC_MSG,
                   source: "string",
                   author: "string",
                   artist: "string",
@@ -59,55 +48,25 @@ export async function GET() {
               query: "string",
             },
           },
-          400: {
-            description: "Bad request - missing or invalid query",
-            body: { error: "string" },
-          },
-          403: {
-            description: "Access denied - IP blocked or bot detected",
-            body: { error: "Access denied." },
-          },
-          429: {
-            description: "Rate limit exceeded",
-            body: {
-              error: "Rate limit exceeded. Please try again later.",
-              retryAfter: "number (seconds)",
-            },
-          },
-          500: {
-            description: "Internal server error",
-            body: {
-              error: "An error occurred while processing your request.",
-            },
-          },
+          400: { description: "Bad request", body: { error: "string", message: "string" } },
+          403: { description: "Access denied", body: { error: "string" } },
+          429: { description: "Rate limit exceeded", body: { error: "string", retryAfter: "number" } },
+          500: { description: "Internal server error", body: { error: "string" } },
         },
         example: {
-          request: "GET /api/search?q=solo+leveling",
-          curl: 'curl -X GET "https://yourdomain.com/api/search?q=solo+leveling"',
+          request: 'GET /api/search?q=solo+leveling',
         },
       },
       "GET /api/health": {
-        description: "Health check endpoint",
-        responses: {
-          200: { body: { status: "ok" } },
-        },
-      },
-      "GET /api/docs": {
-        description: "This documentation endpoint",
+        description: "Health check. Returns { ok: true } when the service is running.",
+        responses: { 200: { body: { ok: true } } },
       },
     },
     security: {
-      rateLimiting: "10 requests/minute per IP address",
-      botDetection: "Automated bot requests are blocked",
-      ipBlocking:
-        "IPs are automatically blocked for DDoS attempts, bot activity, or excessive abuse",
-      inputSanitization:
-        "All query inputs are sanitized to prevent injection attacks",
-      timeoutProtection: "All external requests have a 12-second timeout",
-      logging:
-        "All requests are logged with IP, endpoint, timestamp, and errors",
-      monitoring:
-        "Sudden spikes and unusual patterns are automatically detected",
+      urlProtection: "All source URLs, cover image URLs, and chapter URLs are replaced with a security notice in public API responses. URLs are only available within the MangaVault web interface.",
+      rateLimiting: "15 requests per minute per IP address",
+      botDetection: "Automated bot requests are detected and blocked",
+      ipBlocking: "IPs are temporarily blocked for DDoS attempts or excessive abuse",
     },
   };
 

@@ -121,7 +121,17 @@ export default function Home() {
                 Manga · Manhwa · Manhua · Anime · Donghua · Webtoon
               </p>
               <h2 className="text-xl sm:text-2xl md:text-4xl font-bold text-white text-center leading-snug max-w-xl drop-shadow-lg">
-                One search. Every manga source.
+                One search. Every{" "}
+                <span className="inline-block h-[1.2em] overflow-hidden relative align-bottom words-slot">
+                  <span className="word-roll text-[#956afa]">Manga</span>
+                  <span className="word-roll text-[#956afa]">Manhwa</span>
+                  <span className="word-roll text-[#956afa]">Manhua</span>
+                  <span className="word-roll text-[#956afa]">Anime</span>
+                  <span className="word-roll text-[#956afa]">Webtoon</span>
+                  <span className="word-roll text-[#956afa]">Donghua</span>
+                  <span className="word-roll text-[#956afa]">Manga</span>
+                </span>{" "}
+                source.
               </h2>
               <p className="text-white/60 text-xs sm:text-sm max-w-lg mx-auto text-center mt-3 leading-relaxed">
                 Type a title once and MangaVault checks multiple databases in parallel — then merges the results into a single ranked, deduplicated list with covers, ratings, and chapter counts.
@@ -308,7 +318,197 @@ function ResultCard({ result, onClick }: { result: MangaResult; onClick: () => v
 
 /* ═══════════════════ DETAIL MODAL ═══════════════════ */
 function DetailModal({ result, showChapters, onToggleChapters, onClose }: { result: MangaResult; showChapters: boolean; onToggleChapters: () => void; onClose: () => void }) {
-  useEffect(() => { const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); }; document.addEventListener("keydown", h); return () => document.removeEventListener("keydown", h); }, [onClose]);
+  const [readerUrl, setReaderUrl] = useState<string | null>(null);
+  const [readerImages, setReaderImages] = useState<string[]>([]);
+  const [readerLoading, setReaderLoading] = useState(false);
+  const [readerError, setReaderError] = useState("");
+  const [currentChapterIndex, setCurrentChapterIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (readerUrl) setReaderUrl(null);
+        else onClose();
+      }
+    };
+    document.addEventListener("keydown", h);
+    return () => document.removeEventListener("keydown", h);
+  }, [onClose, readerUrl]);
+
+  const totalChapters = parseInt(result.chapterCount) || result.chapters.length;
+
+  const getChapterNumber = (chapter: ChapterInfo): number | null => {
+    const title = chapter.title || "";
+    const url = chapter.url || "";
+
+    const titleMatch = title.match(/(?:chapter|ch\.?|ep\.?|episode)\s*([\d.]+)/i);
+    if (titleMatch) return parseFloat(titleMatch[1]);
+
+    const urlMatch = url.match(/[?&]chapter=([\d.]+)/i) || url.match(/chapter[-_/]([\d.]+)/i);
+    if (urlMatch) return parseFloat(urlMatch[1]);
+
+    if (/read first/i.test(title)) return 0;
+
+    const fallback = title.match(/([\d.]+)/);
+    return fallback ? parseFloat(fallback[1]) : null;
+  };
+
+  const openReader = async (chUrl: string, chapterIndex?: number) => {
+    if (typeof chapterIndex === "number") setCurrentChapterIndex(chapterIndex);
+    setReaderUrl(chUrl);
+    setReaderLoading(true);
+    setReaderError("");
+    setReaderImages([]);
+    try {
+      const res = await fetch(`/api/reader?url=${encodeURIComponent(chUrl)}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to load");
+      if (data.images && data.images.length > 0) {
+        setReaderImages(data.images);
+      } else {
+        setReaderError("No images found for this chapter.");
+      }
+    } catch (err) {
+      setReaderError(err instanceof Error ? err.message : "Failed to load chapter");
+    } finally {
+      setReaderLoading(false);
+    }
+  };
+
+  const hasRealChapterList = result.chapters.length > 0;
+
+  const currentChapter = hasRealChapterList && currentChapterIndex !== null
+    ? result.chapters[currentChapterIndex] ?? null
+    : null;
+  const currentChapterNumber = currentChapter ? getChapterNumber(currentChapter) : null;
+
+  const chapterEntries = hasRealChapterList
+    ? result.chapters
+        .map((chapter, index) => ({ chapter, index, number: getChapterNumber(chapter) }))
+        .filter((entry) => entry.number !== null)
+    : [];
+
+  const prevEntry = currentChapterNumber === null
+    ? null
+    : chapterEntries
+        .filter((entry) => (entry.number as number) < currentChapterNumber)
+        .sort((a, b) => (b.number as number) - (a.number as number))[0] ?? null;
+
+  const nextEntry = currentChapterNumber === null
+    ? null
+    : chapterEntries
+        .filter((entry) => (entry.number as number) > currentChapterNumber)
+        .sort((a, b) => (a.number as number) - (b.number as number))[0] ?? null;
+
+  const canGoPrev = Boolean(prevEntry);
+  const canGoNext = Boolean(nextEntry);
+
+  const goPrevChapter = () => {
+    if (!prevEntry) return;
+    openReader(prevEntry.chapter.url, prevEntry.index);
+  };
+
+  const goNextChapter = () => {
+    if (!nextEntry) return;
+    openReader(nextEntry.chapter.url, nextEntry.index);
+  };
+
+  // ─── Image Reader view ───
+  if (readerUrl) {
+    return (
+      <div className="fixed inset-0 z-50 bg-black flex flex-col animate-fade-in">
+        {/* Top bar */}
+        <div className="flex items-center justify-between px-3 sm:px-5 py-2.5 bg-bg-secondary border-b border-border-subtle flex-shrink-0">
+          <button onClick={() => { setReaderUrl(null); setReaderImages([]); setReaderError(""); setCurrentChapterIndex(null); }} className="flex items-center gap-2 text-xs sm:text-sm text-text-secondary hover:text-white transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/20 rounded-lg px-3 py-1.5 bg-bg-card border border-border-subtle hover:border-border-bright">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+            Back
+          </button>
+          <h3 className="text-xs sm:text-sm text-white font-medium truncate max-w-[40%] sm:max-w-[50%]">{result.title}</h3>
+          <button onClick={onClose} className="text-text-muted hover:text-white transition-colors cursor-pointer p-1.5 rounded-lg hover:bg-bg-hover focus:outline-none focus:ring-2 focus:ring-white/20" aria-label="Close reader">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+
+        {/* Loading */}
+        {readerLoading && (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="flex flex-col items-center gap-3">
+              <div className="relative w-10 h-10">
+                <div className="absolute inset-0 border-2 border-transparent border-t-white rounded-full animate-[orbital-spin_1s_linear_infinite]" />
+                <div className="absolute inset-2 border-2 border-transparent border-t-white/50 rounded-full animate-[orbital-spin-reverse_1.5s_linear_infinite]" />
+              </div>
+              <p className="text-text-muted text-xs">Extracting images...</p>
+            </div>
+          </div>
+        )}
+
+        {/* Error */}
+        {readerError && (
+          <div className="flex-1 flex items-center justify-center px-6">
+            <div className="text-center">
+              <p className="text-red-400 text-sm mb-2">{readerError}</p>
+              <button onClick={() => { setReaderUrl(null); setReaderError(""); }} className="neu-button">Back to chapters</button>
+            </div>
+          </div>
+        )}
+
+        {/* Images */}
+        {!readerLoading && !readerError && readerImages.length > 0 && (
+          <>
+            {/* Edge-mounted chapter navigation */}
+            {hasRealChapterList && canGoPrev && (
+              <div className="fixed left-3 sm:left-5 bottom-5 sm:bottom-6 z-20">
+                <button onClick={goPrevChapter} className="chapter-nav-btn">
+                  <span className="chapter-nav-blob" />
+                  <span className="chapter-nav-inner">Previous</span>
+                </button>
+              </div>
+            )}
+            {hasRealChapterList && canGoNext && (
+              <div className="fixed right-3 sm:right-5 bottom-5 sm:bottom-6 z-20">
+                <button onClick={goNextChapter} className="chapter-nav-btn">
+                  <span className="chapter-nav-blob" />
+                  <span className="chapter-nav-inner">Next</span>
+                </button>
+              </div>
+            )}
+
+            <div className="flex-1 overflow-y-auto">
+              <div className="max-w-3xl mx-auto flex flex-col items-center">
+                {readerImages.map((src, i) => (
+                  <img
+                    key={i}
+                    src={src}
+                    alt={`Page ${i + 1}`}
+                    className="w-full h-auto select-none"
+                    loading={i < 3 ? "eager" : "lazy"}
+                    referrerPolicy="no-referrer"
+                    draggable={false}
+                  />
+                ))}
+                <div className="py-8 px-4 text-center space-y-5">
+                  <p className="text-text-muted text-xs">End of chapter</p>
+                  <button onClick={() => { setReaderUrl(null); setReaderImages([]); setCurrentChapterIndex(null); }} className="neu-button">Back to chapters</button>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* No images found */}
+        {!readerLoading && !readerError && readerImages.length === 0 && !readerLoading && (
+          <div className="flex-1 flex items-center justify-center px-6">
+            <div className="text-center">
+              <p className="text-text-muted text-sm mb-3">No images could be extracted from this chapter.</p>
+              <a href={readerUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-white underline cursor-pointer">Open on source site instead →</a>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ─── Detail view ───
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in" onClick={e => { if (e.target === e.currentTarget) onClose(); }} role="dialog" aria-modal="true" aria-label={result.title}>
       <div className="w-full sm:max-w-2xl max-h-[90vh] bg-bg-secondary border border-border-subtle rounded-t-2xl sm:rounded-2xl overflow-hidden animate-slide-up flex flex-col">
@@ -327,16 +527,41 @@ function DetailModal({ result, showChapters, onToggleChapters, onClose }: { resu
           <button onClick={onClose} className="ml-3 p-2 rounded-lg hover:bg-bg-hover transition-colors text-text-muted hover:text-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/20" aria-label="Close"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
         </div>
         <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5">
-          <div className="grid grid-cols-2 gap-3"><MI l="Author" v={result.author} /><MI l="Artist" v={result.artist} /><MI l="Chapters" v={result.chapterCount} /><MI l="Source" v={result.source} /></div>
+          <div className="grid grid-cols-2 gap-3"><MI l="Author" v={result.author} /><MI l="Artist" v={result.artist} /><MI l="Total Chapters" v={String(totalChapters)} /><MI l="Source" v={result.source} /></div>
           {result.genres.length > 0 && <div><h4 className="text-xs text-text-muted uppercase tracking-wider mb-2">Genres</h4><div className="flex flex-wrap gap-1.5">{result.genres.map(g => <span key={g} className="text-xs px-2.5 py-1 rounded-full bg-white/5 text-text-secondary border border-border-subtle">{g}</span>)}</div></div>}
           <div><h4 className="text-xs text-text-muted uppercase tracking-wider mb-2">Description</h4><p className="text-sm text-text-secondary leading-relaxed">{result.description}</p></div>
-          {result.chapters.length > 0 && (
-            <div>
-              <button onClick={onToggleChapters} className="w-full flex items-center justify-between py-3 px-4 rounded-xl bg-bg-card border border-border-subtle hover:border-border-bright transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/20"><span className="text-sm font-medium text-white">Chapters ({result.chapters.length})</span><svg className={`w-4 h-4 text-text-muted transition-transform duration-200 ${showChapters ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg></button>
-              {showChapters && <div className="mt-2 max-h-64 overflow-y-auto rounded-xl border border-border-subtle divide-y divide-border-subtle">{result.chapters.map((ch, i) => <a key={i} href={ch.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between px-4 py-2.5 hover:bg-bg-hover transition-colors group cursor-pointer"><span className="text-sm text-text-secondary group-hover:text-white truncate">{ch.title}</span><div className="flex items-center gap-2 flex-shrink-0 ml-2">{ch.date && <span className="text-xs text-text-muted">{ch.date}</span>}<svg className="w-3.5 h-3.5 text-text-muted group-hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg></div></a>)}</div>}
-            </div>
-          )}
-          <a href={result.url} target="_blank" rel="noopener noreferrer" className="block w-full text-center py-3 rounded-xl bg-white text-black font-medium text-sm hover:bg-gray-200 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/40">Visit Source →</a>
+
+          {/* Chapters */}
+          <div>
+            <button onClick={onToggleChapters} className="w-full flex items-center justify-between py-3 px-4 rounded-xl bg-bg-card border border-border-subtle hover:border-border-bright transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/20">
+              <span className="text-sm font-medium text-white">All Chapters ({totalChapters})</span>
+              <svg className={`w-4 h-4 text-text-muted transition-transform duration-200 ${showChapters ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+            </button>
+
+            {showChapters && (
+              <div className="mt-2 overflow-y-auto rounded-xl border border-border-subtle divide-y divide-border-subtle" style={{ maxHeight: "50vh" }}>
+                {result.chapters.length > 0 ? (
+                  result.chapters.map((ch, i) => (
+                    <button key={i} onClick={() => openReader(ch.url, i)} className="w-full flex items-center px-4 py-3 hover:bg-bg-hover transition-colors cursor-pointer text-left gap-3">
+                      <span className="min-w-0 flex-1 text-sm text-green-400 font-medium truncate">
+                        {ch.title}
+                      </span>
+                      <span className="flex-shrink-0 text-right whitespace-nowrap text-xs font-medium text-red-400">
+                        {ch.date || "—"}
+                      </span>
+                    </button>
+                  ))
+                ) : (
+                  Array.from({ length: totalChapters }, (_, i) => (
+                    <button key={i} onClick={() => openReader(result.url)} className="w-full flex items-center px-4 py-3 hover:bg-bg-hover transition-colors cursor-pointer text-left gap-3">
+                      <span className="min-w-0 flex-1 text-sm text-green-400 font-medium truncate">Chapter {totalChapters - i}</span>
+                      <span className="flex-shrink-0 text-right whitespace-nowrap text-xs font-medium text-red-400">—</span>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

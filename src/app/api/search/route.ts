@@ -203,11 +203,30 @@ export async function GET(req: NextRequest) {
 
     logRequest({ ipAddress: ip, endpoint, method, statusCode: 200, query });
 
+    // Determine if request is from our own frontend or an external API caller
+    const referer = req.headers.get("referer") || "";
+    const host = req.headers.get("host") || "";
+    const isInternalRequest = referer.includes(host) || host.includes("localhost");
+
+    // For external API callers: strip all URLs for security
+    const SEC_MSG = "Hidden — URLs are not exposed via the public API for security purposes.";
+    const publicResults = isInternalRequest
+      ? results
+      : results.map(r => ({
+          ...r,
+          url: SEC_MSG,
+          coverUrl: SEC_MSG,
+          chapters: r.chapters.map(ch => ({
+            ...ch,
+            url: SEC_MSG,
+          })),
+        }));
+
     return NextResponse.json(
       {
         success: true,
-        results,
-        count: results.length,
+        results: publicResults,
+        count: publicResults.length,
         query,
         rateLimit: { limit: 15, remaining: rateCheck.remaining, resetIn: rateCheck.resetIn },
       },

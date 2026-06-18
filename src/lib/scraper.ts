@@ -57,6 +57,54 @@ async function fetchSafe(url: string): Promise<string | null> {
   }
 }
 
+function splitChapterTitleAndDate(raw: string): { title: string; date: string } {
+  const cleaned = raw.replace(/\s+/g, " ").trim();
+  const datePatterns = [
+    // Absolute dates
+    /(.*?)(\b\d{4}-\d{2}-\d{2}\b)\s*$/,                                    // 2027-06-13
+    /(.*?)(\b\d{1,2}\/\d{1,2}\/\d{2,4}\b)\s*$/,                           // 06/13/2027
+    /(.*?)(\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{4}\b)\s*$/i,  // Jun 13, 2027
+    // Relative dates
+    /(.*?)(\b\d+\s*(?:second|sec|s)\s*ago\b)\s*$/i,
+    /(.*?)(\b\d+\s*(?:minute|min|m)\s*ago\b)\s*$/i,
+    /(.*?)(\b\d+\s*(?:hour|hr|h)\s*ago\b)\s*$/i,
+    /(.*?)(\b\d+\s*(?:day|d)\s*ago\b)\s*$/i,
+    /(.*?)(\b\d+\s*(?:week|w)\s*ago\b)\s*$/i,
+    /(.*?)(\b\d+\s*(?:month|mo)\s*ago\b)\s*$/i,
+    /(.*?)(\b\d+\s*(?:year|yr|y)\s*ago\b)\s*$/i,
+    // Shorthand relative: "5d" "3h" "10m" at end of string
+    /(.*?)\s+(\d+[smhdwymo])\s*$/i,
+    // Yesterday / today / just now
+    /(.*?)(\byesterday\b)\s*$/i,
+    /(.*?)(\btoday\b)\s*$/i,
+    /(.*?)(\bjust now\b)\s*$/i,
+    // "N days/hours" without "ago"
+    /(.*?)(\b\d+\s*(?:seconds?|minutes?|hours?|days?|weeks?|months?|years?)\b)\s*$/i,
+  ];
+
+  for (const pattern of datePatterns) {
+    const match = cleaned.match(pattern);
+    if (match && match[1].trim().length > 0) {
+      return { title: match[1].trim(), date: match[2].trim() };
+    }
+  }
+
+  return { title: cleaned, date: "" };
+}
+
+function dedupeChapters(chapters: ChapterInfo[]): ChapterInfo[] {
+  const seenUrls = new Set<string>();
+  const result: ChapterInfo[] = [];
+  for (const ch of chapters) {
+    const key = ch.url.trim();
+    if (!seenUrls.has(key)) {
+      seenUrls.add(key);
+      result.push(ch);
+    }
+  }
+  return result;
+}
+
 
 
 // ════════════════════════════════════════════════════════════════════
@@ -104,13 +152,40 @@ function parseSource1Detail(html: string, url: string, fallbackTitle: string): M
       }
     });
     if (!description) { const d = $("div p").first(); if (d.length) description = d.text().trim().substring(0,500); }
-    $("a[href*='/chapter-']").each((_,el) => {
-      const t = $(el).text().replace(/\s+/g," ").trim(); const u = $(el).attr("href")||"";
-      if (t) chapters.push({ title:t, url: u.startsWith("http")?u:`https://asurascans.com${u}`, date:"" });
+    $("a[href*='/chapter/'], a[href*='/chapter-']").each((_,el) => {
+      const u = $(el).attr("href") || "";
+      if (!u) return;
+
+      // Asura chapter rows have title and date in separate spans.
+      const spans = $(el).find("span");
+      let t = "";
+      let date = "";
+
+      if (spans.length >= 2) {
+        t = $(spans[0]).text().replace(/\s+/g, " ").trim();
+        date = $(spans[spans.length - 1]).text().replace(/\s+/g, " ").trim();
+      }
+
+      // Fallback if the row structure changes
+      if (!t) {
+        const raw = $(el).text();
+        const split = splitChapterTitleAndDate(raw);
+        t = split.title;
+        date = date || split.date;
+      }
+
+      if (t) {
+        chapters.push({
+          title: t,
+          url: u.startsWith("http") ? u : `https://asurascans.com${u}`,
+          date,
+        });
+      }
     });
     if (!title) title = fallbackTitle;
     if (!title) return null;
-    return { title, description: description||"No description available.", rating, status: status.charAt(0).toUpperCase()+status.slice(1), type: type.charAt(0).toUpperCase()+type.slice(1), genres, chapters: chapters.slice(0,30), chapterCount: chapterCount||String(chapters.length), coverUrl, url, source:"Source A", author, artist };
+    const uniqueChapters = dedupeChapters(chapters);
+    return { title, description: description||"No description available.", rating, status: status.charAt(0).toUpperCase()+status.slice(1), type: type.charAt(0).toUpperCase()+type.slice(1), genres, chapters: uniqueChapters, chapterCount: chapterCount||String(uniqueChapters.length), coverUrl, url, source:"Source A", author, artist };
   } catch { return null; }
 }
 
@@ -173,11 +248,19 @@ function parseSource2Detail(html: string, url: string): MangaResult | null {
     if(pt.includes("manhua")) type="Manhua"; else if(pt.includes("manga series")) type="Manga";
     const chapters: ChapterInfo[] = [];
     $("a[href*='chaptered.php'], a[href*='/chapter']").each((_,el) => {
-      const t=$(el).text().replace(/\s+/g," ").trim(); const u=$(el).attr("href")||"";
-      if(t&&u&&(t.toLowerCase().includes("chapter")||t.toLowerCase().includes("read")))
-        chapters.push({title:t,url:u.startsWith("http")?u:`https://demonicscans.org${u}`,date:""});
+      const raw = $(el).text();
+      const { title: t, date } = splitChapterTitleAndDate(raw);
+      const u = $(el).attr("href") || "";
+      if (t && u && (t.toLowerCase().includes("chapter") || t.toLowerCase().includes("read"))) {
+        chapters.push({
+          title: t,
+          url: u.startsWith("http") ? u : `https://demonicscans.org${u}`,
+          date,
+        });
+      }
     });
-    return { title, description:description||"No description available.", rating, status:"Ongoing", type, genres:[], chapters:chapters.slice(0,30), chapterCount:String(chapters.length), coverUrl, url, source:"Source B", author:"Unknown", artist:"Unknown" };
+    const uniqueChapters = dedupeChapters(chapters);
+    return { title, description:description||"No description available.", rating, status:"Ongoing", type, genres:[], chapters: uniqueChapters, chapterCount:String(uniqueChapters.length), coverUrl, url, source:"Source B", author:"Unknown", artist:"Unknown" };
   } catch { return null; }
 }
 
@@ -318,8 +401,16 @@ function parseSource3Detail(html: string, url: string): MangaResult | null {
     $(".post-content_item").each((_,el)=>{const l=$(el).find(".summary-heading h5, .summary-heading").text().toLowerCase().trim();const v=$(el).find(".summary-content, .artist-content").text().trim();if(l.includes("status"))status=v||status;if(l.includes("type"))type=v||type;if(l.includes("author"))author=v||author;if(l.includes("artist"))artist=v||artist;});
     $(".genres-content a, .tags-content a").each((_,el)=>{const g=$(el).text().trim();if(g&&!genres.includes(g))genres.push(g);});
     const chapters:ChapterInfo[]=[];
-    $("li.wp-manga-chapter a, .version-chap a").each((_,el)=>{const t=$(el).text().trim();const u=$(el).attr("href")||"";const d=$(el).closest("li").find(".chapter-release-date, span.chapter-time, i").text().trim();if(t&&u)chapters.push({title:t,url:u.startsWith("http")?u:`https://scythescans.com${u}`,date:d});});
-    return { title, description:description||"No description available.", rating, status, type, genres, chapters:chapters.slice(0,30), chapterCount:String(chapters.length), coverUrl, url, source:"Source C", author, artist };
+    $("li.wp-manga-chapter a, .version-chap a").each((_,el)=>{
+      const raw = $(el).text();
+      const split = splitChapterTitleAndDate(raw);
+      const t = split.title;
+      const u = $(el).attr("href") || "";
+      const d = $(el).closest("li").find(".chapter-release-date, span.chapter-time, i").text().trim() || split.date;
+      if (t && u) chapters.push({ title: t, url: u.startsWith("http") ? u : `https://scythescans.com${u}`, date: d });
+    });
+    const uniqueChapters = dedupeChapters(chapters);
+    return { title, description:description||"No description available.", rating, status, type, genres, chapters: uniqueChapters, chapterCount:String(uniqueChapters.length), coverUrl, url, source:"Source C", author, artist };
   } catch { return null; }
 }
 

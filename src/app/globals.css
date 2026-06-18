@@ -121,6 +121,138 @@ body {
 .dot-loading-green span:nth-child(2) { animation-delay: -0.16s; }
 .dot-loading-green span:nth-child(3) { animation-delay: 0s; }
 
+/* ─── Word slot (single-line rotating text) ─── */
+.words-slot {
+  vertical-align: bottom;
+}
+
+.words-slot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(9, 9, 11, 1) 0%,
+    transparent 15%,
+    transparent 85%,
+    rgba(9, 9, 11, 1) 100%
+  );
+  z-index: 2;
+  pointer-events: none;
+}
+
+.word-roll {
+  display: block;
+  height: 1.2em;
+  line-height: 1.2em;
+  animation: word-slot-spin 7.2s ease-in-out infinite;
+}
+
+/* 7 items (6 unique + duplicate first). Scrolls to -600% then
+   snaps instantly back to 0% so the loop is seamless. */
+@keyframes word-slot-spin {
+  0%,    4%  { transform: translateY(0); }        /* Manga   */
+  11%,  18%  { transform: translateY(-100%); }     /* Manhwa  */
+  25%,  32%  { transform: translateY(-200%); }     /* Manhua  */
+  39%,  46%  { transform: translateY(-300%); }     /* Anime   */
+  53%,  60%  { transform: translateY(-400%); }     /* Webtoon */
+  67%,  74%  { transform: translateY(-500%); }     /* Donghua */
+  81%,  93%  { transform: translateY(-600%); }     /* Manga (dup) */
+  93.01%     { transform: translateY(0); }         /* instant snap */
+  100%       { transform: translateY(0); }         /* hold for loop */
+}
+
+/* ─── Neumorphic back button ─── */
+.neu-button {
+  background-color: #e0e0e0;
+  border-radius: 50px;
+  box-shadow: inset 4px 4px 10px #bcbcbc, inset -4px -4px 10px #ffffff;
+  color: #4d4d4d;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 15px 40px;
+  transition: all 0.2s ease-in-out;
+  border: 2px solid rgb(206, 206, 206);
+}
+
+.neu-button:hover {
+  box-shadow:
+    inset 2px 2px 5px #bcbcbc,
+    inset -2px -2px 5px #ffffff,
+    2px 2px 5px #bcbcbc,
+    -2px -2px 5px #ffffff;
+}
+
+.neu-button:focus {
+  outline: none;
+  box-shadow:
+    inset 2px 2px 5px #bcbcbc,
+    inset -2px -2px 5px #ffffff,
+    2px 2px 5px #bcbcbc,
+    -2px -2px 5px #ffffff;
+}
+
+/* ─── Chapter navigation buttons (exact Uiverse sizing) ─── */
+.chapter-nav-btn {
+  cursor: pointer;
+  font-size: 1.4rem;
+  border-radius: 16px;
+  border: none;
+  padding: 2px;
+  background: radial-gradient(circle 80px at 80% -10%, #ffffff, #181b1b);
+  position: relative;
+  transition: transform 200ms ease, opacity 200ms ease;
+}
+
+.chapter-nav-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.chapter-nav-btn::after {
+  content: "";
+  position: absolute;
+  width: 65%;
+  height: 60%;
+  border-radius: 120px;
+  top: 0;
+  right: 0;
+  box-shadow: 0 0 20px #ffffff38;
+  z-index: -1;
+}
+
+.chapter-nav-blob {
+  position: absolute;
+  width: 70px;
+  height: 100%;
+  border-radius: 16px;
+  bottom: 0;
+  left: 0;
+  background: radial-gradient(circle 60px at 0% 100%, #3fe9ff, #0000ff80, transparent);
+  box-shadow: -10px 10px 30px #0051ff2d;
+}
+
+.chapter-nav-inner {
+  display: inline-block;
+  padding: 14px 25px;
+  border-radius: 14px;
+  color: #fff;
+  z-index: 3;
+  position: relative;
+  background: radial-gradient(circle 80px at 80% -50%, #777777, #0f1111);
+  line-height: 1;
+}
+
+.chapter-nav-inner::before {
+  content: "";
+  width: 100%;
+  height: 100%;
+  left: 0;
+  top: 0;
+  border-radius: 14px;
+  background: radial-gradient(circle 60px at 0% 100%, #00e1ff1a, #0000ff11, transparent);
+  position: absolute;
+}
+
 /* ─── Orbital loader ─── */
 @keyframes orbital-spin {
   from { transform: rotate(0deg); }
