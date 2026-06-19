@@ -322,6 +322,26 @@ function DetailModal({ result, showChapters, onToggleChapters, onClose }: { resu
   const [readerLoading, setReaderLoading] = useState(false);
   const [readerError, setReaderError] = useState("");
   const [currentChapterIndex, setCurrentChapterIndex] = useState<number | null>(null);
+  const [showNavButtons, setShowNavButtons] = useState(false);
+  const readerScrollRef = useRef<HTMLDivElement>(null);
+
+  // Show Prev/Next buttons only when user scrolls near the end
+  useEffect(() => {
+    const container = readerScrollRef.current;
+    if (!container || readerImages.length === 0) return;
+
+    const onScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      // Show when within 600px of the bottom
+      const nearBottom = scrollHeight - scrollTop - clientHeight < 600;
+      setShowNavButtons(nearBottom);
+    };
+
+    container.addEventListener("scroll", onScroll, { passive: true });
+    // Check once on mount in case content is short enough to already be at the bottom
+    onScroll();
+    return () => container.removeEventListener("scroll", onScroll);
+  }, [readerImages]);
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
@@ -358,6 +378,9 @@ function DetailModal({ result, showChapters, onToggleChapters, onClose }: { resu
     setReaderLoading(true);
     setReaderError("");
     setReaderImages([]);
+    setShowNavButtons(false);
+    // Scroll the reader container back to top for the new chapter
+    if (readerScrollRef.current) readerScrollRef.current.scrollTop = 0;
     try {
       const res = await fetch(`/api/reader?url=${encodeURIComponent(chUrl)}`);
       const data = await res.json();
@@ -454,17 +477,17 @@ function DetailModal({ result, showChapters, onToggleChapters, onClose }: { resu
         {/* Images */}
         {!readerLoading && !readerError && readerImages.length > 0 && (
           <>
-            {/* Edge-mounted chapter navigation */}
-            {hasRealChapterList && canGoPrev && (
-              <div className="fixed left-3 sm:left-5 bottom-5 sm:bottom-6 z-20">
+            {/* Edge-mounted chapter navigation — only visible near the end */}
+            {hasRealChapterList && canGoPrev && showNavButtons && (
+              <div className="fixed left-3 sm:left-5 bottom-5 sm:bottom-6 z-20 animate-fade-in-up">
                 <button onClick={goPrevChapter} className="chapter-nav-btn">
                   <span className="chapter-nav-blob" />
                   <span className="chapter-nav-inner">Previous</span>
                 </button>
               </div>
             )}
-            {hasRealChapterList && canGoNext && (
-              <div className="fixed right-3 sm:right-5 bottom-5 sm:bottom-6 z-20">
+            {hasRealChapterList && canGoNext && showNavButtons && (
+              <div className="fixed right-3 sm:right-5 bottom-5 sm:bottom-6 z-20 animate-fade-in-up">
                 <button onClick={goNextChapter} className="chapter-nav-btn">
                   <span className="chapter-nav-blob" />
                   <span className="chapter-nav-inner">Next</span>
@@ -472,7 +495,7 @@ function DetailModal({ result, showChapters, onToggleChapters, onClose }: { resu
               </div>
             )}
 
-            <div className="flex-1 overflow-y-auto">
+            <div ref={readerScrollRef} className="flex-1 overflow-y-auto">
               <div className="max-w-3xl mx-auto flex flex-col items-center">
                 {readerImages.map((src, i) => (
                   <img
