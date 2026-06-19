@@ -531,6 +531,198 @@ async function browseSource3(page: number): Promise<MangaResult[]> {
 
 
 // ════════════════════════════════════════════════════════════════════
+// SOURCE 4: WEBTOONS
+// ════════════════════════════════════════════════════════════════════
+
+async function searchSource4(query: string): Promise<MangaResult[]> {
+  try {
+    const html = await fetchSafe(`https://www.webtoons.com/en/search?keyword=${encodeURIComponent(query)}`);
+    if (!html) return [];
+
+    const results: MangaResult[] = [];
+    const seen = new Set<string>();
+
+    // Search page has data-title-no + href links but titles are client-rendered.
+    // Extract href links and cover images directly from the HTML.
+    const linkMatches = html.matchAll(/href="(https:\/\/www\.webtoons\.com\/en\/[^"]+\/list\?title_no=(\d+))"/g);
+    const cardData: { href: string; titleNo: string; coverUrl: string }[] = [];
+
+    for (const m of linkMatches) {
+      const href = m[1];
+      const titleNo = m[2];
+      if (seen.has(titleNo)) continue;
+      seen.add(titleNo);
+
+      // Find the cover image near this title_no
+      const coverMatch = html.match(new RegExp(`data-title-no="${titleNo}"[^>]*>.*?<img[^>]*src="([^"]+)"`, "s"));
+      const coverUrl = coverMatch ? coverMatch[1] : "";
+
+      cardData.push({ href, titleNo, coverUrl });
+    }
+
+    // Fetch detail pages for top results (limit to 6 for speed)
+    const detailPromises = cardData.slice(0, 6).map(async (card) => {
+      try {
+        const detailHtml = await fetchSafe(card.href);
+        if (!detailHtml) return null;
+        return parseWebtoonDetail(detailHtml, card.href, card.coverUrl);
+      } catch { return null; }
+    });
+
+    const details = await Promise.all(detailPromises);
+    for (const d of details) if (d) results.push(d);
+
+    return results;
+  } catch {
+    return [];
+  }
+}
+
+function parseWebtoonDetail(html: string, url: string, fallbackCover: string): MangaResult | null {
+  try {
+    const $ = cheerio.load(html);
+
+    // Title from og:title
+    let title = $('meta[property="og:title"]').attr("content") || "";
+    title = title.replace(/\s*\|\s*WEBTOON$/i, "").trim();
+    if (!title) title = $("title").text().replace(/\s*::\s*WEBTOON$/i, "").trim();
+    if (!title) return null;
+
+    // Cover from og:image
+    const coverUrl = $('meta[property="og:image"]').attr("content") || fallbackCover;
+
+    // Description from og:description
+    let description = $('meta[property="og:description"]').attr("content") || "";
+    if (!description) description = $('meta[name="description"]').attr("content") || "";
+    // Clean HTML entities
+    description = description.replace(/&mdash;/g, "—").replace(/&amp;/g, "&").replace(/&quot;/g, '"').trim();
+
+    // Rating from grade_num
+    let rating = "N/A";
+    const rateEl = $(".grade_num");
+    if (rateEl.length) {
+      const rText = rateEl.first().text().trim();
+      const rMatch = rText.match(/([\d.]+)/);
+      if (rMatch && parseFloat(rMatch[1]) <= 10) rating = rMatch[1];
+    }
+
+    // Genre from breadcrumb or genre class
+    const genres: string[] = [];
+    $(".genre, .info .genre a, ._btnGenre").each((_, el) => {
+      const g = $(el).text().trim();
+      if (g && !genres.includes(g)) genres.push(g);
+    });
+
+    // Author
+    const authorEl = $(".author_area .author, .author_area a, .info .author");
+    let author = "Unknown";
+    if (authorEl.length) author = authorEl.first().text().trim() || "Unknown";
+
+    // Status
+    let status = "Ongoing";
+    const pageText = $.text().toLowerCase();
+    if (pageText.includes("completed")) status = "Completed";
+    if (pageText.includes("hiatus")) status = "Hiatus";
+
+    // Episodes/chapters
+    const chapters: ChapterInfo[] = [];
+    $("a[href*='/viewer?']").each((_, el) => {
+      const chUrl = $(el).attr("href") || "";
+      if (!chUrl) return;
+      const fullUrl = chUrl.startsWith("http") ? chUrl : `https://www.webtoons.com${chUrl}`;
+
+      // Get the innermost span inside .subj to avoid duplicated text
+      let chTitle = "";
+      const innerSpan = $(el).find(".subj span");
+      if (innerSpan.length) {
+        chTitle = innerSpan.first().text().trim();
+      } else {
+        const subjEl = $(el).find(".subj");
+        if (subjEl.length) chTitle = subjEl.first().text().trim();
+      }
+      if (!chTitle) {
+        // Last resort: extract from the link text but remove date patterns
+        chTitle = $(el).text().replace(/\s+/g, " ").trim();
+      }
+
+      const dateEl = $(el).closest("li, .episode_item").find(".date, .sub_date, time");
+      const date = dateEl.text().trim();
+
+      if (chTitle && !chapters.find(c => c.url === fullUrl)) {
+        chapters.push({ title: chTitle, url: fullUrl, date });
+      }
+    });
+
+    const uniqueChapters = dedupeChapters(chapters);
+
+    return {
+      title,
+      description: description || "No description available.",
+      rating,
+      status,
+      type: "Webtoon",
+      genres,
+      chapters: uniqueChapters,
+      chapterCount: String(uniqueChapters.length),
+      coverUrl,
+      url,
+      source: "Source D",
+      author,
+      artist: author,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function browseSource4(_page: number): Promise<MangaResult[]> {
+  try {
+    // Webtoons popular page
+    const html = await fetchSafe("https://www.webtoons.com/en/top");
+    if (!html) return [];
+    const $ = cheerio.load(html);
+
+    const results: MangaResult[] = [];
+    const seen = new Set<string>();
+
+    $("a[href*='/list?title_no=']").each((_, el) => {
+      const href = $(el).attr("href") || "";
+      if (!href || seen.has(href)) return;
+      seen.add(href);
+
+      let title = $(el).find(".subj, .info .subj, p.subj").text().trim();
+      if (!title) title = $(el).attr("title") || "";
+      if (!title || title.length < 2) return;
+
+      const img = $(el).find("img").first();
+      const coverUrl = img.attr("src") || img.attr("data-src") || "";
+
+      const fullUrl = href.startsWith("http") ? href : `https://www.webtoons.com${href}`;
+
+      results.push({
+        title,
+        description: "",
+        rating: "N/A",
+        status: "Ongoing",
+        type: "Webtoon",
+        genres: [],
+        chapters: [],
+        chapterCount: "0",
+        coverUrl,
+        url: fullUrl,
+        source: "Source D",
+        author: "Unknown",
+        artist: "Unknown",
+      });
+    });
+
+    return results;
+  } catch {
+    return [];
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════
 // RELEVANCE CHECK
 // ════════════════════════════════════════════════════════════════════
 
@@ -598,11 +790,12 @@ function isValidEntry(r: MangaResult): boolean {
 // ════════════════════════════════════════════════════════════════════
 
 export async function searchAllSources(query: string): Promise<MangaResult[]> {
-  const [r1,r2,r3] = await Promise.allSettled([searchSource1(query),searchSource2(query),searchSource3(query)]);
+  const [r1,r2,r3,r4] = await Promise.allSettled([searchSource1(query),searchSource2(query),searchSource3(query),searchSource4(query)]);
   const results: MangaResult[] = [];
   if(r1.status==="fulfilled")results.push(...r1.value);
   if(r2.status==="fulfilled")results.push(...r2.value);
   if(r3.status==="fulfilled")results.push(...r3.value);
+  if(r4.status==="fulfilled")results.push(...r4.value);
   const relevant = results
     .filter(r => isRelevant(r, query))
     .sort((a, b) => getRelevanceScore(b, query) - getRelevanceScore(a, query));
@@ -618,16 +811,18 @@ export async function searchAllSources(query: string): Promise<MangaResult[]> {
 
 export async function browseCatalog(page: number): Promise<{ results: MangaResult[]; hasMore: boolean }> {
   // Each source contributes to the catalog
-  const [r1, r2, r3] = await Promise.allSettled([
+  const [r1, r2, r3, r4] = await Promise.allSettled([
     browseSource1(page),
     browseSource2(page),
     browseSource3(page),
+    browseSource4(page),
   ]);
 
   const results: MangaResult[] = [];
   if (r1.status === "fulfilled") results.push(...r1.value);
   if (r2.status === "fulfilled") results.push(...r2.value);
   if (r3.status === "fulfilled") results.push(...r3.value);
+  if (r4.status === "fulfilled") results.push(...r4.value);
 
   // Filter valid entries
   const valid = results.filter(isValidEntry);

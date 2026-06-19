@@ -35,10 +35,7 @@ export default function AboutPage() {
 
           <h3 className="text-lg font-semibold text-white pt-4">The API</h3>
           <p>
-            Everything the site itself uses — search and trending data — is exposed as a free, public JSON API at{" "}
-            <code className="text-white bg-bg-card px-1.5 py-0.5 rounded text-xs">/api/search</code> and{" "}
-            <code className="text-white bg-bg-card px-1.5 py-0.5 rounded text-xs">/api/trending</code>.
-            There&apos;s no key or signup involved. The only constraint is a shared rate limit of 15 requests per minute per IP address, which exists to keep response times reasonable for everyone using the service at once. Parameters, response shapes, and worked examples are documented on the <a href="/docs" className="text-white underline hover:text-gray-300">API docs</a> page.
+            Everything the site itself uses — search, trending, and chapter image extraction — is exposed through a public JSON API. If you want to integrate MangaVault into your own tooling or app, the available endpoints are documented in the <a href="/docs" className="text-white underline hover:text-gray-300">API docs</a>.
           </p>
 
           <h3 className="text-lg font-semibold text-white pt-4">Status</h3>
