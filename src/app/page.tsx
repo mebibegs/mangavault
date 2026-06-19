@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { Fragment, useState, useRef, useCallback, useEffect } from "react";
 import dynamic from "next/dynamic";
 import {
   Pagination,
@@ -238,7 +238,14 @@ export default function Home() {
           {!loadingTrending && !loadingPage && displayResults.length > 0 && (
             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 sm:gap-4 stagger-children">
               {displayResults.map((result, idx) => (
-                <ResultCard key={`${result.title}-${result.source}-${idx}`} result={result} onClick={() => { setSelectedResult(result); setShowChapters(false); }} />
+                <Fragment key={`${result.title}-${result.source}-${idx}`}>
+                  <ResultCard result={result} onClick={() => { setSelectedResult(result); setShowChapters(false); }} />
+                  {showTrending && showHero && idx === 1 && (
+                    <div className="col-span-full">
+                      <FeaturedBanner compact={false} />
+                    </div>
+                  )}
+                </Fragment>
               ))}
             </div>
           )}
@@ -248,25 +255,7 @@ export default function Home() {
           )}
         </div>
 
-        {/* How It Works */}
-        {showHero && !loadingTrending && (
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 pb-12 w-full animate-fade-in-up">
-            <div className="flex items-center gap-3 mb-6"><div className="h-px flex-1 bg-gradient-to-r from-transparent via-border-subtle to-transparent" /><h3 className="text-xs sm:text-sm font-medium text-text-muted uppercase tracking-wider">How It Works</h3><div className="h-px flex-1 bg-gradient-to-l from-transparent via-border-subtle to-transparent" /></div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 stagger-children">
-              {[
-                { n: "1", t: "Search", d: "Type any title, keyword, or genre. Exact names, partial matches, and alternate spellings all work." },
-                { n: "2", t: "Aggregate", d: "Your query fans out to every connected source at the same time. Results are deduplicated and ranked." },
-                { n: "3", t: "Discover", d: "View covers, ratings, synopses, and chapter lists. Click through to read on the original source." },
-              ].map(s => (
-                <div key={s.n} className="glass-card rounded-xl p-4 sm:p-5 hover:translate-y-[-2px] transition-transform duration-200">
-                  <span className="text-xs font-bold text-text-muted bg-bg-hover rounded-full w-6 h-6 flex items-center justify-center mb-3">{s.n}</span>
-                  <h4 className="text-sm font-semibold text-white mb-1">{s.t}</h4>
-                  <p className="text-text-muted text-xs leading-relaxed">{s.d}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+
       </main>
 
       {selectedResult && <DetailModal result={selectedResult} showChapters={showChapters} onToggleChapters={() => setShowChapters(!showChapters)} onClose={() => { setSelectedResult(null); setShowChapters(false); }} />}
@@ -685,6 +674,68 @@ function DetailModal({ result, showChapters, onToggleChapters, onClose }: { resu
 
 function MI({ l, v }: { l: string; v: string }) {
   return <div className="bg-bg-card rounded-lg p-3 border border-border-subtle"><p className="text-xs text-text-muted uppercase tracking-wider mb-1">{l}</p><p className="text-sm text-text-primary truncate">{v || "Unknown"}</p></div>;
+}
+
+function StudioLogo({ name, font, accent, sub }: { name: string; font: string; accent?: boolean; sub?: string }) {
+  return (
+    <div className="flex flex-col items-center">
+      <span
+        className={`${font} text-sm sm:text-lg md:text-xl leading-none select-none drop-shadow-lg ${
+          accent
+            ? "bg-red-600 text-white px-2 py-0.5 sm:px-3 sm:py-1 rounded-sm"
+            : "text-white"
+        }`}
+      >
+        {name}
+      </span>
+      {sub && (
+        <span className="text-white font-semibold text-[7px] sm:text-[9px] md:text-[10px] tracking-[0.25em] uppercase mt-0.5 select-none">
+          {sub}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function FeaturedBanner({ compact = false }: { compact?: boolean }) {
+  return (
+    <div className="relative w-full overflow-hidden mx-auto max-w-7xl">
+      <div className={`relative w-full ${compact ? "aspect-[21/10] sm:aspect-[21/9]" : "aspect-[21/9] sm:aspect-[21/8] md:aspect-[21/7]"}`}>
+        <img
+          src="/images/spiderman-banner.jpg"
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover blur-[6px] scale-105"
+          loading="lazy"
+          draggable={false}
+          aria-hidden="true"
+        />
+        <div className="absolute inset-0 bg-black/50" />
+        <div className="absolute inset-0 bg-gradient-to-r from-bg-primary/80 via-transparent to-bg-primary/80" />
+        <div className="absolute inset-0 bg-gradient-to-t from-bg-primary via-transparent to-transparent" />
+
+        <div className={`absolute inset-0 flex flex-col items-center justify-center text-center z-10 ${compact ? "px-4 py-5" : "px-6 py-6"}`}>
+          <h3 className={`text-white font-extrabold tracking-wide drop-shadow-lg ${compact ? "text-base sm:text-xl mb-4" : "text-lg sm:text-2xl md:text-3xl mb-5 sm:mb-7"}`}>
+            Now on MangaVault
+          </h3>
+
+          <div className={`flex items-center justify-center flex-wrap ${compact ? "gap-3 sm:gap-5 mb-3" : "gap-5 sm:gap-8 md:gap-12 mb-4 sm:mb-6"}`}>
+            <StudioLogo name="Disney" font="font-serif italic" />
+            <StudioLogo name="MARVEL" font="font-bold tracking-wider" accent />
+            <StudioLogo name="STAR WARS" font="font-extrabold tracking-[0.15em]" />
+            <StudioLogo name="20th CENTURY" font="font-bold tracking-wide" sub="STUDIOS" />
+          </div>
+
+          <p className={`text-white font-bold uppercase tracking-[0.2em] drop-shadow-md ${compact ? "text-[10px] sm:text-xs mb-1.5" : "text-xs sm:text-sm md:text-base mb-2 sm:mb-3"}`}>
+            Now ALL on MangaVault
+          </p>
+
+          <p className={`text-white/40 leading-relaxed max-w-lg ${compact ? "text-[8px] sm:text-[9px]" : "text-[9px] sm:text-[10px] md:text-xs"}`}>
+            Disney, Marvel, Star Wars, and 20th Century Studios are registered trademarks of The Walt Disney Company. All rights reserved.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
