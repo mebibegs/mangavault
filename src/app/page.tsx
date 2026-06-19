@@ -2,6 +2,15 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import dynamic from "next/dynamic";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 
 const ShaderBackground = dynamic(() => import("@/components/ShaderBackground"), { ssr: false });
 const InkReveal = dynamic(() => import("@/components/InkReveal"), { ssr: false });
@@ -213,17 +222,21 @@ export default function Home() {
         {/* Results Grid */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-2 sm:mt-4 pb-12 w-full">
           {(loadingTrending || loadingPage) && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3 sm:gap-4">
-              {[...Array(6)].map((_, i) => (
-                <div key={i} className="glass-card rounded-xl p-4 sm:p-5 animate-pulse" aria-hidden="true">
-                  <div className="flex gap-4"><div className="w-14 h-20 sm:w-20 sm:h-28 rounded-lg bg-bg-hover flex-shrink-0" /><div className="flex-1 space-y-3"><div className="h-4 bg-bg-hover rounded w-3/4" /><div className="h-3 bg-bg-hover rounded w-full" /><div className="h-3 bg-bg-hover rounded w-2/3" /></div></div>
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 sm:gap-4">
+              {[...Array(12)].map((_, i) => (
+                <div key={i} className="glass-card rounded-xl overflow-hidden animate-pulse" aria-hidden="true">
+                  <div className="aspect-[3/4] bg-bg-hover" />
+                  <div className="p-3 space-y-2">
+                    <div className="h-4 bg-bg-hover rounded w-3/4" />
+                    <div className="h-3 bg-bg-hover rounded w-1/2" />
+                  </div>
                 </div>
               ))}
             </div>
           )}
 
           {!loadingTrending && !loadingPage && displayResults.length > 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3 sm:gap-4 stagger-children">
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 sm:gap-4 stagger-children">
               {displayResults.map((result, idx) => (
                 <ResultCard key={`${result.title}-${result.source}-${idx}`} result={result} onClick={() => { setSelectedResult(result); setShowChapters(false); }} />
               ))}
@@ -231,7 +244,7 @@ export default function Home() {
           )}
 
           {showTrending && !loadingTrending && !loadingPage && trendingResults.length > 0 && (
-            <div className="mt-8 animate-fade-in-up"><Pagination currentPage={trendingPage} hasMore={hasMorePages} onPageChange={goToPage} /></div>
+            <div className="mt-8 animate-fade-in-up"><TrendingPagination currentPage={trendingPage} hasMore={hasMorePages} onPageChange={goToPage} /></div>
           )}
         </div>
 
@@ -272,43 +285,123 @@ export default function Home() {
 }
 
 /* ═══════════════════ PAGINATION ═══════════════════ */
-function Pagination({ currentPage, hasMore, onPageChange }: { currentPage: number; hasMore: boolean; onPageChange: (p: number) => void }) {
+function TrendingPagination({ currentPage, hasMore, onPageChange }: { currentPage: number; hasMore: boolean; onPageChange: (p: number) => void }) {
   const total = 17;
-  const vis = (): (number | "...")[] => {
-    const p: (number | "...")[] = []; if (total <= 7) { for (let i = 1; i <= total; i++) p.push(i); return p; }
-    p.push(1); if (currentPage > 3) p.push("...");
-    for (let i = Math.max(2, currentPage - 1); i <= Math.min(total - 1, currentPage + 1); i++) p.push(i);
-    if (currentPage < total - 2) p.push("..."); p.push(total); return p;
+
+  const visiblePages = (): (number | "...")[] => {
+    const pages: (number | "...")[] = [];
+    if (total <= 7) {
+      for (let i = 1; i <= total; i++) pages.push(i);
+      return pages;
+    }
+    pages.push(1);
+    if (currentPage > 3) pages.push("...");
+    for (let i = Math.max(2, currentPage - 1); i <= Math.min(total - 1, currentPage + 1); i++) pages.push(i);
+    if (currentPage < total - 2) pages.push("...");
+    pages.push(total);
+    return pages;
   };
+
   return (
-    <div className="flex items-center justify-center gap-1.5 sm:gap-2" role="navigation" aria-label="Pagination">
-      <button onClick={() => onPageChange(currentPage - 1)} disabled={currentPage <= 1} aria-label="Previous page" className="flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl border border-border-subtle bg-bg-card text-text-secondary text-xs sm:text-sm hover:bg-bg-hover hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/20"><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg><span className="hidden sm:inline">Prev</span></button>
-      {vis().map((p, i) => p === "..." ? <span key={`d${i}`} className="px-1.5 py-2 text-text-muted text-xs">…</span> : (
-        <button key={p} onClick={() => onPageChange(p as number)} aria-label={`Page ${p}`} aria-current={p === currentPage ? "page" : undefined} className={`min-w-[36px] sm:min-w-[40px] h-9 sm:h-10 rounded-xl text-xs sm:text-sm font-medium transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/20 ${p === currentPage ? "bg-white text-black" : "border border-border-subtle bg-bg-card text-text-secondary hover:bg-bg-hover hover:text-white"}`}>{p}</button>
-      ))}
-      <button onClick={() => onPageChange(currentPage + 1)} disabled={!hasMore} aria-label="Next page" className="flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl border border-border-subtle bg-bg-card text-text-secondary text-xs sm:text-sm hover:bg-bg-hover hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/20"><span className="hidden sm:inline">Next</span><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg></button>
-    </div>
+    <Pagination>
+      <PaginationContent>
+        <PaginationItem>
+          <PaginationPrevious
+            onClick={() => onPageChange(currentPage - 1)}
+            disabled={currentPage <= 1}
+          />
+        </PaginationItem>
+
+        {visiblePages().map((page, i) =>
+          page === "..." ? (
+            <PaginationItem key={`ellipsis-${i}`}>
+              <PaginationEllipsis />
+            </PaginationItem>
+          ) : (
+            <PaginationItem key={page}>
+              <PaginationLink
+                isActive={page === currentPage}
+                onClick={() => onPageChange(page as number)}
+              >
+                {page}
+              </PaginationLink>
+            </PaginationItem>
+          )
+        )}
+
+        <PaginationItem>
+          <PaginationNext
+            onClick={() => onPageChange(currentPage + 1)}
+            disabled={!hasMore}
+          />
+        </PaginationItem>
+      </PaginationContent>
+    </Pagination>
   );
 }
 
-/* ═══════════════════ RESULT CARD ═══════════════════ */
+/* ═══════════════════ RESULT CARD (Vertical Poster) ═══════════════════ */
 function ResultCard({ result, onClick }: { result: MangaResult; onClick: () => void }) {
+  const statusLower = result.status.toLowerCase();
+  const statusColor =
+    statusLower === "completed" || statusLower === "finished"
+      ? "bg-red-500/90 text-white"
+      : statusLower === "ongoing"
+        ? "bg-green-500/90 text-white"
+        : "bg-yellow-500/90 text-black";
+
+  const firstGenre = result.genres.length > 0 ? result.genres[0] : result.type;
+
   return (
-    <button onClick={onClick} className="glass-card rounded-xl p-3 sm:p-4 md:p-5 text-left transition-all duration-200 hover:translate-y-[-2px] group cursor-pointer w-full focus:outline-none focus:ring-2 focus:ring-white/20 focus:ring-offset-1 focus:ring-offset-bg-primary">
-      <div className="flex gap-3 sm:gap-4">
+    <button
+      onClick={onClick}
+      className="glass-card rounded-xl overflow-hidden text-left transition-all duration-200 hover:translate-y-[-4px] hover:shadow-lg hover:shadow-white/5 group cursor-pointer w-full focus:outline-none focus:ring-2 focus:ring-white/20 focus:ring-offset-1 focus:ring-offset-bg-primary flex flex-col"
+    >
+      {/* ── Cover poster ── */}
+      <div className="relative aspect-[3/4] bg-bg-hover overflow-hidden">
         {result.coverUrl ? (
-          <div className="w-14 h-20 sm:w-16 sm:h-22 md:w-20 md:h-28 rounded-lg overflow-hidden flex-shrink-0 bg-bg-hover"><img src={result.coverUrl} alt={`Cover of ${result.title}`} className="w-full h-full object-cover" loading="lazy" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} /></div>
+          <img
+            src={result.coverUrl}
+            alt={`Cover of ${result.title}`}
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+            loading="lazy"
+            onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+          />
         ) : (
-          <div className="w-14 h-20 sm:w-16 sm:h-22 md:w-20 md:h-28 rounded-lg bg-bg-hover flex-shrink-0 flex items-center justify-center"><svg className="w-6 h-6 sm:w-8 sm:h-8 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg></div>
-        )}
-        <div className="flex-1 min-w-0 overflow-hidden">
-          <h3 className="font-semibold text-sm sm:text-base text-white truncate group-hover:text-gray-200 transition-colors">{result.title}</h3>
-          <p className="text-text-muted text-[11px] sm:text-xs mt-1 line-clamp-2">{result.description.substring(0, 120)}{result.description.length > 120 ? "..." : ""}</p>
-          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-2 sm:mt-3">
-            {result.rating !== "N/A" && <span className="inline-flex items-center gap-1 text-xs bg-white/10 px-2 py-0.5 rounded-md"><svg className="w-3 h-3 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>{result.rating}</span>}
-            {result.chapterCount !== "0" && <span className="text-xs text-text-muted">{result.chapterCount} chs</span>}
-            <span className={`text-xs px-2 py-0.5 rounded-md ${result.status.toLowerCase() === "completed" ? "bg-green-500/10 text-green-400" : "bg-blue-500/10 text-blue-400"}`}>{result.status}</span>
+          <div className="w-full h-full flex items-center justify-center bg-bg-card">
+            <svg className="w-10 h-10 text-text-muted/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
           </div>
+        )}
+
+        {/* Status badge — top-left corner */}
+        <span className={`absolute top-2 left-2 text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-md shadow-md ${statusColor}`}>
+          {result.status}
+        </span>
+
+        {/* Gradient overlay at the bottom of poster for readability */}
+        <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
+      </div>
+
+      {/* ── Info section ── */}
+      <div className="p-3 sm:p-3.5 flex flex-col gap-2 flex-1">
+        <h3 className="font-bold text-sm sm:text-base text-white line-clamp-2 leading-snug group-hover:text-gray-200 transition-colors">
+          {result.title}
+        </h3>
+
+        <div className="flex items-center justify-between gap-2 mt-auto">
+          <span className="text-xs sm:text-sm font-semibold text-text-secondary truncate">
+            {firstGenre}
+          </span>
+          {result.rating !== "N/A" && (
+            <span className="inline-flex items-center gap-1 text-xs sm:text-sm font-bold text-text-primary flex-shrink-0">
+              <svg className="w-3 h-3 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+              </svg>
+              {result.rating}
+            </span>
+          )}
         </div>
       </div>
     </button>

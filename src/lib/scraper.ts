@@ -135,17 +135,107 @@ function splitChapterTitleAndDate(raw: string): { title: string; date: string } 
   return { title: cleaned, date: "" };
 }
 
-function dedupeChapters(chapters: ChapterInfo[]): ChapterInfo[] {
-  const seenUrls = new Set<string>();
-  const result: ChapterInfo[] = [];
-  for (const ch of chapters) {
-    const key = ch.url.trim();
-    if (!seenUrls.has(key)) {
-      seenUrls.add(key);
-      result.push(ch);
-    }
+function normalizeChapterText(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9\s.:-]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function extractChapterNumber(chapter: ChapterInfo): string | null {
+  const title = normalizeChapterText(chapter.title || "");
+  const url = (chapter.url || "").toLowerCase();
+
+  const titleMatch = title.match(/(?:chapter|chap|ch\.?|episode|ep\.?)\s*([\d.]+)/i);
+  if (titleMatch) return titleMatch[1];
+
+  const urlMatch =
+    url.match(/[?&](?:chapter|episode(?:_no)?)=([\d.]+)/i) ||
+    url.match(/(?:chapter|episode)[-_/]([\d.]+)/i) ||
+    url.match(/viewer\?[^#]*episode_no=([\d.]+)/i);
+  if (urlMatch) return urlMatch[1];
+
+  if (/read first|start here|begin here/i.test(title)) return "1";
+
+  const fallback = title.match(/\b([\d.]+)\b/);
+  return fallback ? fallback[1] : null;
+}
+
+function chapterQualityScore(chapter: ChapterInfo): number {
+  const title = normalizeChapterText(chapter.title || "");
+  let score = 0;
+
+  if (chapter.url?.trim()) score += 1;
+  if (chapter.date?.trim()) score += 1;
+  if (extractChapterNumber(chapter)) score += 5;
+  if (/(?:chapter|chap|ch\.?|episode|ep\.?)\s*[\d.]+/i.test(title)) score += 10;
+  if (/read first|start here|begin here/i.test(title)) score -= 20;
+  if (title.length > 0) score += Math.min(title.length, 12) / 10;
+
+  return score;
+}
+
+function normalizeChosenChapter(chapter: ChapterInfo): ChapterInfo {
+  const title = normalizeChapterText(chapter.title || "");
+  const chapterNumber = extractChapterNumber(chapter);
+
+  if (chapterNumber === "1" && /read first|start here|begin here/i.test(title)) {
+    return {
+      ...chapter,
+      title: "Chapter 1",
+    };
   }
-  return result;
+
+  return chapter;
+}
+
+function sortChaptersForDisplay(entries: Array<{ index: number; chapter: ChapterInfo }>): ChapterInfo[] {
+  return entries
+    .map((entry) => ({
+      index: entry.index,
+      chapter: normalizeChosenChapter(entry.chapter),
+      chapterNumber: extractChapterNumber(entry.chapter),
+    }))
+    .sort((a, b) => {
+      const aNum = a.chapterNumber ? parseFloat(a.chapterNumber) : Number.NaN;
+      const bNum = b.chapterNumber ? parseFloat(b.chapterNumber) : Number.NaN;
+      const aHasNum = Number.isFinite(aNum);
+      const bHasNum = Number.isFinite(bNum);
+
+      // Prefer numbered chapters, sorted newest -> oldest
+      if (aHasNum && bHasNum && aNum !== bNum) return bNum - aNum;
+      if (aHasNum && !bHasNum) return -1;
+      if (!aHasNum && bHasNum) return 1;
+
+      // Preserve original source order for ties / non-numbered specials
+      return a.index - b.index;
+    })
+    .map((entry) => entry.chapter);
+}
+
+function dedupeChapters(chapters: ChapterInfo[]): ChapterInfo[] {
+  const byUrl = new Set<string>();
+  const byIdentity = new Map<string, { index: number; chapter: ChapterInfo }>();
+
+  chapters.forEach((chapter, index) => {
+    const urlKey = chapter.url.trim();
+    if (!urlKey || byUrl.has(urlKey)) return;
+    byUrl.add(urlKey);
+
+    const chapterNumber = extractChapterNumber(chapter);
+    const identityKey = chapterNumber
+      ? `num:${chapterNumber}`
+      : `title:${normalizeChapterText(chapter.title || urlKey)}`;
+
+    const existing = byIdentity.get(identityKey);
+    if (!existing) {
+      byIdentity.set(identityKey, { index, chapter });
+      return;
+    }
+
+    if (chapterQualityScore(chapter) > chapterQualityScore(existing.chapter)) {
+      byIdentity.set(identityKey, { index: existing.index, chapter });
+    }
+  });
+
+  return sortChaptersForDisplay([...byIdentity.values()]);
 }
 
 
