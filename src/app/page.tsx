@@ -240,8 +240,17 @@ export default function Home() {
               {displayResults.map((result, idx) => (
                 <Fragment key={`${result.title}-${result.source}-${idx}`}>
                   <ResultCard result={result} onClick={() => { setSelectedResult(result); setShowChapters(false); }} />
+
+                  {/* Mobile / tablet: insert after item 2 */}
                   {showTrending && showHero && idx === 1 && (
-                    <div className="col-span-full">
+                    <div className="col-span-full lg:hidden">
+                      <FeaturedBanner compact={false} />
+                    </div>
+                  )}
+
+                  {/* Laptop / desktop: insert after item 4 so the first row stays full */}
+                  {showTrending && showHero && idx === 3 && (
+                    <div className="hidden lg:block col-span-full">
                       <FeaturedBanner compact={false} />
                     </div>
                   )}
