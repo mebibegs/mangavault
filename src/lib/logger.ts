@@ -18,7 +18,7 @@ export function logRequest(params: {
     query: params.query,
     error: params.errorMessage,
   };
-  
+
   if (params.errorMessage || (params.statusCode && params.statusCode >= 400)) {
     console.warn("[API]", JSON.stringify(logEntry));
   } else {

@@ -22,6 +22,9 @@ const SPIKE_THRESHOLD = 30; // requests in 10 seconds (increased from 20)
 const BLOCK_DURATION_SPIKE = 600; // 10 minutes for spike abuse (reduced from 30)
 const BLOCK_DURATION_SUSTAINED = 1800; // 30 minutes for sustained abuse (reduced from 60)
 
+// suppress unused variable warnings
+void BURST_LIMIT;
+
 export interface RateLimitResult {
   allowed: boolean;
   remaining: number;

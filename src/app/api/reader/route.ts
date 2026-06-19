@@ -1,138 +1,300 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as cheerio from "cheerio";
 
-const HEADERS = {
-  "User-Agent":
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+const UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
+
+const BASE_HEADERS: Record<string, string> = {
+  "User-Agent": UA,
+  Accept:
+    "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
   "Accept-Language": "en-US,en;q=0.5",
 };
 
+/** Cookies that bypass the Webtoons mature-content age gate. */
+function webtoonCookies(): string {
+  return [
+    `ageGateV2=${Date.now()}`,
+    "needGDPR=N",
+    "needCCPA=N",
+    "needCOPPA=N",
+    "pagGDPR=true",
+    "contentRating=adult",
+    "locale=en",
+    "country=US",
+    "timezoneOffset=-300",
+  ].join("; ");
+}
+
 export async function GET(req: NextRequest) {
-  const url = new URL(req.url);
-  const chapterUrl = url.searchParams.get("url");
+  const chapterUrl = req.nextUrl.searchParams.get("url");
 
   if (!chapterUrl) {
     return NextResponse.json({ error: "Missing url parameter" }, { status: 400 });
   }
 
-  const allowed = ["demonicscans.org", "asurascans.com", "scythescans.com", "webtoons.com"];
+  const allowed = [
+    "demonicscans.org",
+    "asurascans.com",
+    "scythescans.com",
+    "webtoons.com",
+  ];
   let isAllowed = false;
   try {
     const parsed = new URL(chapterUrl);
-    isAllowed = allowed.some(d => parsed.hostname.includes(d));
+    isAllowed = allowed.some((d) => parsed.hostname.includes(d));
   } catch {
     return NextResponse.json({ error: "Invalid URL" }, { status: 400 });
   }
-
   if (!isAllowed) {
     return NextResponse.json({ error: "Source not supported" }, { status: 403 });
   }
 
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 20000);
-    const res = await fetch(chapterUrl, {
-      headers: { ...HEADERS, Referer: chapterUrl },
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
+    // ────────────────────────────────────────────
+    //  WEBTOONS — dedicated path
+    // ────────────────────────────────────────────
+    if (chapterUrl.includes("webtoons.com")) {
+      return await handleWebtoon(chapterUrl);
+    }
 
-    if (!res.ok) {
+    // ────────────────────────────────────────────
+    //  All other sources
+    // ────────────────────────────────────────────
+    const html = await fetchPage(chapterUrl, {
+      ...BASE_HEADERS,
+      Referer: chapterUrl,
+    });
+    if (!html) {
       return NextResponse.json({ error: "Failed to fetch chapter" }, { status: 502 });
     }
 
-    const html = await res.text();
     const $ = cheerio.load(html);
     const images: string[] = [];
     const seen = new Set<string>();
 
-    // Asura fast-path from embedded JSON-like page URLs
+    // Asura fast-path
     if (chapterUrl.includes("asurascans.com")) {
-      const pageUrlMatches = html.matchAll(/https:\/\/cdn\.asurascans\.com\/asura-images\/chapters\/[^"'\\]+?\.(?:jpg|jpeg|png|webp|gif|avif)(?:\?v=\d+)?/gi);
-      for (const m of pageUrlMatches) {
+      for (const m of html.matchAll(
+        /https:\/\/cdn\.asurascans\.com\/asura-images\/chapters\/[^"'\\]+?\.(?:jpg|jpeg|png|webp|gif|avif)(?:\?v=\d+)?/gi
+      )) {
         const src = m[0].replace(/\\\//g, "/");
-        if (!seen.has(src)) { seen.add(src); images.push(src); }
-      }
-      if (images.length > 0) {
-        return NextResponse.json({ images, count: images.length, source: chapterUrl }, { headers: { "Cache-Control": "public, max-age=3600" } });
-      }
-    }
-
-    // WEBTOON fast-path: real episode panels are in #_imageList img[data-url]
-    // WEBTOON CDN requires Referer header, so proxy through /api/img
-    if (chapterUrl.includes("webtoons.com")) {
-      $("#_imageList img._images, #_imageList img[data-url]").each((_, el) => {
-        const src = $(el).attr("data-url") || $(el).attr("data-src") || "";
-        if (src && !seen.has(src) && isImageUrl(src)) {
+        if (!seen.has(src)) {
           seen.add(src);
-          // Proxy through our own image endpoint so the browser can load them
-          images.push(`/api/img?url=${encodeURIComponent(src)}`);
+          images.push(src);
         }
-      });
+      }
       if (images.length > 0) {
-        return NextResponse.json(
-          { images, count: images.length, source: chapterUrl },
-          { headers: { "Cache-Control": "public, max-age=3600" } }
-        );
+        return ok(images, chapterUrl);
       }
     }
 
+    // Generic manga-reader selectors
     const selectors = [
-      "#readerarea img", ".reading-content img", ".page-break img",
-      ".rdminimal img", ".ch-images img", "#chapter-images img",
-      ".container-chapter-reader img", ".wp-manga-chapter-img",
-      ".reading-manga img", ".chapter-content img", ".manga-reader img",
-      ".entry-content img", "#content img", "main img", "article img",
+      "#readerarea img",
+      ".reading-content img",
+      ".page-break img",
+      ".rdminimal img",
+      ".ch-images img",
+      "#chapter-images img",
+      ".container-chapter-reader img",
+      ".wp-manga-chapter-img",
+      ".reading-manga img",
+      ".chapter-content img",
+      ".manga-reader img",
+      ".entry-content img",
+      "#content img",
+      "main img",
+      "article img",
     ];
 
     for (const sel of selectors) {
       $(sel).each((_, el) => {
-        const src = $(el).attr("data-src") || $(el).attr("data-lazy-src") || $(el).attr("src") || "";
-        if (src && !seen.has(src) && isImageUrl(src)) { seen.add(src); images.push(src); }
+        const src =
+          $(el).attr("data-src") ||
+          $(el).attr("data-lazy-src") ||
+          $(el).attr("src") ||
+          "";
+        if (src && !seen.has(src) && isPanel(src)) {
+          seen.add(src);
+          images.push(src);
+        }
       });
       if (images.length >= 3) break;
     }
 
+    // Fallback — all large images
     if (images.length < 3) {
       $("img").each((_, el) => {
-        const src = $(el).attr("data-src") || $(el).attr("data-lazy-src") || $(el).attr("src") || "";
-        const width = parseInt($(el).attr("width") || "0");
-        const height = parseInt($(el).attr("height") || "0");
-        if (!src || seen.has(src) || !isImageUrl(src)) return;
-        if (width > 0 && width < 200) return;
-        if (height > 0 && height < 200) return;
-        const lower = src.toLowerCase();
-        if (lower.includes("logo") || lower.includes("avatar") || lower.includes("icon") ||
-            lower.includes("banner") || lower.includes("ad-") || lower.includes("ads/") ||
-            lower.includes("ads.") || lower.includes("free_ad") || lower.includes("ad_") ||
-            lower.includes("favicon") || lower.includes("thumb") || lower.includes("emoji") ||
-            lower.includes("badge") || lower.includes("button") || lower.includes("spinner") ||
-            lower.includes("loading") || lower.includes("pixel") || lower.includes("tracking") ||
-            lower.includes("analytics") || lower.includes("1x1") || lower.includes("demon-title") ||
-            lower.includes("demon-logo") || lower.includes("noimg") || lower.includes("/img/logo") ||
-            lower.includes("cropped-") || lower.includes("site-logo") || lower.includes("header-") ||
-            lower.includes("footer-") || lower.includes("discord") || lower.includes("paypal") ||
-            lower.includes("patreon") || lower.includes("social")) return;
+        const src =
+          $(el).attr("data-src") ||
+          $(el).attr("data-lazy-src") ||
+          $(el).attr("src") ||
+          "";
+        if (!src || seen.has(src) || !isPanel(src)) return;
+        const w = parseInt($(el).attr("width") || "0");
+        const h = parseInt($(el).attr("height") || "0");
+        if ((w > 0 && w < 200) || (h > 0 && h < 200)) return;
+        if (isJunk(src)) return;
         seen.add(src);
         images.push(src);
       });
     }
 
-    return NextResponse.json({ images, count: images.length, source: chapterUrl }, { headers: { "Cache-Control": "public, max-age=3600" } });
+    return ok(images, chapterUrl);
   } catch {
     return NextResponse.json({ error: "Failed to load chapter" }, { status: 500 });
   }
 }
 
-function isImageUrl(url: string): boolean {
-  if (!url || url.startsWith("data:") || url.startsWith("/") || url.startsWith("./")) return false;
-  const lower = url.toLowerCase();
-  if (!lower.startsWith("http")) return false;
-  return (
-    lower.includes(".jpg") || lower.includes(".jpeg") || lower.includes(".png") ||
-    lower.includes(".webp") || lower.includes(".gif") || lower.includes(".avif") ||
-    lower.includes("/images/") || lower.includes("/uploads/") || lower.includes("/manga/") ||
-    lower.includes("/chapter/") || lower.includes("/comics/")
+// ──────────────────────────────────────────────────────────────
+//  WEBTOONS handler
+// ──────────────────────────────────────────────────────────────
+
+async function handleWebtoon(chapterUrl: string) {
+  const headers: Record<string, string> = {
+    ...BASE_HEADERS,
+    Cookie: webtoonCookies(),
+    Referer: "https://www.webtoons.com/",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "same-origin",
+    "Upgrade-Insecure-Requests": "1",
+  };
+
+  const html = await fetchPage(chapterUrl, headers);
+  if (!html) {
+    return NextResponse.json({ error: "Failed to fetch chapter" }, { status: 502 });
+  }
+
+  const images = extractWebtoonImages(html);
+
+  // If the first fetch returned the age-gate page (0 images), retry once.
+  if (images.length === 0) {
+    const retry = await fetchPage(chapterUrl, headers);
+    if (retry) {
+      const retryImages = extractWebtoonImages(retry);
+      if (retryImages.length > 0) {
+        return ok(retryImages, chapterUrl);
+      }
+    }
+  }
+
+  return ok(images, chapterUrl);
+}
+
+/**
+ * Pull all panel images from a Webtoons viewer page.
+ * Returns /api/img proxy URLs so the browser can load them
+ * (the CDN requires Referer: https://www.webtoons.com/).
+ */
+function extractWebtoonImages(html: string): string[] {
+  const $ = cheerio.load(html);
+  const images: string[] = [];
+  const seen = new Set<string>();
+
+  // ① Primary: #_imageList img._images (the real panels)
+  $("#_imageList img._images, #_imageList img[data-url]").each((_, el) => {
+    const src = $(el).attr("data-url") || $(el).attr("data-src") || "";
+    if (src && !seen.has(src) && src.startsWith("http")) {
+      seen.add(src);
+      images.push(proxyUrl(src));
+    }
+  });
+  if (images.length > 0) return images;
+
+  // ② Fallback: viewer content images
+  $(".content_image img, .viewer_img img, .viewer_lst img").each((_, el) => {
+    const src =
+      $(el).attr("data-url") || $(el).attr("data-src") || $(el).attr("src") || "";
+    if (src && !seen.has(src) && src.startsWith("http") && !isJunk(src)) {
+      seen.add(src);
+      images.push(proxyUrl(src));
+    }
+  });
+  if (images.length > 0) return images;
+
+  // ③ Regex fallback: find all webtoon CDN image URLs in raw HTML
+  //    These are the full-resolution panel images, NOT thumbnails.
+  //    Thumbnails contain "/thumb_" in the path; panels don't.
+  for (const m of html.matchAll(
+    /https:\/\/webtoon-phinf\.pstatic\.net\/[^"'\s\\]+\.(?:jpg|jpeg|png|webp)\?type=q\d+/gi
+  )) {
+    const src = m[0];
+    if (!seen.has(src) && !src.includes("/thumb_") && !src.includes("thumbnail")) {
+      seen.add(src);
+      images.push(proxyUrl(src));
+    }
+  }
+
+  return images;
+}
+
+/** Wrap a Webtoon CDN URL through our /api/img proxy. */
+function proxyUrl(raw: string): string {
+  return `/api/img?url=${encodeURIComponent(raw)}`;
+}
+
+// ──────────────────────────────────────────────────────────────
+//  Helpers
+// ──────────────────────────────────────────────────────────────
+
+async function fetchPage(
+  url: string,
+  headers: Record<string, string>
+): Promise<string | null> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
+    const res = await fetch(url, {
+      headers,
+      signal: controller.signal,
+      redirect: "follow",
+    });
+    clearTimeout(timeout);
+    if (!res.ok) return null;
+    return await res.text();
+  } catch {
+    return null;
+  }
+}
+
+function ok(images: string[], source: string) {
+  return NextResponse.json(
+    { images, count: images.length, source },
+    { headers: { "Cache-Control": "public, max-age=3600" } }
   );
+}
+
+function isPanel(url: string): boolean {
+  if (!url || url.startsWith("data:") || url.startsWith("/") || url.startsWith("./"))
+    return false;
+  const l = url.toLowerCase();
+  if (!l.startsWith("http")) return false;
+  return (
+    l.includes(".jpg") ||
+    l.includes(".jpeg") ||
+    l.includes(".png") ||
+    l.includes(".webp") ||
+    l.includes(".gif") ||
+    l.includes(".avif") ||
+    l.includes("/images/") ||
+    l.includes("/uploads/") ||
+    l.includes("/manga/") ||
+    l.includes("/chapter/") ||
+    l.includes("/comics/")
+  );
+}
+
+const JUNK = [
+  "logo","avatar","icon","banner","ad-","ads/","ads.","free_ad","ad_",
+  "favicon","thumb","emoji","badge","button","spinner","loading","pixel",
+  "tracking","analytics","1x1","demon-title","demon-logo","noimg",
+  "/img/logo","cropped-","site-logo","header-","footer-","discord",
+  "paypal","patreon","social",
+];
+
+function isJunk(src: string): boolean {
+  const l = src.toLowerCase();
+  return JUNK.some((j) => l.includes(j));
 }

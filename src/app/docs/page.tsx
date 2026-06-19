@@ -81,6 +81,43 @@ export default function DocsPage() {
             </div>
           </div>
         </section>
+
+        {/* Endpoints */}
+        <section className="mb-8 sm:mb-12 space-y-4">
+          <h3 className="text-lg sm:text-xl font-bold mb-4">Endpoints</h3>
+
+          <EndpointCard
+            method="GET"
+            path="/api/search"
+            description="Search for manga/manhwa/manhua/anime/donghua/webtoon across multiple sources in parallel."
+            params={[{ name: "q", type: "string", required: true, desc: "Search query (min 2 chars, max 100 chars)" }]}
+            example={`GET /api/search?q=solo+leveling\n\n{\n  "success": true,\n  "results": [...],\n  "count": 4,\n  "query": "solo leveling"\n}`}
+          />
+
+          <EndpointCard
+            method="GET"
+            path="/api/trending"
+            description="Returns trending titles aggregated across all connected sources, paginated at 30 results per page."
+            params={[{ name: "page", type: "number", required: false, desc: "Page number (1–17), defaults to 1" }]}
+            example={`GET /api/trending?page=1\n\n{\n  "success": true,\n  "results": [...],\n  "count": 30,\n  "page": 1,\n  "hasMore": true\n}`}
+          />
+
+          <EndpointCard
+            method="GET"
+            path="/api/reader"
+            description="Fetches a chapter page, extracts manga panel images, and returns them as a JSON array of image URLs."
+            params={[{ name: "url", type: "string", required: true, desc: "Chapter URL from a supported source" }]}
+            example={`GET /api/reader?url=https://...\n\n{\n  "images": ["https://..."],\n  "count": 42,\n  "source": "https://..."\n}`}
+          />
+
+          <EndpointCard
+            method="GET"
+            path="/api/health"
+            description="Health check endpoint. Returns ok: true when the service is running."
+            params={[]}
+            example={`GET /api/health\n\n{ "ok": true }`}
+          />
+        </section>
       </main>
 
       <footer className="border-t border-border-subtle py-6">
@@ -98,4 +135,47 @@ export default function DocsPage() {
 
 function Badge({ label, value }: { label: string; value: string }) {
   return <div className="flex items-center gap-2 bg-bg-card border border-border-subtle rounded-lg px-2.5 sm:px-3 py-1.5 sm:py-2"><span className="text-[10px] sm:text-xs text-text-muted">{label}:</span><span className="text-[10px] sm:text-xs text-white font-mono">{value}</span></div>;
+}
+
+function EndpointCard({ method, path, description, params, example }: {
+  method: string;
+  path: string;
+  description: string;
+  params: { name: string; type: string; required: boolean; desc: string }[];
+  example: string;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="glass-card rounded-xl overflow-hidden border border-border-subtle">
+      <button onClick={() => setOpen(!open)} className="w-full flex items-center gap-3 p-4 sm:p-5 text-left cursor-pointer hover:bg-bg-hover transition-colors focus:outline-none">
+        <span className="px-2 py-0.5 text-xs font-bold rounded bg-green-500/10 text-green-400 border border-green-500/20 flex-shrink-0">{method}</span>
+        <code className="text-sm font-mono text-white flex-1">{path}</code>
+        <svg className={`w-4 h-4 text-text-muted transition-transform ${open ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+      </button>
+      {open && (
+        <div className="border-t border-border-subtle p-4 sm:p-5 space-y-4">
+          <p className="text-text-secondary text-sm">{description}</p>
+          {params.length > 0 && (
+            <div>
+              <h4 className="text-xs text-text-muted uppercase tracking-wider mb-2">Parameters</h4>
+              <div className="space-y-2">
+                {params.map(p => (
+                  <div key={p.name} className="flex flex-wrap gap-2 items-start bg-bg-primary rounded-lg p-3 border border-border-subtle">
+                    <code className="text-xs font-mono text-white">{p.name}</code>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-text-muted">{p.type}</span>
+                    {p.required && <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400">required</span>}
+                    <span className="text-xs text-text-secondary flex-1">{p.desc}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          <div>
+            <h4 className="text-xs text-text-muted uppercase tracking-wider mb-2">Example</h4>
+            <pre className="bg-bg-primary rounded-lg p-3 border border-border-subtle overflow-x-auto text-[10px] sm:text-xs text-green-400/80 font-mono">{example}</pre>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }

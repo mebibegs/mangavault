@@ -57,6 +57,49 @@ async function fetchSafe(url: string): Promise<string | null> {
   }
 }
 
+/**
+ * Webtoons-specific fetch that includes cookies to bypass the mature content
+ * age gate dialog ("This series contains adult themes...").  Without these
+ * cookies the server may return a page that only shows the age-gate popup,
+ * and the scraper finds zero chapter / viewer links.
+ */
+async function fetchSafeWebtoon(url: string): Promise<string | null> {
+  try {
+    const now = Date.now();
+    const cookies = [
+      `ageGateV2=${now}`,
+      `needGDPR=N`,
+      `needCCPA=N`,
+      `needCOPPA=N`,
+      `pagGDPR=true`,
+      `contentRating=adult`,
+      `locale=en`,
+      `country=US`,
+      `timezoneOffset=-300`,
+    ].join("; ");
+
+    const res = await fetchWithTimeout(url, {
+      headers: {
+        Cookie: cookies,
+        Referer: "https://www.webtoons.com/",
+        "sec-ch-ua": '"Google Chrome";v="125", "Chromium";v="125", "Not.A/Brand";v="24"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"Windows"',
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "same-origin",
+        "Sec-Fetch-User": "?1",
+        "Upgrade-Insecure-Requests": "1",
+      },
+      redirect: "follow",
+    });
+    if (!res.ok) return null;
+    return await res.text();
+  } catch {
+    return null;
+  }
+}
+
 function splitChapterTitleAndDate(raw: string): { title: string; date: string } {
   const cleaned = raw.replace(/\s+/g, " ").trim();
   const datePatterns = [
@@ -273,17 +316,17 @@ function parseSource2ListingPage(html: string): MangaResult[] {
     $("a[href*='/manga/']").each((_, el) => {
       const href = $(el).attr("href");
       if (!href || href.includes("/manga/page/")) return;
-      
+
       const fullUrl = href.startsWith("http") ? href : `https://demonicscans.org${href}`;
-      
+
       // Get the image inside or nearby
       const img = $(el).find("img").attr("src") || $(el).find("img").attr("data-src") || "";
-      
+
       // Title
       let title = $(el).find("h3, h4, h5, .manga-title, .title").text().trim();
       if (!title) title = $(el).attr("title") || "";
       if (!title) title = $(el).text().trim();
-      
+
       if (!title || title.length < 3) return;
       if (results.find(r => r.url === fullUrl)) return;
 
@@ -338,7 +381,7 @@ async function browseSource2(page: number): Promise<MangaResult[]> {
     ];
     const htmls = await Promise.all(urls.map(u => fetchSafe(u)));
     const allResults: MangaResult[] = [];
-    
+
     for (const html of htmls) {
       if (!html) continue;
       const listing = parseSource2ListingPage(html);
@@ -419,31 +462,31 @@ function parseSource3ListingPage(html: string): MangaResult[] {
   try {
     const $ = cheerio.load(html);
     const results: MangaResult[] = [];
-    
+
     // Madara theme manga items
     $(".page-item-detail, .manga, article").each((_, el) => {
       const link = $(el).find("a[href*='/manga/']").first();
       const href = link.attr("href");
       if (!href || !href.includes("/manga/")) return;
-      
+
       const fullUrl = href.startsWith("http") ? href : `https://scythescans.com${href}`;
       let title = $(el).find(".post-title h3 a, .post-title h5 a, h3 a, h5 a").text().trim();
       if (!title) title = link.attr("title") || link.text().trim();
       const coverUrl = $(el).find("img").attr("data-src") || $(el).find("img").attr("src") || "";
-      
+
       const ratingEl = $(el).find(".score, .total_votes, .rating");
       let rating = "N/A";
       if (ratingEl.length) {
         const rm = ratingEl.text().trim().match(/(\d+\.?\d*)/);
         if (rm && parseFloat(rm[1]) <= 10) rating = rm[1];
       }
-      
+
       const chEl = $(el).find(".chapter, .btn-link, a[href*='chapter']").first();
       const latestCh = chEl.text().trim();
-      
+
       if (!title || title.length < 3) return;
       if (results.find(r => r.url === fullUrl)) return;
-      
+
       results.push({
         title,
         description: "",
@@ -460,7 +503,7 @@ function parseSource3ListingPage(html: string): MangaResult[] {
         artist: "Unknown",
       });
     });
-    
+
     // Also scan raw links with images
     if (results.length === 0) {
       $("a[href*='/manga/']").each((_, el) => {
@@ -475,7 +518,7 @@ function parseSource3ListingPage(html: string): MangaResult[] {
         results.push({ title, description:"", rating:"N/A", status:"Ongoing", type:"Manhwa", genres:[], chapters:[], chapterCount:"0", coverUrl:img, url:fullUrl, source:"Source C", author:"Unknown", artist:"Unknown" });
       });
     }
-    
+
     return results;
   } catch { return []; }
 }
@@ -503,12 +546,12 @@ async function browseSource3(page: number): Promise<MangaResult[]> {
     ];
     const htmls = await Promise.all(urls.map(u => fetchSafe(u)));
     const allResults: MangaResult[] = [];
-    
+
     for (const html of htmls) {
       if (!html) continue;
       allResults.push(...parseSource3ListingPage(html));
     }
-    
+
     // Fetch details for items without descriptions (limit to 10 per batch)
     const needsDetail = allResults.filter(r => !r.description).slice(0, 10);
     if (needsDetail.length > 0) {
@@ -523,7 +566,7 @@ async function browseSource3(page: number): Promise<MangaResult[]> {
         }
       }
     }
-    
+
     return allResults;
   } catch { return []; }
 }
@@ -536,7 +579,7 @@ async function browseSource3(page: number): Promise<MangaResult[]> {
 
 async function searchSource4(query: string): Promise<MangaResult[]> {
   try {
-    const html = await fetchSafe(`https://www.webtoons.com/en/search?keyword=${encodeURIComponent(query)}`);
+    const html = await fetchSafeWebtoon(`https://www.webtoons.com/en/search?keyword=${encodeURIComponent(query)}`);
     if (!html) return [];
 
     const results: MangaResult[] = [];
@@ -563,9 +606,9 @@ async function searchSource4(query: string): Promise<MangaResult[]> {
     // Fetch detail pages for top results (limit to 6 for speed)
     const detailPromises = cardData.slice(0, 6).map(async (card) => {
       try {
-        const detailHtml = await fetchSafe(card.href);
+        const detailHtml = await fetchSafeWebtoon(card.href);
         if (!detailHtml) return null;
-        return parseWebtoonDetail(detailHtml, card.href, card.coverUrl);
+        return parseWebtoonDetailAsync(detailHtml, card.href, card.coverUrl);
       } catch { return null; }
     });
 
@@ -578,7 +621,51 @@ async function searchSource4(query: string): Promise<MangaResult[]> {
   }
 }
 
-function parseWebtoonDetail(html: string, url: string, fallbackCover: string): MangaResult | null {
+/** Extract chapters from a single webtoon HTML page */
+function extractWebtoonChapters($: cheerio.CheerioAPI): ChapterInfo[] {
+  const chapters: ChapterInfo[] = [];
+  $("a[href*='/viewer?']").each((_, el) => {
+    const chUrl = $(el).attr("href") || "";
+    if (!chUrl) return;
+    const fullUrl = chUrl.startsWith("http") ? chUrl : `https://www.webtoons.com${chUrl}`;
+
+    // Get the innermost span inside .subj to avoid duplicated text
+    let chTitle = "";
+    const innerSpan = $(el).find(".subj span");
+    if (innerSpan.length) {
+      chTitle = innerSpan.first().text().trim();
+    } else {
+      const subjEl = $(el).find(".subj");
+      if (subjEl.length) chTitle = subjEl.first().text().trim();
+    }
+    if (!chTitle) {
+      chTitle = $(el).text().replace(/\s+/g, " ").trim();
+    }
+
+    const dateEl = $(el).closest("li, .episode_item").find(".date, .sub_date, time");
+    const date = dateEl.text().trim();
+
+    if (chTitle && !chapters.find(c => c.url === fullUrl)) {
+      chapters.push({ title: chTitle, url: fullUrl, date });
+    }
+  });
+  return chapters;
+}
+
+/** Find total number of episode pages from pagination links */
+function getWebtoonMaxPage($: cheerio.CheerioAPI): number {
+  let maxPage = 1;
+  const pageLinks = new Set<number>();
+  $("a[href*='page=']").each((_, el) => {
+    const href = $(el).attr("href") || "";
+    const m = href.match(/page=(\d+)/);
+    if (m) pageLinks.add(parseInt(m[1]));
+  });
+  for (const p of pageLinks) if (p > maxPage) maxPage = p;
+  return maxPage;
+}
+
+async function parseWebtoonDetailAsync(html: string, url: string, fallbackCover: string): Promise<MangaResult | null> {
   try {
     const $ = cheerio.load(html);
 
@@ -594,7 +681,6 @@ function parseWebtoonDetail(html: string, url: string, fallbackCover: string): M
     // Description from og:description
     let description = $('meta[property="og:description"]').attr("content") || "";
     if (!description) description = $('meta[name="description"]').attr("content") || "";
-    // Clean HTML entities
     description = description.replace(/&mdash;/g, "—").replace(/&amp;/g, "&").replace(/&quot;/g, '"').trim();
 
     // Rating from grade_num
@@ -624,34 +710,27 @@ function parseWebtoonDetail(html: string, url: string, fallbackCover: string): M
     if (pageText.includes("completed")) status = "Completed";
     if (pageText.includes("hiatus")) status = "Hiatus";
 
-    // Episodes/chapters
-    const chapters: ChapterInfo[] = [];
-    $("a[href*='/viewer?']").each((_, el) => {
-      const chUrl = $(el).attr("href") || "";
-      if (!chUrl) return;
-      const fullUrl = chUrl.startsWith("http") ? chUrl : `https://www.webtoons.com${chUrl}`;
+    // Episodes/chapters from first page
+    let chapters = extractWebtoonChapters($);
 
-      // Get the innermost span inside .subj to avoid duplicated text
-      let chTitle = "";
-      const innerSpan = $(el).find(".subj span");
-      if (innerSpan.length) {
-        chTitle = innerSpan.first().text().trim();
-      } else {
-        const subjEl = $(el).find(".subj");
-        if (subjEl.length) chTitle = subjEl.first().text().trim();
-      }
-      if (!chTitle) {
-        // Last resort: extract from the link text but remove date patterns
-        chTitle = $(el).text().replace(/\s+/g, " ").trim();
-      }
+    // Fetch remaining episode pages (Webtoons shows 10 per page).
+    // We fetch up to 30 extra pages in parallel to build a full chapter list.
+    const maxPage = getWebtoonMaxPage($);
+    if (maxPage > 1) {
+      const baseListUrl = url.replace(/[&?]page=\d+/, "");
+      const sep = baseListUrl.includes("?") ? "&" : "?";
+      const pagesToFetch: number[] = [];
+      for (let p = 2; p <= Math.min(maxPage, 31); p++) pagesToFetch.push(p);
 
-      const dateEl = $(el).closest("li, .episode_item").find(".date, .sub_date, time");
-      const date = dateEl.text().trim();
-
-      if (chTitle && !chapters.find(c => c.url === fullUrl)) {
-        chapters.push({ title: chTitle, url: fullUrl, date });
+      const pageHtmls = await Promise.all(
+        pagesToFetch.map(p => fetchSafeWebtoon(`${baseListUrl}${sep}page=${p}`))
+      );
+      for (const pageHtml of pageHtmls) {
+        if (!pageHtml) continue;
+        const $p = cheerio.load(pageHtml);
+        chapters = chapters.concat(extractWebtoonChapters($p));
       }
-    });
+    }
 
     const uniqueChapters = dedupeChapters(chapters);
 
@@ -678,7 +757,7 @@ function parseWebtoonDetail(html: string, url: string, fallbackCover: string): M
 async function browseSource4(_page: number): Promise<MangaResult[]> {
   try {
     // Webtoons popular page
-    const html = await fetchSafe("https://www.webtoons.com/en/top");
+    const html = await fetchSafeWebtoon("https://www.webtoons.com/en/top");
     if (!html) return [];
     const $ = cheerio.load(html);
 

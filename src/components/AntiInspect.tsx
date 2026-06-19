@@ -17,31 +17,31 @@ export default function AntiInspect() {
         e.preventDefault();
         return false;
       }
-      
+
       // Ctrl+Shift+I (DevTools)
       if (e.ctrlKey && e.shiftKey && e.key === "I") {
         e.preventDefault();
         return false;
       }
-      
+
       // Ctrl+Shift+J (Console)
       if (e.ctrlKey && e.shiftKey && e.key === "J") {
         e.preventDefault();
         return false;
       }
-      
+
       // Ctrl+Shift+C (Inspect Element)
       if (e.ctrlKey && e.shiftKey && e.key === "C") {
         e.preventDefault();
         return false;
       }
-      
+
       // Ctrl+U (View Source)
       if (e.ctrlKey && e.key === "u") {
         e.preventDefault();
         return false;
       }
-      
+
       // Ctrl+S (Save Page)
       if (e.ctrlKey && e.key === "s") {
         e.preventDefault();
@@ -70,11 +70,11 @@ export default function AntiInspect() {
     // Detect DevTools by checking window size difference
     let devToolsOpen = false;
     const threshold = 160;
-    
+
     const checkDevTools = () => {
       const widthThreshold = window.outerWidth - window.innerWidth > threshold;
       const heightThreshold = window.outerHeight - window.innerHeight > threshold;
-      
+
       if (widthThreshold || heightThreshold) {
         if (!devToolsOpen) {
           devToolsOpen = true;
@@ -132,10 +132,10 @@ export default function AntiInspect() {
     document.addEventListener("keydown", handleKeyDown);
     document.addEventListener("selectstart", disableSelect);
     document.addEventListener("dragstart", disableDrag);
-    
+
     // Check for DevTools periodically
     const devToolsInterval = setInterval(checkDevTools, 1000);
-    
+
     // Run debugger trap occasionally (not too often to avoid performance issues)
     const debuggerInterval = setInterval(debuggerTrap, 3000);
 

@@ -106,7 +106,6 @@ export default function Home() {
       <main className="flex-1 flex flex-col">
         {/* ─── Hero with Shader Background ─── */}
         <div className={`relative transition-all duration-700 ease-out ${showHero ? "pt-0" : "pt-6 sm:pt-8"}`}>
-          {/* Change 1: WebGL shader background behind hero */}
           {showHero && (
             <div className="absolute inset-0 overflow-hidden" style={{ height: "100%", maxHeight: "520px" }}>
               <ShaderBackground />
@@ -138,7 +137,7 @@ export default function Home() {
               </p>
             </div>
 
-            {/* ─── Change 2: Animated Search Bar ─── */}
+            {/* ─── Animated Search Bar ─── */}
             <form onSubmit={handleSearch} className="relative" role="search" aria-label="Search manga and manhwa">
               <div className="relative flex items-center justify-center group">
                 {/* Glow layers */}
@@ -178,7 +177,7 @@ export default function Home() {
               </div>
             )}
 
-            {/* ─── Change 3: Orbital loader replaces step-by-step indicator ─── */}
+            {/* Orbital loader */}
             {isSearching && (
               <div className="mt-8 mb-4 animate-fade-in-up">
                 <OrbitalLoader message={statusText} />
@@ -197,7 +196,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* ─── Change 4: Ink Reveal overlay between hero and trending ─── */}
+        {/* Ink Reveal overlay between hero and trending */}
         {showTrending && trendingResults.length > 0 && (
           <div className="relative w-full" style={{ height: "120px" }}>
             <InkReveal />
@@ -285,7 +284,7 @@ function Pagination({ currentPage, hasMore, onPageChange }: { currentPage: numbe
     <div className="flex items-center justify-center gap-1.5 sm:gap-2" role="navigation" aria-label="Pagination">
       <button onClick={() => onPageChange(currentPage - 1)} disabled={currentPage <= 1} aria-label="Previous page" className="flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl border border-border-subtle bg-bg-card text-text-secondary text-xs sm:text-sm hover:bg-bg-hover hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/20"><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg><span className="hidden sm:inline">Prev</span></button>
       {vis().map((p, i) => p === "..." ? <span key={`d${i}`} className="px-1.5 py-2 text-text-muted text-xs">…</span> : (
-        <button key={p} onClick={() => onPageChange(p)} aria-label={`Page ${p}`} aria-current={p === currentPage ? "page" : undefined} className={`min-w-[36px] sm:min-w-[40px] h-9 sm:h-10 rounded-xl text-xs sm:text-sm font-medium transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/20 ${p === currentPage ? "bg-white text-black" : "border border-border-subtle bg-bg-card text-text-secondary hover:bg-bg-hover hover:text-white"}`}>{p}</button>
+        <button key={p} onClick={() => onPageChange(p as number)} aria-label={`Page ${p}`} aria-current={p === currentPage ? "page" : undefined} className={`min-w-[36px] sm:min-w-[40px] h-9 sm:h-10 rounded-xl text-xs sm:text-sm font-medium transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/20 ${p === currentPage ? "bg-white text-black" : "border border-border-subtle bg-bg-card text-text-secondary hover:bg-bg-hover hover:text-white"}`}>{p}</button>
       ))}
       <button onClick={() => onPageChange(currentPage + 1)} disabled={!hasMore} aria-label="Next page" className="flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl border border-border-subtle bg-bg-card text-text-secondary text-xs sm:text-sm hover:bg-bg-hover hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/20"><span className="hidden sm:inline">Next</span><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg></button>
     </div>
@@ -496,7 +495,7 @@ function DetailModal({ result, showChapters, onToggleChapters, onClose }: { resu
         )}
 
         {/* No images found */}
-        {!readerLoading && !readerError && readerImages.length === 0 && !readerLoading && (
+        {!readerLoading && !readerError && readerImages.length === 0 && (
           <div className="flex-1 flex items-center justify-center px-6">
             <div className="text-center">
               <p className="text-text-muted text-sm mb-3">No images could be extracted from this chapter.</p>
