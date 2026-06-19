@@ -2,18 +2,10 @@
 
 import { Fragment, useState, useRef, useCallback, useEffect } from "react";
 import dynamic from "next/dynamic";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
+
 
 const ShaderBackground = dynamic(() => import("@/components/ShaderBackground"), { ssr: false });
-const InkReveal = dynamic(() => import("@/components/InkReveal"), { ssr: false });
+
 const OrbitalLoader = dynamic(() => import("@/components/OrbitalLoader"), { ssr: false });
 
 interface ChapterInfo { title: string; url: string; date: string; }
@@ -31,7 +23,6 @@ const SAMPLE_QUERIES: { title: string; type: string }[] = [
   { title: "One Piece", type: "Manga" },
   { title: "Tower of God", type: "Manhwa" },
   { title: "Omniscient Reader", type: "Manhwa" },
-  { title: "Magic Emperor", type: "Manhua" },
 ];
 
 const PHASE_MESSAGES: Record<string, string> = {
@@ -45,10 +36,7 @@ export default function Home() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<MangaResult[]>([]);
   const [trendingResults, setTrendingResults] = useState<MangaResult[]>([]);
-  const [trendingPage, setTrendingPage] = useState(1);
-  const [hasMorePages, setHasMorePages] = useState(true);
   const [loadingTrending, setLoadingTrending] = useState(true);
-  const [loadingPage, setLoadingPage] = useState(false);
   const [phase, setPhase] = useState<SearchPhase>("idle");
   const [error, setError] = useState("");
   const [selectedResult, setSelectedResult] = useState<MangaResult | null>(null);
@@ -56,13 +44,15 @@ export default function Home() {
   const [statusText, setStatusText] = useState("");
   const abortRef = useRef<AbortController | null>(null);
 
-  const loadTrendingPage = useCallback(async (page: number) => {
-    if (page === 1) setLoadingTrending(true); else setLoadingPage(true);
-    try { const res = await fetch(`/api/trending?page=${page}`); if (res.ok) { const d = await res.json(); setTrendingResults(d.results || []); setTrendingPage(d.page || page); setHasMorePages(d.hasMore ?? false); } } catch { /* */ } finally { setLoadingTrending(false); setLoadingPage(false); }
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/trending?page=1");
+        if (res.ok) { const d = await res.json(); setTrendingResults(d.results || []); }
+      } catch { /* */ }
+      finally { setLoadingTrending(false); }
+    })();
   }, []);
-
-  useEffect(() => { loadTrendingPage(1); }, [loadTrendingPage]);
-  const goToPage = (p: number) => { window.scrollTo({ top: 0, behavior: "smooth" }); loadTrendingPage(p); };
 
   const handleSearch = useCallback(async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -91,7 +81,6 @@ export default function Home() {
 
   const showHero = results.length === 0 && phase !== "done";
   const isSearching = phase !== "idle" && phase !== "done" && phase !== "error";
-  const displayResults = results.length > 0 ? results : (phase === "idle" ? trendingResults : []);
   const showTrending = results.length === 0 && phase === "idle";
 
   return (
@@ -171,13 +160,13 @@ export default function Home() {
               </div>
             </form>
 
-            {/* Sample queries */}
+            {/* Sample queries — 2×2 mobile/tablet, 4 inline desktop */}
             {showHero && (
               <div className="mt-4 sm:mt-5 animate-fade-in-up relative" style={{ zIndex: 2 }}>
                 <p className="text-text-muted text-[11px] uppercase tracking-wider mb-2 text-center">Try a search</p>
-                <div className="flex flex-wrap justify-center gap-2 stagger-children">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 max-w-2xl mx-auto stagger-children">
                   {SAMPLE_QUERIES.map(s => (
-                    <button key={s.title} onClick={() => searchSample(s.title)} className="flex items-center gap-2 text-xs bg-bg-card border border-border-subtle rounded-lg px-3 py-2 hover:border-border-bright hover:text-white text-text-secondary transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/20 hover:translate-y-[-1px]">
+                    <button key={s.title} onClick={() => searchSample(s.title)} className="flex items-center justify-center gap-2 text-xs bg-bg-card border border-border-subtle rounded-lg px-3 py-2.5 hover:border-border-bright hover:text-white text-text-secondary transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/20 hover:translate-y-[-1px]">
                       <span className="font-medium text-white">{s.title}</span>
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-text-muted">{s.type}</span>
                     </button>
@@ -205,64 +194,35 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Ink Reveal overlay between hero and trending */}
-        {showTrending && trendingResults.length > 0 && (
-          <div className="relative w-full" style={{ height: "120px" }}>
-            <InkReveal />
-            <div className="absolute inset-0 flex items-center justify-center" style={{ zIndex: 2 }}>
-              <div className="flex items-center gap-3">
-                <div className="h-px w-16 sm:w-24 bg-gradient-to-r from-transparent to-border-subtle" />
-                <h3 className="text-xs sm:text-sm font-medium text-text-muted uppercase tracking-wider">Trending Now</h3>
-                <div className="h-px w-16 sm:w-24 bg-gradient-to-l from-transparent to-border-subtle" />
-              </div>
+        {/* ── Trending Now — horizontal scroll row ── */}
+        {showTrending && (
+          <TrendingRow
+            results={trendingResults}
+            loading={loadingTrending}
+            onCardClick={(r) => { setSelectedResult(r); setShowChapters(false); }}
+          />
+        )}
+
+        {/* ── Search results grid (only when user searched) ── */}
+        {results.length > 0 && (
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-2 sm:mt-4 pb-8 w-full">
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 sm:gap-4 stagger-children">
+              {results.map((result, idx) => (
+                <ResultCard key={`${result.title}-${result.source}-${idx}`} result={result} onClick={() => { setSelectedResult(result); setShowChapters(false); }} />
+              ))}
             </div>
           </div>
         )}
 
-        {/* Results Grid */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-2 sm:mt-4 pb-12 w-full">
-          {(loadingTrending || loadingPage) && (
-            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 sm:gap-4">
-              {[...Array(12)].map((_, i) => (
-                <div key={i} className="glass-card rounded-xl overflow-hidden animate-pulse" aria-hidden="true">
-                  <div className="aspect-[3/4] bg-bg-hover" />
-                  <div className="p-3 space-y-2">
-                    <div className="h-4 bg-bg-hover rounded w-3/4" />
-                    <div className="h-3 bg-bg-hover rounded w-1/2" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+        {/* ── Featured Promo Banner ── */}
+        {showHero && !loadingTrending && (
+          <div className="w-full pb-6 animate-fade-in-up">
+            <FeaturedBanner compact={false} />
+          </div>
+        )}
 
-          {!loadingTrending && !loadingPage && displayResults.length > 0 && (
-            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 sm:gap-4 stagger-children">
-              {displayResults.map((result, idx) => (
-                <Fragment key={`${result.title}-${result.source}-${idx}`}>
-                  <ResultCard result={result} onClick={() => { setSelectedResult(result); setShowChapters(false); }} />
-
-                  {/* Mobile / tablet: insert after item 2 */}
-                  {showTrending && showHero && idx === 1 && (
-                    <div className="col-span-full lg:hidden">
-                      <FeaturedBanner compact={false} />
-                    </div>
-                  )}
-
-                  {/* Laptop / desktop: insert after item 4 so the first row stays full */}
-                  {showTrending && showHero && idx === 3 && (
-                    <div className="hidden lg:block col-span-full">
-                      <FeaturedBanner compact={false} />
-                    </div>
-                  )}
-                </Fragment>
-              ))}
-            </div>
-          )}
-
-          {showTrending && !loadingTrending && !loadingPage && trendingResults.length > 0 && (
-            <div className="mt-8 animate-fade-in-up"><TrendingPagination currentPage={trendingPage} hasMore={hasMorePages} onPageChange={goToPage} /></div>
-          )}
-        </div>
+        {/* ── Genre Browser ── */}
+        {showHero && !loadingTrending && <GenreSection onCardClick={(r) => { setSelectedResult(r); setShowChapters(false); }} />}
 
 
       </main>
@@ -282,59 +242,154 @@ export default function Home() {
   );
 }
 
-/* ═══════════════════ PAGINATION ═══════════════════ */
-function TrendingPagination({ currentPage, hasMore, onPageChange }: { currentPage: number; hasMore: boolean; onPageChange: (p: number) => void }) {
-  const total = 17;
 
-  const visiblePages = (): (number | "...")[] => {
-    const pages: (number | "...")[] = [];
-    if (total <= 7) {
-      for (let i = 1; i <= total; i++) pages.push(i);
-      return pages;
-    }
-    pages.push(1);
-    if (currentPage > 3) pages.push("...");
-    for (let i = Math.max(2, currentPage - 1); i <= Math.min(total - 1, currentPage + 1); i++) pages.push(i);
-    if (currentPage < total - 2) pages.push("...");
-    pages.push(total);
-    return pages;
+/* ═══════════════════ GENRE SECTION ═══════════════════ */
+const HOMEPAGE_GENRES = ["Action", "Fantasy", "Romance", "Comedy", "Drama", "Sci-Fi"];
+
+function GenreButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`cursor-pointer group relative flex items-center gap-1.5 px-5 sm:px-6 py-2.5 sm:py-3 rounded-3xl transition font-bold shadow-md text-xs sm:text-sm flex-shrink-0 focus:outline-none uppercase tracking-wide ${
+        active
+          ? "bg-white text-black"
+          : "bg-black/80 text-white hover:bg-black/60 border border-white/10"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+function GenreSection({ onCardClick }: { onCardClick: (r: MangaResult) => void }) {
+  const [activeGenre, setActiveGenre] = useState(HOMEPAGE_GENRES[0]);
+  const [genreResults, setGenreResults] = useState<MangaResult[]>([]);
+  const [genreLoading, setGenreLoading] = useState(false);
+  const genreScrollRef = useRef<HTMLDivElement>(null);
+
+  const fetchGenre = useCallback(async (genre: string) => {
+    setGenreLoading(true);
+    setGenreResults([]);
+    try {
+      const res = await fetch(`/api/genres?q=${encodeURIComponent(genre)}`);
+      if (res.ok) {
+        const d = await res.json();
+        setGenreResults(d.results || []);
+      }
+    } catch { /* */ }
+    finally { setGenreLoading(false); }
+  }, []);
+
+  useEffect(() => { fetchGenre(activeGenre); }, [activeGenre, fetchGenre]);
+
+  const scrollGenre = (dir: "left" | "right") => {
+    if (!genreScrollRef.current) return;
+    const amount = genreScrollRef.current.clientWidth * 0.75;
+    genreScrollRef.current.scrollBy({ left: dir === "left" ? -amount : amount, behavior: "smooth" });
   };
 
   return (
-    <Pagination>
-      <PaginationContent>
-        <PaginationItem>
-          <PaginationPrevious
-            onClick={() => onPageChange(currentPage - 1)}
-            disabled={currentPage <= 1}
-          />
-        </PaginationItem>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-12 w-full animate-fade-in-up">
+      {/* Header row */}
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-base sm:text-lg font-bold text-white uppercase tracking-wider">Browse by Genre</h3>
+        <a href="/genres" className="text-xs sm:text-sm text-text-secondary hover:text-white transition-colors cursor-pointer flex items-center gap-1">
+          View All
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+        </a>
+      </div>
 
-        {visiblePages().map((page, i) =>
-          page === "..." ? (
-            <PaginationItem key={`ellipsis-${i}`}>
-              <PaginationEllipsis />
-            </PaginationItem>
-          ) : (
-            <PaginationItem key={page}>
-              <PaginationLink
-                isActive={page === currentPage}
-                onClick={() => onPageChange(page as number)}
-              >
-                {page}
-              </PaginationLink>
-            </PaginationItem>
-          )
+      {/* Genre pill buttons — 6 in a row, scrollable on small screens */}
+      <div className="flex gap-2 sm:gap-3 overflow-x-auto scrollbar-hide pb-3">
+        {HOMEPAGE_GENRES.map(g => (
+          <GenreButton key={g} label={g} active={g === activeGenre} onClick={() => setActiveGenre(g)} />
+        ))}
+      </div>
+
+      {/* Genre results — horizontal scroll row */}
+      <div className="mt-3">
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-text-muted text-xs sm:text-sm">{activeGenre} titles</p>
+          <div className="flex items-center gap-2">
+            <button onClick={() => scrollGenre("left")} aria-label="Scroll left" className="w-8 h-8 flex items-center justify-center rounded-full border border-border-subtle bg-bg-card text-text-secondary hover:bg-bg-hover hover:text-white transition-colors cursor-pointer focus:outline-none">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+            </button>
+            <button onClick={() => scrollGenre("right")} aria-label="Scroll right" className="w-8 h-8 flex items-center justify-center rounded-full border border-border-subtle bg-bg-card text-text-secondary hover:bg-bg-hover hover:text-white transition-colors cursor-pointer focus:outline-none">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+            </button>
+          </div>
+        </div>
+
+        {genreLoading ? (
+          <div className="flex gap-3 sm:gap-4 overflow-hidden">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="glass-card rounded-xl overflow-hidden animate-pulse flex-shrink-0 w-[42vw] sm:w-[200px] md:w-[220px] lg:w-[240px]">
+                <div className="aspect-[3/4] bg-bg-hover" />
+                <div className="p-3 space-y-2"><div className="h-4 bg-bg-hover rounded w-3/4" /><div className="h-3 bg-bg-hover rounded w-1/2" /></div>
+              </div>
+            ))}
+          </div>
+        ) : genreResults.length > 0 ? (
+          <div ref={genreScrollRef} className="flex gap-3 sm:gap-4 overflow-x-auto scroll-smooth pb-2 scrollbar-hide" style={{ scrollbarWidth: "none" }}>
+            {genreResults.map((result, idx) => (
+              <div key={`${result.title}-${result.source}-${idx}`} className="flex-shrink-0 w-[42vw] sm:w-[200px] md:w-[220px] lg:w-[240px]">
+                <ResultCard result={result} onClick={() => onCardClick(result)} />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="py-8 text-center"><p className="text-text-muted text-sm">No results found for {activeGenre}</p></div>
         )}
+      </div>
+    </div>
+  );
+}
 
-        <PaginationItem>
-          <PaginationNext
-            onClick={() => onPageChange(currentPage + 1)}
-            disabled={!hasMore}
-          />
-        </PaginationItem>
-      </PaginationContent>
-    </Pagination>
+/* ═══════════════════ TRENDING ROW (horizontal scroll) ═══════════════════ */
+function TrendingRow({ results, loading, onCardClick }: { results: MangaResult[]; loading: boolean; onCardClick: (r: MangaResult) => void }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const scroll = (dir: "left" | "right") => {
+    if (!scrollRef.current) return;
+    const amount = scrollRef.current.clientWidth * 0.75;
+    scrollRef.current.scrollBy({ left: dir === "left" ? -amount : amount, behavior: "smooth" });
+  };
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-4 sm:mt-6 w-full">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3 sm:mb-4">
+        <h3 className="text-base sm:text-lg font-bold text-white uppercase tracking-wider">Trending Now</h3>
+        <div className="flex items-center gap-2">
+          <button onClick={() => scroll("left")} aria-label="Scroll left" className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full border border-border-subtle bg-bg-card text-text-secondary hover:bg-bg-hover hover:text-white transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/20">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+          </button>
+          <button onClick={() => scroll("right")} aria-label="Scroll right" className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full border border-border-subtle bg-bg-card text-text-secondary hover:bg-bg-hover hover:text-white transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/20">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+          </button>
+        </div>
+      </div>
+
+      {/* Scrollable row */}
+      {loading ? (
+        <div className="flex gap-3 sm:gap-4 overflow-hidden">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="glass-card rounded-xl overflow-hidden animate-pulse flex-shrink-0 w-[42vw] sm:w-[200px] md:w-[220px] lg:w-[240px]" aria-hidden="true">
+              <div className="aspect-[3/4] bg-bg-hover" />
+              <div className="p-3 space-y-2"><div className="h-4 bg-bg-hover rounded w-3/4" /><div className="h-3 bg-bg-hover rounded w-1/2" /></div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div ref={scrollRef} className="flex gap-3 sm:gap-4 overflow-x-auto scroll-smooth pb-2 scrollbar-hide" style={{ scrollbarWidth: "none" }}>
+          {results.map((result, idx) => (
+            <div key={`${result.title}-${result.source}-${idx}`} className="flex-shrink-0 w-[42vw] sm:w-[200px] md:w-[220px] lg:w-[240px]">
+              <ResultCard result={result} onClick={() => onCardClick(result)} />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
