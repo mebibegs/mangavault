@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as cheerio from "cheerio";
+import { buildProxiedImageUrl, decryptImageToken } from "@/lib/crypto";
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
@@ -27,10 +28,19 @@ function webtoonCookies(): string {
 }
 
 export async function GET(req: NextRequest) {
-  const chapterUrl = req.nextUrl.searchParams.get("url");
+  let chapterUrl = req.nextUrl.searchParams.get("url");
 
   if (!chapterUrl) {
     return NextResponse.json({ error: "Missing url parameter" }, { status: 400 });
+  }
+
+  // If the URL is encrypted (enc_ prefix), decrypt it first
+  if (chapterUrl.startsWith("enc_")) {
+    try {
+      chapterUrl = decryptImageToken(chapterUrl.slice(4));
+    } catch {
+      return NextResponse.json({ error: "Invalid encrypted URL" }, { status: 403 });
+    }
   }
 
   const allowed = [
@@ -38,6 +48,9 @@ export async function GET(req: NextRequest) {
     "asurascans.com",
     "scythescans.com",
     "webtoons.com",
+    "manganato.gg",
+    "atsu.moe",
+    "omegascans.org",
   ];
   let isAllowed = false;
   try {
@@ -81,7 +94,7 @@ export async function GET(req: NextRequest) {
         const src = m[0].replace(/\\\//g, "/");
         if (!seen.has(src)) {
           seen.add(src);
-          images.push(src);
+          images.push(proxyUrl(src));
         }
       }
       if (images.length > 0) {
@@ -117,7 +130,7 @@ export async function GET(req: NextRequest) {
           "";
         if (src && !seen.has(src) && isPanel(src)) {
           seen.add(src);
-          images.push(src);
+          images.push(proxyUrl(src));
         }
       });
       if (images.length >= 3) break;
@@ -137,7 +150,7 @@ export async function GET(req: NextRequest) {
         if ((w > 0 && w < 200) || (h > 0 && h < 200)) return;
         if (isJunk(src)) return;
         seen.add(src);
-        images.push(src);
+        images.push(proxyUrl(src));
       });
     }
 
@@ -230,9 +243,9 @@ function extractWebtoonImages(html: string): string[] {
   return images;
 }
 
-/** Wrap a Webtoon CDN URL through our /api/img proxy. */
+/** Wrap an image URL through the encrypted image proxy. */
 function proxyUrl(raw: string): string {
-  return `/api/img?url=${encodeURIComponent(raw)}`;
+  return buildProxiedImageUrl(raw);
 }
 
 // ──────────────────────────────────────────────────────────────

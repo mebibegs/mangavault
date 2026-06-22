@@ -5,6 +5,9 @@ import { scrapeAllWebtoonGenres } from "./webtoon-genres";
 import { scrapeAllAsuraGenres } from "./asura-genres";
 import { scrapeAllDemonicTitles } from "./demonic-genres";
 import { scrapeAllScytheGenres } from "./scythe-genres";
+import { scrapeAllManganatoGenres } from "./manganato-scraper";
+import { scrapeAtsuTitles } from "./atsu-scraper";
+import { scrapeAllOmegaTitles } from "./omega-scraper";
 
 function normalizeTitleKey(title: string): string {
   return title.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -265,6 +268,34 @@ export async function deepSync(): Promise<SyncStats> {
   const scytheResults = await scrapeAllScytheGenres();
   if (scytheResults.length > 0) {
     const stats = await upsertResults(scytheResults);
+    inserted += stats.inserted;
+    updated += stats.updated;
+  }
+
+  // 6. Manganato genre pages (10 pages per genre)
+  const manganatoResults = await scrapeAllManganatoGenres(5);
+  if (manganatoResults.length > 0) {
+    for (let i = 0; i < manganatoResults.length; i += 200) {
+      const stats = await upsertResults(manganatoResults.slice(i, i + 200));
+      inserted += stats.inserted;
+      updated += stats.updated;
+    }
+  }
+
+  // 7. Atsu.moe titles from sitemap (first 500)
+  const atsuResults = await scrapeAtsuTitles(300);
+  if (atsuResults.length > 0) {
+    for (let i = 0; i < atsuResults.length; i += 200) {
+      const stats = await upsertResults(atsuResults.slice(i, i + 200));
+      inserted += stats.inserted;
+      updated += stats.updated;
+    }
+  }
+
+  // 8. OmegaScans (all ~270 titles via API)
+  const omegaResults = await scrapeAllOmegaTitles();
+  if (omegaResults.length > 0) {
+    const stats = await upsertResults(omegaResults);
     inserted += stats.inserted;
     updated += stats.updated;
   }

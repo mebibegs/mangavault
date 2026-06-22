@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getMongoDb } from "@/lib/mongodb";
 import { browseCatalog } from "@/lib/scraper";
 import { upsertResults } from "@/lib/sync";
+import { toSafeResult } from "@/lib/safeResult";
 import { logRequest } from "@/lib/logger";
 
 function getClientIp(req: NextRequest): string {
@@ -17,25 +18,16 @@ export async function GET(req: NextRequest) {
   const skip = (page - 1) * limit;
 
   try {
-    // Try MongoDB first
     const db = await getMongoDb();
     if (db) {
       const titles = db.collection("titles");
       const total = await titles.countDocuments();
-
       if (total > 0) {
-        const results = await titles
-          .find({})
-          .sort({ updatedAt: -1 })
-          .skip(skip)
-          .limit(limit)
-          .toArray();
-
+        const results = await titles.find({ source: { $ne: "Source G" } }).sort({ updatedAt: -1 }).skip(skip).limit(limit).toArray();
         logRequest({ ipAddress: ip, endpoint: "/api/trending", method: "GET", statusCode: 200 });
-
         return NextResponse.json({
           success: true,
-          results: results.map(mongoDocToResult),
+          results: results.map((d) => toSafeResult(d as Record<string, unknown>)),
           count: results.length,
           page,
           hasMore: skip + results.length < total,
@@ -44,19 +36,13 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Fallback: live scrape
     const { results, hasMore } = await browseCatalog(page);
-
-    // Upsert into MongoDB so next request is cached
-    if (results.length > 0) {
-      await upsertResults(results).catch(() => {});
-    }
-
+    if (results.length > 0) await upsertResults(results).catch(() => {});
     logRequest({ ipAddress: ip, endpoint: "/api/trending", method: "GET", statusCode: 200 });
 
     return NextResponse.json({
       success: true,
-      results,
+      results: results.map((r) => toSafeResult(r as unknown as Record<string, unknown>)),
       count: results.length,
       page,
       hasMore,
@@ -67,22 +53,4 @@ export async function GET(req: NextRequest) {
     logRequest({ ipAddress: ip, endpoint: "/api/trending", method: "GET", statusCode: 500, errorMessage: "Internal error" });
     return NextResponse.json({ error: "Failed to fetch content" }, { status: 500 });
   }
-}
-
-function mongoDocToResult(doc: Record<string, unknown>) {
-  return {
-    title: doc.title as string || "",
-    description: doc.description as string || "",
-    rating: doc.rating as string || "N/A",
-    status: doc.status as string || "Unknown",
-    type: doc.type as string || "Manhwa",
-    genres: (doc.genres as string[]) || [],
-    chapters: (doc.chapters as { title: string; url: string; date: string }[]) || [],
-    chapterCount: doc.chapterCount as string || "0",
-    coverUrl: doc.coverUrl as string || "",
-    url: doc.url as string || "",
-    source: doc.source as string || "",
-    author: doc.author as string || "Unknown",
-    artist: doc.artist as string || "Unknown",
-  };
 }

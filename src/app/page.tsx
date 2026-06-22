@@ -97,6 +97,7 @@ export default function Home() {
           <nav className="flex items-center gap-3 sm:gap-4" aria-label="Main">
             <a href="/docs" className="text-xs sm:text-sm text-text-secondary hover:text-white transition-colors cursor-pointer">Docs</a>
             <a href="/about" className="text-xs sm:text-sm text-text-secondary hover:text-white transition-colors cursor-pointer">About</a>
+            <a href="/adult" className="text-[10px] sm:text-xs text-red-400 hover:text-red-300 transition-colors cursor-pointer font-bold border border-red-500/30 rounded-md px-2 py-1 hover:border-red-500/50">18+</a>
           </nav>
         </div>
       </header>

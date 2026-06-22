@@ -959,12 +959,15 @@ function isValidEntry(r: MangaResult): boolean {
 // ════════════════════════════════════════════════════════════════════
 
 export async function searchAllSources(query: string): Promise<MangaResult[]> {
-  const [r1,r2,r3,r4] = await Promise.allSettled([searchSource1(query),searchSource2(query),searchSource3(query),searchSource4(query)]);
+  const { searchManganato } = await import("./manganato-scraper");
+  // Note: OmegaScans (Source G) excluded from main search — served on /adult page only
+  const [r1,r2,r3,r4,r5] = await Promise.allSettled([searchSource1(query),searchSource2(query),searchSource3(query),searchSource4(query),searchManganato(query)]);
   const results: MangaResult[] = [];
   if(r1.status==="fulfilled")results.push(...r1.value);
   if(r2.status==="fulfilled")results.push(...r2.value);
   if(r3.status==="fulfilled")results.push(...r3.value);
   if(r4.status==="fulfilled")results.push(...r4.value);
+  if(r5.status==="fulfilled")results.push(...r5.value);
   const relevant = results
     .filter(r => isRelevant(r, query))
     .sort((a, b) => getRelevanceScore(b, query) - getRelevanceScore(a, query));

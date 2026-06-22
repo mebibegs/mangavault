@@ -1,9 +1,17 @@
 import { NextRequest } from "next/server";
 
 const ALLOWED_HOSTS = [
-  "pstatic.net",      // covers webtoon-phinf.pstatic.net, swebtoon-phinf.pstatic.net, webtoons-static.pstatic.net
+  "pstatic.net",
   "webtoons.com",
   "cdnwebtoons.com",
+  "2xstorage.com",
+  "manganato.gg",
+  "atsu.moe",
+  "asurascans.com",
+  "demonicscans.org",
+  "scythescans.com",
+  "omegascans.org",
+  "media.omegascans.org",
 ];
 
 /**
