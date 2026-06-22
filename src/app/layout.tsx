@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
 import AntiInspect from "@/components/AntiInspect";
+import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
   title: "MangaVault — Search Manga, Manhwa & Webtoons Across Multiple Sources",
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         </noscript>
         <AntiInspect />
         {children}
+        <Analytics />
       </body>
     </html>
   );
