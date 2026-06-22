@@ -2,12 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { decryptImageToken } from "@/lib/crypto";
 
 // ─── Domain whitelist ─────────────────────────────────────────────────────────
-const ALLOWED_DOMAINS: ReadonlySet<string> = new Set(
-  (process.env.ALLOWED_IMAGE_DOMAINS ?? "")
+const FALLBACK_DOMAINS = [
+  "cdn.asurascans.com","asurascans.com","demonicscans.org","scythescans.com",
+  "webtoon-phinf.pstatic.net","swebtoon-phinf.pstatic.net","webtoons-static.pstatic.net",
+  "phinf.pstatic.net","webtoons.com","cdn.webtoons.com",
+  "img-r2.2xstorage.com","manganato.gg","s1.manganato.gg","s2.manganato.gg",
+  "atsu.moe","cdn.atsu.moe","omegascans.org","media.omegascans.org",
+];
+
+const ALLOWED_DOMAINS: ReadonlySet<string> = new Set([
+  ...FALLBACK_DOMAINS,
+  ...(process.env.ALLOWED_IMAGE_DOMAINS ?? "")
     .split(",")
     .map((d) => d.trim().toLowerCase())
-    .filter(Boolean)
-);
+    .filter(Boolean),
+]);
 
 function isAllowedDomain(hostname: string): boolean {
   const h = hostname.toLowerCase();

@@ -1,40 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getMongoDb } from "@/lib/mongodb";
 import { scrapeAllOmegaTitles, searchOmega } from "@/lib/omega-scraper";
-import { upsertResults } from "@/lib/sync";
-import { toSafeResult } from "@/lib/safeResult";
+import { buildProxiedImageUrl } from "@/lib/crypto";
 
-/** Adult results include the omega slug for chapter loading */
-function toAdultResult(doc: Record<string, unknown>) {
-  const safe = toSafeResult(doc);
-
-  // Extract slug from the original URL or sources array
-  let slug = "";
-
-  // Try the raw URL first
-  const rawUrl = (doc.url as string) || "";
-  if (rawUrl.includes("omegascans.org/series/")) {
-    slug = rawUrl.split("/series/")[1]?.split("/")[0] || "";
-  }
-
-  // If URL doesn't have omega slug, check sources array
-  if (!slug) {
-    const sources = (doc.sources as Array<{ name: string; url: string }>) || [];
-    const omegaSource = sources.find((s) => s.name === "Source G");
-    if (omegaSource?.url?.includes("omegascans.org/series/")) {
-      slug = omegaSource.url.split("/series/")[1]?.split("/")[0] || "";
-    }
-  }
-
-  // Last resort: derive slug from title
-  if (!slug) {
-    const title = (doc.title as string) || "";
-    slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-  }
-
-  return { ...safe, omegaSlug: slug };
-}
-
+/**
+ * Adult API — serves ONLY OmegaScans content.
+ * Always fetches fresh from OmegaScans API to ensure correct cover URLs and slugs.
+ * MongoDB is used only for chapter caching (via /api/adult/chapters).
+ */
 export async function GET(req: NextRequest) {
   const query = req.nextUrl.searchParams.get("q") || "";
   const genre = req.nextUrl.searchParams.get("genre") || "";
@@ -44,57 +16,48 @@ export async function GET(req: NextRequest) {
   const skip = (page - 1) * limit;
 
   try {
-    const db = await getMongoDb();
-    if (db) {
-      const titles = db.collection("titles");
-      const baseFilter: Record<string, unknown> = { "sources.name": "Source G" };
+    // Always fetch from OmegaScans API for correct data
+    const allResults = query ? await searchOmega(query) : await scrapeAllOmegaTitles();
 
-      if (query) {
-        const regex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
-        baseFilter.$or = [{ title: regex }, { description: regex }, { genres: regex }];
-      }
-      if (genre) {
-        const genreRegex = new RegExp(genre.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
-        baseFilter.genres = genreRegex;
-      }
+    // Filter by genre if specified
+    const filtered = genre && genre !== "All"
+      ? allResults.filter((r) => r.genres.some((g) => g.toLowerCase().includes(genre.toLowerCase())))
+      : allResults;
 
-      const total = await titles.countDocuments(baseFilter);
-      if (total > 0) {
-        const results = await titles
-          .find(baseFilter)
-          .sort({ updatedAt: -1 })
-          .skip(skip)
-          .limit(limit)
-          .toArray();
+    // Paginate
+    const pageResults = filtered.slice(skip, skip + limit);
 
-        return NextResponse.json({
-          success: true,
-          results: results.map((d) => toAdultResult(d as Record<string, unknown>)),
-          count: results.length,
-          total,
-          page,
-          hasMore: skip + results.length < total,
-          source: "cache",
-        });
-      }
-    }
+    // Transform: proxy cover images, include slug
+    const results = pageResults.map((r) => {
+      const slug = r.url.includes("omegascans.org/series/")
+        ? r.url.split("/series/")[1]?.split("/")[0] || ""
+        : r.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
-    // Fallback: live scrape from OmegaScans API
-    const results = query ? await searchOmega(query) : await scrapeAllOmegaTitles();
-    if (results.length > 0) upsertResults(results).catch(() => {});
-
-    const filtered = genre
-      ? results.filter((r) => r.genres.some((g) => g.toLowerCase().includes(genre.toLowerCase())))
-      : results;
+      return {
+        title: r.title,
+        description: r.description,
+        rating: r.rating,
+        status: r.status,
+        type: r.type,
+        genres: r.genres,
+        chapters: [],
+        chapterCount: r.chapterCount,
+        coverUrl: r.coverUrl ? buildProxiedImageUrl(r.coverUrl) : "",
+        url: "",
+        source: "",
+        author: r.author,
+        artist: r.artist,
+        omegaSlug: slug,
+      };
+    });
 
     return NextResponse.json({
       success: true,
-      results: filtered.slice(skip, skip + limit).map((r) => toAdultResult(r as unknown as Record<string, unknown>)),
-      count: Math.min(limit, filtered.length - skip),
+      results,
+      count: results.length,
       total: filtered.length,
       page,
       hasMore: skip + limit < filtered.length,
-      source: "live",
     });
   } catch {
     return NextResponse.json({ error: "Failed to fetch adult content" }, { status: 500 });
