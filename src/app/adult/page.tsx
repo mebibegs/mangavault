@@ -8,6 +8,7 @@ interface MangaResult {
   type: string; genres: string[]; chapters: ChapterInfo[];
   chapterCount: string; coverUrl: string; url: string;
   source: string; author: string; artist: string;
+  omegaSlug?: string;
 }
 
 const ADULT_GENRES = ["All", "Action", "Comedy", "Drama", "Fantasy", "Harem", "Isekai", "Romance", "Slice of Life", "Supernatural"];
@@ -23,6 +24,8 @@ export default function AdultPage() {
   const [total, setTotal] = useState(0);
   const [selectedResult, setSelectedResult] = useState<MangaResult | null>(null);
   const [showChapters, setShowChapters] = useState(false);
+  const [loadedChapters, setLoadedChapters] = useState<ChapterInfo[]>([]);
+  const [chaptersLoading, setChaptersLoading] = useState(false);
   const [readerUrl, setReaderUrl] = useState<string | null>(null);
   const [readerImages, setReaderImages] = useState<string[]>([]);
   const [readerLoading, setReaderLoading] = useState(false);
@@ -130,7 +133,7 @@ export default function AdultPage() {
 
   // ─── Detail Modal ───
   const detailModal = selectedResult && (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in" onClick={e => { if (e.target === e.currentTarget) { setSelectedResult(null); setShowChapters(false); } }}>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in" onClick={e => { if (e.target === e.currentTarget) { setSelectedResult(null); setShowChapters(false); setLoadedChapters([]); } }}>
       <div className="w-full sm:max-w-2xl max-h-[90vh] bg-bg-secondary border border-border-subtle rounded-t-2xl sm:rounded-2xl overflow-hidden animate-slide-up flex flex-col">
         <div className="flex items-start justify-between p-5 sm:p-6 border-b border-border-subtle">
           <div className="flex gap-4 flex-1 min-w-0">
@@ -143,24 +146,47 @@ export default function AdultPage() {
               </div>
             </div>
           </div>
-          <button onClick={() => { setSelectedResult(null); setShowChapters(false); }} className="ml-3 p-2 rounded-lg hover:bg-bg-hover text-text-muted hover:text-white cursor-pointer"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
+          <button onClick={() => { setSelectedResult(null); setShowChapters(false); setLoadedChapters([]); }} className="ml-3 p-2 rounded-lg hover:bg-bg-hover text-text-muted hover:text-white cursor-pointer"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
         </div>
         <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5">
           {selectedResult.genres.length > 0 && <div className="flex flex-wrap gap-1.5">{selectedResult.genres.map(g => <span key={g} className="text-xs px-2.5 py-1 rounded-full bg-white/5 text-text-secondary border border-border-subtle">{g}</span>)}</div>}
           <p className="text-sm text-text-secondary leading-relaxed">{selectedResult.description}</p>
           <div>
-            <button onClick={() => setShowChapters(!showChapters)} className="w-full flex items-center justify-between py-3 px-4 rounded-xl bg-bg-card border border-border-subtle hover:border-border-bright transition-all cursor-pointer">
+            <button onClick={async () => {
+              const newState = !showChapters;
+              setShowChapters(newState);
+              // Fetch chapters on first expand if not loaded yet
+              if (newState && loadedChapters.length === 0) {
+                const slug = selectedResult.omegaSlug || "";
+                if (!slug) return;
+                setChaptersLoading(true);
+                try {
+                  const res = await fetch(`/api/adult/chapters?slug=${encodeURIComponent(slug)}`);
+                  if (res.ok) {
+                    const data = await res.json();
+                    setLoadedChapters(data.chapters || []);
+                  }
+                } catch { /* */ }
+                finally { setChaptersLoading(false); }
+              }
+            }} className="w-full flex items-center justify-between py-3 px-4 rounded-xl bg-bg-card border border-border-subtle hover:border-border-bright transition-all cursor-pointer">
               <span className="text-sm font-medium text-white">Chapters ({selectedResult.chapterCount})</span>
               <svg className={`w-4 h-4 text-text-muted transition-transform ${showChapters ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
             </button>
-            {showChapters && selectedResult.chapters.length > 0 && (
+            {showChapters && (
               <div className="mt-2 overflow-y-auto rounded-xl border border-border-subtle divide-y divide-border-subtle" style={{ maxHeight: "50vh" }}>
-                {selectedResult.chapters.map((ch, i) => (
+                {chaptersLoading && (
+                  <div className="py-6 text-center"><p className="text-text-muted text-xs animate-pulse">Loading chapters...</p></div>
+                )}
+                {!chaptersLoading && loadedChapters.length > 0 && loadedChapters.map((ch, i) => (
                   <button key={i} onClick={() => openReader(ch.url)} className="w-full flex items-center px-4 py-3 hover:bg-bg-hover transition-colors cursor-pointer text-left gap-3">
                     <span className="flex-1 text-sm text-green-400 font-medium truncate">{ch.title}</span>
                     <span className="text-xs text-red-400">{ch.date || "—"}</span>
                   </button>
                 ))}
+                {!chaptersLoading && loadedChapters.length === 0 && (
+                  <div className="py-6 text-center"><p className="text-text-muted text-xs">No chapters available</p></div>
+                )}
               </div>
             )}
           </div>
@@ -220,7 +246,7 @@ export default function AdultPage() {
             {results.map((r, i) => {
               const statusColor = r.status.toLowerCase() === "completed" ? "bg-red-500/90 text-white" : r.status.toLowerCase() === "ongoing" ? "bg-green-500/90 text-white" : "bg-yellow-500/90 text-black";
               return (
-                <button key={`${r.title}-${i}`} onClick={() => { setSelectedResult(r); setShowChapters(false); }} className="glass-card rounded-xl overflow-hidden text-left transition-all duration-200 hover:translate-y-[-4px] hover:shadow-lg group cursor-pointer flex flex-col w-full focus:outline-none">
+                <button key={`${r.title}-${i}`} onClick={() => { setSelectedResult(r); setShowChapters(false); setLoadedChapters([]); }} className="glass-card rounded-xl overflow-hidden text-left transition-all duration-200 hover:translate-y-[-4px] hover:shadow-lg group cursor-pointer flex flex-col w-full focus:outline-none">
                   <div className="relative aspect-[3/4] bg-bg-hover overflow-hidden">
                     {r.coverUrl ? <img src={r.coverUrl} alt={r.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} /> : <div className="w-full h-full flex items-center justify-center bg-bg-card"><span className="text-3xl">🔞</span></div>}
                     <span className={`absolute top-2 left-2 text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-md shadow-md ${statusColor}`}>{r.status}</span>
