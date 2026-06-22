@@ -2,10 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { scrapeAtsuTitles } from "@/lib/atsu-scraper";
 import { upsertResults } from "@/lib/sync";
 import { ensureIndexes } from "@/lib/mongodb";
+import { guardPrivateApi } from "@/lib/originGuard";
 
 export const maxDuration = 300;
 
 export async function GET(req: NextRequest) {
+  const guard = guardPrivateApi(req);
+  if (guard) return guard as NextResponse;
+
   const limit = Math.min(2000, parseInt(req.nextUrl.searchParams.get("limit") || "500", 10));
 
   try {

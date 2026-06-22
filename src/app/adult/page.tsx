@@ -281,10 +281,13 @@ export default function AdultPage() {
 
       <footer className="border-t border-border-subtle py-6 mt-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-text-muted">
-          <span>© {new Date().getFullYear()} MangaVault · 18+ Section</span>
-          <div className="flex gap-4">
+          <span>© {new Date().getFullYear()} MangaVault</span>
+          <div className="flex flex-wrap gap-4">
             <a href="/" className="hover:text-white transition-colors">Home</a>
             <a href="/docs" className="hover:text-white transition-colors">API Docs</a>
+            <a href="/privacy" className="hover:text-white transition-colors">Privacy</a>
+            <a href="/terms" className="hover:text-white transition-colors">Terms</a>
+            <a href="/dmca" className="hover:text-white transition-colors">DMCA</a>
           </div>
         </div>
       </footer>

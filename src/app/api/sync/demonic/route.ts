@@ -1,11 +1,15 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { scrapeAllDemonicTitles } from "@/lib/demonic-genres";
 import { upsertResults } from "@/lib/sync";
 import { ensureIndexes } from "@/lib/mongodb";
+import { guardPrivateApi } from "@/lib/originGuard";
 
 export const maxDuration = 300;
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const guard = guardPrivateApi(req);
+  if (guard) return guard as NextResponse;
+
   try {
     await ensureIndexes();
 
@@ -13,7 +17,6 @@ export async function GET() {
     let totalInserted = 0;
     let totalUpdated = 0;
 
-    // Upsert in batches of 200
     for (let i = 0; i < results.length; i += 200) {
       const batch = results.slice(i, i + 200);
       const stats = await upsertResults(batch);

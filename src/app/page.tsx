@@ -232,10 +232,14 @@ export default function Home() {
 
       <footer className="border-t border-border-subtle py-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-text-muted">
-          <span>© {new Date().getFullYear()} MangaVault · v1.0.0 · Public Beta</span>
-          <div className="flex items-center gap-4">
+          <span>© {new Date().getFullYear()} MangaVault</span>
+          <div className="flex flex-wrap items-center gap-4">
             <a href="/docs" className="hover:text-white transition-colors cursor-pointer">Docs</a>
             <a href="/about" className="hover:text-white transition-colors cursor-pointer">About</a>
+            <a href="/privacy" className="hover:text-white transition-colors cursor-pointer">Privacy</a>
+            <a href="/terms" className="hover:text-white transition-colors cursor-pointer">Terms</a>
+            <a href="/dmca" className="hover:text-white transition-colors cursor-pointer">DMCA</a>
+            <a href="mailto:hello@mangavault.in" className="hover:text-white transition-colors cursor-pointer">Contact</a>
           </div>
         </div>
       </footer>

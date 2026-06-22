@@ -1,11 +1,15 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { scrapeAllScytheGenres } from "@/lib/scythe-genres";
 import { upsertResults } from "@/lib/sync";
 import { ensureIndexes } from "@/lib/mongodb";
+import { guardPrivateApi } from "@/lib/originGuard";
 
 export const maxDuration = 300;
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const guard = guardPrivateApi(req);
+  if (guard) return guard as NextResponse;
+
   try {
     await ensureIndexes();
 

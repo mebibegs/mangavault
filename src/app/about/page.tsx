@@ -1,3 +1,11 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "About — MangaVault",
+  description:
+    "About MangaVault — a parallel manga search engine that queries multiple databases simultaneously and returns a single deduplicated, ranked result list.",
+};
+
 export default function AboutPage() {
   return (
     <div className="min-h-screen bg-bg-primary">
@@ -40,22 +48,29 @@ export default function AboutPage() {
 
           <h3 className="text-lg font-semibold text-white pt-4">Status</h3>
           <p>
-            MangaVault is currently in public beta (v1.0.0). Because results are pulled live from external sources, an occasional outage or formatting quirk is expected as those sites change their layouts — if something looks off, it&apos;s almost always a sign that a source updated its page structure, not that the underlying data is wrong. Fixes for these typically follow within a few days of being noticed.
+            Because results are pulled live from external sources, an occasional outage or formatting quirk is expected as those sites change their layouts — if something looks off, it&apos;s almost always a sign that a source updated its page structure, not that the underlying data is wrong. Fixes for these typically follow within a few days of being noticed.
           </p>
 
           <h3 className="text-lg font-semibold text-white pt-4">A note on content</h3>
           <p className="text-text-muted text-sm">
-            MangaVault doesn&apos;t host, store, cache, or serve any copyrighted images, chapters, or full text. What it indexes is metadata — titles, descriptions, chapter counts, ratings — gathered for the purpose of discovery, with links back to the original source for the actual content. MangaVault isn&apos;t affiliated with, endorsed by, or otherwise connected to any of the sites it indexes.
+            MangaVault indexes publicly available metadata — titles, descriptions, chapter counts, ratings, and cover thumbnails — for the purpose of discovery. The built-in reader feature proxies chapter images from their original source CDNs in real time; MangaVault does not permanently host, store, or cache any copyrighted chapter images on its own servers. All content remains on and is served from the original source infrastructure.
+          </p>
+          <p className="text-text-muted text-sm">
+            MangaVault is not affiliated with, endorsed by, or otherwise connected to any of the sites it indexes. If you are a rights holder and believe your content is being linked to in error, please use our <a href="/dmca" className="text-white underline hover:text-gray-300">DMCA takedown procedure</a> to request removal.
           </p>
         </div>
       </main>
 
       <footer className="border-t border-border-subtle py-6">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-text-muted">
-          <span>© {new Date().getFullYear()} MangaVault · v1.0.0</span>
+          <span>© {new Date().getFullYear()} MangaVault</span>
           <div className="flex gap-4">
-            <a href="/docs" className="hover:text-white transition-colors">API Docs</a>
             <a href="/" className="hover:text-white transition-colors">Home</a>
+            <a href="/docs" className="hover:text-white transition-colors">API Docs</a>
+            <a href="/privacy" className="hover:text-white transition-colors">Privacy</a>
+            <a href="/terms" className="hover:text-white transition-colors">Terms</a>
+            <a href="/dmca" className="hover:text-white transition-colors">DMCA</a>
+            <a href="mailto:hello@mangavault.in" className="hover:text-white transition-colors">Contact</a>
           </div>
         </div>
       </footer>

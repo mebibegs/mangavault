@@ -1,4 +1,7 @@
+import { createHash } from "crypto";
+
 // Simple console-based logging (Vercel captures these in their logs)
+// PRIVACY: Never log raw search queries — hash them for debugging only
 
 export function logRequest(params: {
   ipAddress: string;
@@ -9,13 +12,20 @@ export function logRequest(params: {
   errorMessage?: string;
 }) {
   const timestamp = new Date().toISOString();
+
+  // Hash the query if provided — never log raw search terms
+  let queryHash: string | undefined;
+  if (params.query) {
+    queryHash = createHash("sha256").update(params.query).digest("hex").slice(0, 8);
+  }
+
   const logEntry = {
     timestamp,
     ip: params.ipAddress,
     method: params.method,
     endpoint: params.endpoint,
     status: params.statusCode,
-    query: params.query,
+    qh: queryHash,
     error: params.errorMessage,
   };
 

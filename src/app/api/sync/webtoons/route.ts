@@ -1,11 +1,15 @@
-import { NextResponse } from "next/server";
-import { scrapeAllWebtoonGenres, scrapeWebtoonGenre, WEBTOON_GENRE_SLUGS } from "@/lib/webtoon-genres";
+import { NextRequest, NextResponse } from "next/server";
+import { scrapeWebtoonGenre, WEBTOON_GENRE_SLUGS } from "@/lib/webtoon-genres";
 import { upsertResults } from "@/lib/sync";
 import { ensureIndexes } from "@/lib/mongodb";
+import { guardPrivateApi } from "@/lib/originGuard";
 
 export const maxDuration = 300;
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const guard = guardPrivateApi(req);
+  if (guard) return guard as NextResponse;
+
   try {
     await ensureIndexes();
 
@@ -13,7 +17,6 @@ export async function GET() {
     let totalUpdated = 0;
     const genreStats: Record<string, number> = {};
 
-    // Process each genre separately so we can track per-genre counts
     for (const slug of WEBTOON_GENRE_SLUGS) {
       try {
         const results = await scrapeWebtoonGenre(slug);
@@ -25,7 +28,7 @@ export async function GET() {
           totalUpdated += stats.updated;
         }
       } catch {
-        genreStats[slug] = -1; // error
+        genreStats[slug] = -1;
       }
     }
 

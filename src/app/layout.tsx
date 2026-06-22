@@ -2,21 +2,42 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
 import AntiInspect from "@/components/AntiInspect";
+import CookieConsent from "@/components/CookieConsent";
+
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://www.mangavault.in";
 
 export const metadata: Metadata = {
   title: "MangaVault — Search Manga, Manhwa & Webtoons Across Multiple Sources",
   description:
     "Type a title once. MangaVault queries multiple manga, manhwa, and webtoon databases in parallel, deduplicates results, and returns a single ranked list with covers, ratings, and chapter counts.",
+  metadataBase: new URL(BASE_URL),
   openGraph: {
     title: "MangaVault — One Search, Every Manga Source",
-    description: "Stop checking multiple sites. MangaVault runs one query across several manga and manhwa databases simultaneously and merges the results into a clean, ranked feed.",
+    description:
+      "Stop checking multiple sites. MangaVault runs one query across several manga and manhwa databases simultaneously and merges the results into a clean, ranked feed.",
     siteName: "MangaVault",
     type: "website",
+    images: [
+      {
+        url: `${BASE_URL}/og-image.png`,
+        width: 1200,
+        height: 630,
+        alt: "MangaVault — One Search, Every Manga Source",
+      },
+    ],
   },
   twitter: {
-    card: "summary",
-    title: "MangaVault",
-    description: "Parallel manga search engine. One query, multiple sources, deduplicated results. Free public JSON API at /api/search.",
+    card: "summary_large_image",
+    title: "MangaVault — One Search, Every Manga Source",
+    description:
+      "Search manga, manhwa, manhua across multiple sources simultaneously. Deduplicated, ranked results in a single list.",
+    images: [`${BASE_URL}/og-image.png`],
+  },
+  icons: {
+    icon: [
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+    ],
+    apple: "/apple-touch-icon.png",
   },
 };
 
@@ -26,17 +47,55 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <head>
         <meta name="theme-color" content="#0a0a0a" />
         <meta name="monetag" content="fc5c59457a35d1a4d596d1768f27207d" />
-        <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>" />
+        {/* JSON-LD Structured Data — WebSite + SearchAction */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              name: "MangaVault",
+              url: BASE_URL,
+              potentialAction: {
+                "@type": "SearchAction",
+                target: `${BASE_URL}/?q={search_term_string}`,
+                "query-input": "required name=search_term_string",
+              },
+            }),
+          }}
+        />
       </head>
       <body className="bg-bg-primary text-text-primary antialiased min-h-screen">
         <noscript>
-          <div style={{ position: "fixed", inset: 0, backgroundColor: "#0a0a0a", color: "#fff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", zIndex: 99999, padding: "20px", textAlign: "center" }}>
-            <h1 style={{ fontSize: "24px", marginBottom: "16px" }}>JavaScript Required</h1>
-            <p style={{ color: "#888", maxWidth: "400px" }}>MangaVault is a search engine for manga, manhwa, manhua, anime, donghua, and webtoon content. It searches multiple public sources in parallel and returns a single ranked list. This app requires JavaScript to function — please enable it and reload.</p>
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              backgroundColor: "#0a0a0a",
+              color: "#fff",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 99999,
+              padding: "20px",
+              textAlign: "center",
+            }}
+          >
+            <h1 style={{ fontSize: "24px", marginBottom: "16px" }}>
+              JavaScript Required
+            </h1>
+            <p style={{ color: "#888", maxWidth: "400px" }}>
+              MangaVault is a search engine for manga, manhwa, manhua, anime,
+              donghua, and webtoon content. It searches multiple public sources
+              in parallel and returns a single ranked list. This app requires
+              JavaScript to function — please enable it and reload.
+            </p>
           </div>
         </noscript>
         <AntiInspect />
         {children}
+        <CookieConsent />
       </body>
     </html>
   );

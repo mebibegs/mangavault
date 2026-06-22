@@ -1,11 +1,15 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { scrapeAsuraGenre, ASURA_GENRE_SLUGS } from "@/lib/asura-genres";
 import { upsertResults } from "@/lib/sync";
 import { ensureIndexes } from "@/lib/mongodb";
+import { guardPrivateApi } from "@/lib/originGuard";
 
 export const maxDuration = 300;
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const guard = guardPrivateApi(req);
+  if (guard) return guard as NextResponse;
+
   try {
     await ensureIndexes();
 
@@ -13,7 +17,6 @@ export async function GET() {
     let totalUpdated = 0;
     const genreStats: Record<string, number> = {};
 
-    // Process each genre (with pagination) in sequence to avoid overloading Asura
     for (const slug of ASURA_GENRE_SLUGS) {
       try {
         const results = await scrapeAsuraGenre(slug);

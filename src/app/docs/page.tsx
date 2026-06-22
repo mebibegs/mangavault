@@ -52,7 +52,6 @@ export default function DocsPage() {
             <Badge label="Format" value="JSON" />
             <Badge label="Auth" value="None" />
             <Badge label="Rate Limit" value="15 req/min" />
-            <Badge label="Version" value="v1.0.0" />
           </div>
         </section>
 
@@ -110,22 +109,20 @@ export default function DocsPage() {
             example={`GET /api/reader?url=https://...\n\n{\n  "images": ["https://..."],\n  "count": 42,\n  "source": "https://..."\n}`}
           />
 
-          <EndpointCard
-            method="GET"
-            path="/api/health"
-            description="Health check endpoint. Returns ok: true when the service is running."
-            params={[]}
-            example={`GET /api/health\n\n{ "ok": true }`}
-          />
+{/* Health endpoint intentionally not documented */}
         </section>
       </main>
 
       <footer className="border-t border-border-subtle py-6">
         <div className="max-w-5xl mx-auto px-3 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-text-muted">
-          <span>© {new Date().getFullYear()} MangaVault · v1.0.0</span>
-          <div className="flex gap-4">
+          <span>© {new Date().getFullYear()} MangaVault</span>
+          <div className="flex flex-wrap gap-4">
             <a href="/" className="hover:text-white transition-colors cursor-pointer">Home</a>
             <a href="/about" className="hover:text-white transition-colors cursor-pointer">About</a>
+            <a href="/privacy" className="hover:text-white transition-colors cursor-pointer">Privacy</a>
+            <a href="/terms" className="hover:text-white transition-colors cursor-pointer">Terms</a>
+            <a href="/dmca" className="hover:text-white transition-colors cursor-pointer">DMCA</a>
+            <a href="mailto:hello@mangavault.in" className="hover:text-white transition-colors cursor-pointer">Contact</a>
           </div>
         </div>
       </footer>

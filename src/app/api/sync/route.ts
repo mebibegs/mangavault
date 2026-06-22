@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fullSync, quickSync, deepSync } from "@/lib/sync";
 import { ensureIndexes } from "@/lib/mongodb";
+import { guardPrivateApi } from "@/lib/originGuard";
 
 export const maxDuration = 300; // 5 min for deep sync
 
 export async function GET(req: NextRequest) {
+  // Require origin + CSRF for sync operations
+  const guard = guardPrivateApi(req);
+  if (guard) return guard as NextResponse;
+
   const mode = req.nextUrl.searchParams.get("mode") || "quick";
 
   try {
