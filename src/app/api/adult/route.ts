@@ -4,6 +4,37 @@ import { scrapeAllOmegaTitles, searchOmega } from "@/lib/omega-scraper";
 import { upsertResults } from "@/lib/sync";
 import { toSafeResult } from "@/lib/safeResult";
 
+/** Adult results include the omega slug for chapter loading */
+function toAdultResult(doc: Record<string, unknown>) {
+  const safe = toSafeResult(doc);
+
+  // Extract slug from the original URL or sources array
+  let slug = "";
+
+  // Try the raw URL first
+  const rawUrl = (doc.url as string) || "";
+  if (rawUrl.includes("omegascans.org/series/")) {
+    slug = rawUrl.split("/series/")[1]?.split("/")[0] || "";
+  }
+
+  // If URL doesn't have omega slug, check sources array
+  if (!slug) {
+    const sources = (doc.sources as Array<{ name: string; url: string }>) || [];
+    const omegaSource = sources.find((s) => s.name === "Source G");
+    if (omegaSource?.url?.includes("omegascans.org/series/")) {
+      slug = omegaSource.url.split("/series/")[1]?.split("/")[0] || "";
+    }
+  }
+
+  // Last resort: derive slug from title
+  if (!slug) {
+    const title = (doc.title as string) || "";
+    slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  }
+
+  return { ...safe, omegaSlug: slug };
+}
+
 export async function GET(req: NextRequest) {
   const query = req.nextUrl.searchParams.get("q") || "";
   const genre = req.nextUrl.searchParams.get("genre") || "";
@@ -38,7 +69,7 @@ export async function GET(req: NextRequest) {
 
         return NextResponse.json({
           success: true,
-          results: results.map((d) => toSafeResult(d as Record<string, unknown>)),
+          results: results.map((d) => toAdultResult(d as Record<string, unknown>)),
           count: results.length,
           total,
           page,
@@ -58,7 +89,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      results: filtered.slice(skip, skip + limit).map((r) => toSafeResult(r as unknown as Record<string, unknown>)),
+      results: filtered.slice(skip, skip + limit).map((r) => toAdultResult(r as unknown as Record<string, unknown>)),
       count: Math.min(limit, filtered.length - skip),
       total: filtered.length,
       page,
