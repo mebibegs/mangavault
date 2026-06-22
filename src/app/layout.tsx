@@ -25,6 +25,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en" className="dark">
       <head>
         <meta name="theme-color" content="#0a0a0a" />
+        <meta name="monetag" content="fc5c59457a35d1a4d596d1768f27207d" />
         <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>" />
       </head>
       <body className="bg-bg-primary text-text-primary antialiased min-h-screen">
