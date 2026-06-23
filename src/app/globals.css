@@ -73,17 +73,26 @@ body {
   animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* Staggered children */
+/* Staggered children — GPU-accelerated (transform + opacity only) */
 .stagger-children > * {
   opacity: 0;
+  transform: translateY(16px);
   animation: fadeInUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
 }
 .stagger-children > *:nth-child(1) { animation-delay: 0ms; }
-.stagger-children > *:nth-child(2) { animation-delay: 60ms; }
-.stagger-children > *:nth-child(3) { animation-delay: 120ms; }
-.stagger-children > *:nth-child(4) { animation-delay: 180ms; }
-.stagger-children > *:nth-child(5) { animation-delay: 240ms; }
-.stagger-children > *:nth-child(6) { animation-delay: 300ms; }
+.stagger-children > *:nth-child(2) { animation-delay: 40ms; }
+.stagger-children > *:nth-child(3) { animation-delay: 80ms; }
+.stagger-children > *:nth-child(4) { animation-delay: 120ms; }
+.stagger-children > *:nth-child(5) { animation-delay: 160ms; }
+.stagger-children > *:nth-child(6) { animation-delay: 200ms; }
+.stagger-children > *:nth-child(7) { animation-delay: 240ms; }
+.stagger-children > *:nth-child(8) { animation-delay: 280ms; }
+
+/* Clean up will-change after animation to free GPU memory */
+.stagger-children > *.animated {
+  will-change: auto;
+}
 
 /* ─── Glass Card ─── */
 .glass-card {
@@ -267,6 +276,36 @@ body {
 /* ─── Hide scrollbar for horizontal scroll rows ─── */
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ─── Chapter list expand (GPU-optimized grid-template-rows) ─── */
+.chapter-list-wrapper {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.3s ease;
+}
+
+.chapter-list-wrapper.expanded {
+  grid-template-rows: 1fr;
+}
+
+.chapter-list-inner {
+  overflow: hidden;
+}
+
+/* ─── Card entrance animation (GPU-only: transform + opacity) ─── */
+.card-enter {
+  opacity: 0;
+  transform: translateY(12px);
+  animation: cardEnter 0.3s ease-out forwards;
+  will-change: transform, opacity;
+}
+
+@keyframes cardEnter {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 
 /* ─── Reduced motion ─── */
 @media (prefers-reduced-motion: reduce) {

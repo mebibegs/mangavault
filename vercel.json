@@ -1,6 +1,42 @@
 {
-  "crons": [{
-    "path": "/api/cron",
-    "schedule": "0 10 * * *"
-  }]
+  "functions": {
+    "src/app/api/search/route.ts": {
+      "maxDuration": 30,
+      "memory": 512
+    },
+    "src/app/api/trending/route.ts": {
+      "maxDuration": 30,
+      "memory": 512
+    },
+    "src/app/api/reader/route.ts": {
+      "maxDuration": 15,
+      "memory": 256
+    },
+    "src/app/api/image/route.ts": {
+      "maxDuration": 15,
+      "memory": 256
+    },
+    "src/app/api/sync/route.ts": {
+      "maxDuration": 300,
+      "memory": 1024
+    },
+    "src/app/api/cron/route.ts": {
+      "maxDuration": 60,
+      "memory": 512
+    },
+    "src/app/api/cron/prewarm/route.ts": {
+      "maxDuration": 60,
+      "memory": 512
+    }
+  },
+  "crons": [
+    {
+      "path": "/api/cron",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/prewarm",
+      "schedule": "*/10 * * * *"
+    }
+  ]
 }

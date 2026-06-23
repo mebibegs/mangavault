@@ -45,7 +45,10 @@ const SECURITY_HEADERS = {
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "DENY",
   "Referrer-Policy": "no-referrer",
-  "Cache-Control": "public, max-age=86400, immutable",
+  // Long cache — manga images are immutable once published
+  "Cache-Control": "public, max-age=31536000, immutable",
+  "CDN-Cache-Control": "max-age=31536000",
+  "Vercel-CDN-Cache-Control": "max-age=31536000",
   "X-Robots-Tag": "noindex",
   "Access-Control-Allow-Origin": "*",
 };

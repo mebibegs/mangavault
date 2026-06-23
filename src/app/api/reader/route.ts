@@ -275,7 +275,14 @@ async function fetchPage(
 function ok(images: string[], source: string) {
   return NextResponse.json(
     { images, count: images.length, source },
-    { headers: { "Cache-Control": "public, max-age=3600" } }
+    {
+      headers: {
+        // Long cache for chapter images — they don't change once published
+        "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
+        "CDN-Cache-Control": "max-age=86400",
+        "Vercel-CDN-Cache-Control": "max-age=86400",
+      },
+    }
   );
 }
 

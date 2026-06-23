@@ -955,24 +955,42 @@ function isValidEntry(r: MangaResult): boolean {
 }
 
 // ════════════════════════════════════════════════════════════════════
-// MAIN SEARCH (PARALLEL)
+// MAIN SEARCH (PARALLEL) — with circuit breakers and timeouts
 // ════════════════════════════════════════════════════════════════════
 
 export async function searchAllSources(query: string): Promise<MangaResult[]> {
   const { searchManganato } = await import("./manganato-scraper");
-  // Note: OmegaScans (Source G) excluded from main search — served on /adult page only
-  const [r1,r2,r3,r4,r5] = await Promise.allSettled([searchSource1(query),searchSource2(query),searchSource3(query),searchSource4(query),searchManganato(query)]);
-  const results: MangaResult[] = [];
-  if(r1.status==="fulfilled")results.push(...r1.value);
-  if(r2.status==="fulfilled")results.push(...r2.value);
-  if(r3.status==="fulfilled")results.push(...r3.value);
-  if(r4.status==="fulfilled")results.push(...r4.value);
-  if(r5.status==="fulfilled")results.push(...r5.value);
+  const { runScrapersWithProtection } = await import("./scraper-runner");
+
+  // Define sources with circuit breaker protection
+  const sources = [
+    { name: "SourceA", scrape: searchSource1 },
+    { name: "SourceB", scrape: searchSource2 },
+    { name: "SourceC", scrape: searchSource3 },
+    { name: "SourceD", scrape: searchSource4 },
+    { name: "SourceE", scrape: searchManganato },
+  ];
+
+  // Run with circuit breakers, timeouts, and graceful degradation
+  const { results, sourceStats } = await runScrapersWithProtection(sources, query);
+
+  // Log source performance for monitoring
+  console.log("[Search] Source stats:", JSON.stringify(sourceStats));
+
+  // Filter and deduplicate
   const relevant = results
-    .filter(r => isRelevant(r, query))
+    .filter((r) => isRelevant(r, query))
     .sort((a, b) => getRelevanceScore(b, query) - getRelevanceScore(a, query));
-  const seen=new Set<string>(); const unique:MangaResult[]=[];
-  for(const r of relevant){const k=r.title.toLowerCase().replace(/[^a-z0-9]/g,"");if(!seen.has(k)&&k.length>2){seen.add(k);unique.push(r);}}
+
+  const seen = new Set<string>();
+  const unique: MangaResult[] = [];
+  for (const r of relevant) {
+    const k = r.title.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (!seen.has(k) && k.length > 2) {
+      seen.add(k);
+      unique.push(r);
+    }
+  }
   return unique;
 }
 

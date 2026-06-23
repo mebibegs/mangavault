@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 
+// Force static generation at build time
+export const dynamic = "force-static";
+
 export const metadata: Metadata = {
   title: "About — MangaVault",
   description:
