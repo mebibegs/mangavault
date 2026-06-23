@@ -11,12 +11,16 @@ export const metadata: Metadata = {
   description:
     "Type a title once. MangaVault queries multiple manga, manhwa, and webtoon databases in parallel, deduplicates results, and returns a single ranked list with covers, ratings, and chapter counts.",
   metadataBase: new URL(BASE_URL),
+  alternates: {
+    canonical: BASE_URL,
+  },
   openGraph: {
     title: "MangaVault — One Search, Every Manga Source",
     description:
       "Stop checking multiple sites. MangaVault runs one query across several manga and manhwa databases simultaneously and merges the results into a clean, ranked feed.",
     siteName: "MangaVault",
     type: "website",
+    url: BASE_URL,
     images: [
       {
         url: `${BASE_URL}/og-image.png`,
@@ -34,11 +38,10 @@ export const metadata: Metadata = {
     images: [`${BASE_URL}/og-image.png`],
   },
   icons: {
-    icon: [
-      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
-    ],
+    icon: [{ url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" }],
     apple: "/apple-touch-icon.png",
   },
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
@@ -89,14 +92,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               textAlign: "center",
             }}
           >
-            <h1 style={{ fontSize: "24px", marginBottom: "16px" }}>
-              JavaScript Required
-            </h1>
+            <h1 style={{ fontSize: "24px", marginBottom: "16px" }}>JavaScript Required</h1>
             <p style={{ color: "#888", maxWidth: "400px" }}>
-              MangaVault is a search engine for manga, manhwa, manhua, anime,
-              donghua, and webtoon content. It searches multiple public sources
-              in parallel and returns a single ranked list. This app requires
-              JavaScript to function — please enable it and reload.
+              MangaVault is a search engine for manga, manhwa, manhua, anime, donghua, and webtoon
+              content. It searches multiple public sources in parallel and returns a single ranked
+              list. This app requires JavaScript to function — please enable it and reload.
             </p>
           </div>
         </noscript>

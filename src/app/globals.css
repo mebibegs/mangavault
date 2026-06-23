@@ -157,18 +157,15 @@ body {
   animation: word-slot-spin 7.2s ease-in-out infinite;
 }
 
-/* 7 items (6 unique + duplicate first). Scrolls to -600% then
-   snaps instantly back to 0% so the loop is seamless. */
+/* 6 unique items — cycles through each and loops back to start */
 @keyframes word-slot-spin {
-  0%,    4%  { transform: translateY(0); }        /* Manga   */
-  11%,  18%  { transform: translateY(-100%); }     /* Manhwa  */
-  25%,  32%  { transform: translateY(-200%); }     /* Manhua  */
-  39%,  46%  { transform: translateY(-300%); }     /* Anime   */
-  53%,  60%  { transform: translateY(-400%); }     /* Webtoon */
-  67%,  74%  { transform: translateY(-500%); }     /* Donghua */
-  81%,  93%  { transform: translateY(-600%); }     /* Manga (dup) */
-  93.01%     { transform: translateY(0); }         /* instant snap */
-  100%       { transform: translateY(0); }         /* hold for loop */
+  0%,    5%   { transform: translateY(0); }        /* Manga   */
+  16.6%, 21%  { transform: translateY(-100%); }    /* Manhwa  */
+  33.3%, 38%  { transform: translateY(-200%); }    /* Manhua  */
+  50%,   55%  { transform: translateY(-300%); }    /* Anime   */
+  66.6%, 71%  { transform: translateY(-400%); }    /* Webtoon */
+  83.3%, 95%  { transform: translateY(-500%); }    /* Donghua */
+  100%        { transform: translateY(0); }        /* Loop back to Manga */
 }
 
 /* ─── Neumorphic back button ─── */

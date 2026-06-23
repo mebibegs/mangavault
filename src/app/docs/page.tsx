@@ -1,43 +1,48 @@
-"use client";
+import { ApiTester, EndpointCard } from "@/components/DocsApiTester";
 
-import { useState } from "react";
+// Force static generation — only the ApiTester component is interactive
+export const dynamic = "force-static";
+
+function Badge({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-2 bg-bg-card border border-border-subtle rounded-lg px-2.5 sm:px-3 py-1.5 sm:py-2">
+      <span className="text-[10px] sm:text-xs text-text-muted">{label}:</span>
+      <span className="text-[10px] sm:text-xs text-white font-mono">{value}</span>
+    </div>
+  );
+}
 
 export default function DocsPage() {
-  const [copied, setCopied] = useState<string | null>(null);
-  const [liveResult, setLiveResult] = useState<string | null>(null);
-  const [liveLoading, setLiveLoading] = useState(false);
-
-  function copyToClipboard(text: string, id: string) {
-    navigator.clipboard.writeText(text);
-    setCopied(id);
-    setTimeout(() => setCopied(null), 2000);
-  }
-
-  async function runLiveExample() {
-    setLiveLoading(true);
-    setLiveResult(null);
-    try {
-      const res = await fetch("/api/search?q=solo+leveling");
-      const data = await res.json();
-      setLiveResult(JSON.stringify(data, null, 2));
-    } catch {
-      setLiveResult('{ "error": "Request failed. Try again." }');
-    } finally {
-      setLiveLoading(false);
-    }
-  }
-
   return (
     <div className="min-h-screen bg-bg-primary">
       <header className="border-b border-border-subtle bg-bg-secondary/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-5xl mx-auto px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
-          <a href="/" className="flex items-center gap-2 sm:gap-3 hover:opacity-80 transition-opacity min-w-0">
+          <a
+            href="/"
+            className="flex items-center gap-2 sm:gap-3 hover:opacity-80 transition-opacity min-w-0"
+          >
             <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white flex items-center justify-center flex-shrink-0">
-              <svg viewBox="0 0 24 24" className="w-4 h-4 sm:w-5 sm:h-5 text-black" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" /></svg>
+              <svg
+                viewBox="0 0 24 24"
+                className="w-4 h-4 sm:w-5 sm:h-5 text-black"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+              >
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+              </svg>
             </div>
-            <span className="text-base sm:text-xl font-bold tracking-tight truncate">Manga<span className="text-text-muted">Vault</span> <span className="text-text-muted text-xs sm:text-sm font-normal ml-1">API Docs</span></span>
+            <span className="text-base sm:text-xl font-bold tracking-tight truncate">
+              Manga<span className="text-text-muted">Vault</span>{" "}
+              <span className="text-text-muted text-xs sm:text-sm font-normal ml-1">API Docs</span>
+            </span>
           </a>
-          <a href="/" className="text-xs sm:text-sm text-white bg-bg-card border border-border-bright rounded-lg px-2.5 sm:px-3 py-1.5 hover:bg-bg-hover transition-colors flex-shrink-0">← Home</a>
+          <a
+            href="/"
+            className="text-xs sm:text-sm text-white bg-bg-card border border-border-bright rounded-lg px-2.5 sm:px-3 py-1.5 hover:bg-bg-hover transition-colors flex-shrink-0"
+          >
+            ← Home
+          </a>
         </div>
       </header>
 
@@ -45,43 +50,26 @@ export default function DocsPage() {
         <section className="mb-8 sm:mb-12">
           <h2 className="text-xl sm:text-3xl font-bold mb-3 sm:mb-4">API Reference</h2>
           <p className="text-text-secondary text-sm sm:text-base max-w-2xl leading-relaxed">
-            The MangaVault API searches manga, manhwa, manhua, anime, donghua, and webtoon content across multiple sources in a single request. Source queries run in parallel, and results are deduplicated and ranked before being returned.
+            The MangaVault API searches manga, manhwa, manhua, anime, donghua, and webtoon content
+            across multiple sources in a single request. Source queries run in parallel, and results
+            are deduplicated and ranked before being returned.
           </p>
           <div className="flex flex-wrap gap-2 sm:gap-3 mt-4 sm:mt-6">
             <Badge label="Base URL" value="/api" />
             <Badge label="Format" value="JSON" />
             <Badge label="Auth" value="None" />
-            <Badge label="Rate Limit" value="15 req/min" />
+            <Badge label="Rate Limit" value="30 req/min" />
           </div>
+          <p className="text-text-muted text-xs mt-3">
+            Rate limits are enforced per IP at the edge. Limits vary by endpoint: search (10/min),
+            trending (30/min), reader (20/min).
+          </p>
         </section>
 
-        <section className="mb-8 sm:mb-12">
-          <div className="glass-card rounded-xl overflow-hidden border border-green-500/20">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 sm:p-5 border-b border-border-subtle bg-green-500/5">
-              <div>
-                <h3 className="text-sm sm:text-base font-bold text-white">Try it Live</h3>
-                <p className="text-text-muted text-xs mt-0.5">Send a real request to the API and see exactly what comes back</p>
-              </div>
-              <button onClick={runLiveExample} disabled={liveLoading} className="px-4 sm:px-5 py-2 sm:py-2.5 bg-white text-black font-medium text-xs sm:text-sm rounded-xl hover:bg-gray-200 disabled:opacity-50 transition-all flex-shrink-0 w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-white/40 cursor-pointer">
-                {liveLoading ? "Fetching..." : "▶ Run Example"}
-              </button>
-            </div>
-            <div className="p-4 sm:p-5 space-y-3">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="px-2 py-0.5 text-xs font-bold rounded bg-green-500/10 text-green-400 border border-green-500/20">GET</span>
-                <code className="text-xs sm:text-sm font-mono text-text-secondary break-all">/api/search?q=solo+leveling</code>
-              </div>
-              {liveResult && (
-                <div className="relative rounded-lg bg-bg-primary border border-border-subtle overflow-hidden">
-                  <button onClick={() => copyToClipboard(liveResult, "live")} className="absolute top-2 right-2 px-2 py-1 text-xs text-white bg-bg-hover rounded transition-colors hover:bg-border-bright z-10 cursor-pointer">{copied === "live" ? "Copied!" : "Copy"}</button>
-                  <pre className="p-3 sm:p-4 overflow-x-auto max-h-80 text-[10px] sm:text-xs"><code className="text-green-400/80 font-mono whitespace-pre-wrap break-all">{liveResult}</code></pre>
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
+        {/* Interactive API Tester — Client Component */}
+        <ApiTester />
 
-        {/* Endpoints */}
+        {/* Endpoints — Client Components for expand/collapse */}
         <section className="mb-8 sm:mb-12 space-y-4">
           <h3 className="text-lg sm:text-xl font-bold mb-4">Endpoints</h3>
 
@@ -89,7 +77,9 @@ export default function DocsPage() {
             method="GET"
             path="/api/search"
             description="Search for manga/manhwa/manhua/anime/donghua/webtoon across multiple sources in parallel."
-            params={[{ name: "q", type: "string", required: true, desc: "Search query (min 2 chars, max 100 chars)" }]}
+            params={[
+              { name: "q", type: "string", required: true, desc: "Search query (min 2 chars, max 100 chars)" },
+            ]}
             example={`GET /api/search?q=solo+leveling\n\n{\n  "success": true,\n  "results": [...],\n  "count": 4,\n  "query": "solo leveling"\n}`}
           />
 
@@ -97,7 +87,9 @@ export default function DocsPage() {
             method="GET"
             path="/api/trending"
             description="Returns trending titles aggregated across all connected sources, paginated at 30 results per page."
-            params={[{ name: "page", type: "number", required: false, desc: "Page number (1–17), defaults to 1" }]}
+            params={[
+              { name: "page", type: "number", required: false, desc: "Page number (1–17), defaults to 1" },
+            ]}
             example={`GET /api/trending?page=1\n\n{\n  "success": true,\n  "results": [...],\n  "count": 30,\n  "page": 1,\n  "hasMore": true\n}`}
           />
 
@@ -105,11 +97,21 @@ export default function DocsPage() {
             method="GET"
             path="/api/reader"
             description="Fetches a chapter page, extracts manga panel images, and returns them as a JSON array of image URLs."
-            params={[{ name: "url", type: "string", required: true, desc: "Chapter URL from a supported source" }]}
+            params={[
+              { name: "url", type: "string", required: true, desc: "Chapter URL from a supported source" },
+            ]}
             example={`GET /api/reader?url=https://...\n\n{\n  "images": ["https://..."],\n  "count": 42,\n  "source": "https://..."\n}`}
           />
 
-{/* Health endpoint intentionally not documented */}
+          <EndpointCard
+            method="GET"
+            path="/api/genres"
+            description="Browse titles by genre. Returns titles matching the specified genre."
+            params={[
+              { name: "q", type: "string", required: true, desc: "Genre name (e.g., Action, Fantasy, Romance)" },
+            ]}
+            example={`GET /api/genres?q=Action\n\n{\n  "success": true,\n  "results": [...],\n  "count": 30,\n  "genre": "Action"\n}`}
+          />
         </section>
       </main>
 
@@ -117,62 +119,27 @@ export default function DocsPage() {
         <div className="max-w-5xl mx-auto px-3 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-text-muted">
           <span>© {new Date().getFullYear()} MangaVault</span>
           <div className="flex flex-wrap gap-4">
-            <a href="/" className="hover:text-white transition-colors cursor-pointer">Home</a>
-            <a href="/about" className="hover:text-white transition-colors cursor-pointer">About</a>
-            <a href="/privacy" className="hover:text-white transition-colors cursor-pointer">Privacy</a>
-            <a href="/terms" className="hover:text-white transition-colors cursor-pointer">Terms</a>
-            <a href="/dmca" className="hover:text-white transition-colors cursor-pointer">DMCA</a>
-            <a href="mailto:hello@mangavault.in" className="hover:text-white transition-colors cursor-pointer">Contact</a>
+            <a href="/" className="hover:text-white transition-colors cursor-pointer">
+              Home
+            </a>
+            <a href="/about" className="hover:text-white transition-colors cursor-pointer">
+              About
+            </a>
+            <a href="/privacy" className="hover:text-white transition-colors cursor-pointer">
+              Privacy
+            </a>
+            <a href="/terms" className="hover:text-white transition-colors cursor-pointer">
+              Terms
+            </a>
+            <a href="/dmca" className="hover:text-white transition-colors cursor-pointer">
+              DMCA
+            </a>
+            <a href="mailto:hello@mangavault.in" className="hover:text-white transition-colors cursor-pointer">
+              Contact
+            </a>
           </div>
         </div>
       </footer>
-    </div>
-  );
-}
-
-function Badge({ label, value }: { label: string; value: string }) {
-  return <div className="flex items-center gap-2 bg-bg-card border border-border-subtle rounded-lg px-2.5 sm:px-3 py-1.5 sm:py-2"><span className="text-[10px] sm:text-xs text-text-muted">{label}:</span><span className="text-[10px] sm:text-xs text-white font-mono">{value}</span></div>;
-}
-
-function EndpointCard({ method, path, description, params, example }: {
-  method: string;
-  path: string;
-  description: string;
-  params: { name: string; type: string; required: boolean; desc: string }[];
-  example: string;
-}) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="glass-card rounded-xl overflow-hidden border border-border-subtle">
-      <button onClick={() => setOpen(!open)} className="w-full flex items-center gap-3 p-4 sm:p-5 text-left cursor-pointer hover:bg-bg-hover transition-colors focus:outline-none">
-        <span className="px-2 py-0.5 text-xs font-bold rounded bg-green-500/10 text-green-400 border border-green-500/20 flex-shrink-0">{method}</span>
-        <code className="text-sm font-mono text-white flex-1">{path}</code>
-        <svg className={`w-4 h-4 text-text-muted transition-transform ${open ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-      </button>
-      {open && (
-        <div className="border-t border-border-subtle p-4 sm:p-5 space-y-4">
-          <p className="text-text-secondary text-sm">{description}</p>
-          {params.length > 0 && (
-            <div>
-              <h4 className="text-xs text-text-muted uppercase tracking-wider mb-2">Parameters</h4>
-              <div className="space-y-2">
-                {params.map(p => (
-                  <div key={p.name} className="flex flex-wrap gap-2 items-start bg-bg-primary rounded-lg p-3 border border-border-subtle">
-                    <code className="text-xs font-mono text-white">{p.name}</code>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-text-muted">{p.type}</span>
-                    {p.required && <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400">required</span>}
-                    <span className="text-xs text-text-secondary flex-1">{p.desc}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          <div>
-            <h4 className="text-xs text-text-muted uppercase tracking-wider mb-2">Example</h4>
-            <pre className="bg-bg-primary rounded-lg p-3 border border-border-subtle overflow-x-auto text-[10px] sm:text-xs text-green-400/80 font-mono">{example}</pre>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

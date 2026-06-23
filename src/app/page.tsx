@@ -127,7 +127,6 @@ export default function Home() {
                   <span className="word-roll text-[#956afa]">Anime</span>
                   <span className="word-roll text-[#956afa]">Webtoon</span>
                   <span className="word-roll text-[#956afa]">Donghua</span>
-                  <span className="word-roll text-[#956afa]">Manga</span>
                 </span>{" "}
                 source.
               </h2>

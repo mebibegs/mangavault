@@ -1,12 +1,28 @@
 import type { Metadata } from "next";
 
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://www.mangavault.in";
+
 // Force static generation at build time
 export const dynamic = "force-static";
 
 export const metadata: Metadata = {
-  title: "About — MangaVault",
+  title: "About MangaVault — How It Works",
   description:
-    "About MangaVault — a parallel manga search engine that queries multiple databases simultaneously and returns a single deduplicated, ranked result list.",
+    "Learn how MangaVault searches manga, manhwa, and webtoon sources in parallel and returns deduplicated results in a single ranked feed.",
+  alternates: {
+    canonical: `${BASE_URL}/about`,
+  },
+  openGraph: {
+    title: "About MangaVault",
+    description:
+      "How parallel manga search works — one query, multiple sources, deduplicated results.",
+    url: `${BASE_URL}/about`,
+  },
+  twitter: {
+    title: "About MangaVault",
+    description:
+      "Learn how MangaVault queries multiple manga databases simultaneously.",
+  },
 };
 
 export default function AboutPage() {
@@ -56,7 +72,7 @@ export default function AboutPage() {
 
           <h3 className="text-lg font-semibold text-white pt-4">A note on content</h3>
           <p className="text-text-muted text-sm">
-            MangaVault indexes publicly available metadata — titles, descriptions, chapter counts, ratings, and cover thumbnails — for the purpose of discovery. The built-in reader feature proxies chapter images from their original source CDNs in real time; MangaVault does not permanently host, store, or cache any copyrighted chapter images on its own servers. All content remains on and is served from the original source infrastructure.
+            MangaVault indexes publicly available metadata — titles, descriptions, chapter counts, ratings, and cover thumbnails — for the purpose of discovery. Search metadata (titles, chapter counts, ratings) may be temporarily cached for performance, but copyrighted chapter images are never stored on MangaVault servers. The built-in reader feature proxies chapter images from their original source CDNs in real time; all content remains on and is served from the original source infrastructure.
           </p>
           <p className="text-text-muted text-sm">
             MangaVault is not affiliated with, endorsed by, or otherwise connected to any of the sites it indexes. If you are a rights holder and believe your content is being linked to in error, please use our <a href="/dmca" className="text-white underline hover:text-gray-300">DMCA takedown procedure</a> to request removal.
