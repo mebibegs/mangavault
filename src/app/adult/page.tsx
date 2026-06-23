@@ -85,22 +85,54 @@ export default function AdultPage() {
   // ─── Age Gate ───
   if (!confirmed) {
     return (
-      <div className="min-h-screen bg-bg-primary flex items-center justify-center px-4">
-        <div className="glass-card rounded-2xl p-8 sm:p-10 max-w-md w-full text-center space-y-6 border border-red-500/20">
-          <div className="w-16 h-16 mx-auto rounded-full bg-red-500/10 flex items-center justify-center">
-            <span className="text-3xl">🔞</span>
+      <div className="min-h-screen bg-bg-primary flex items-center justify-center px-4 overflow-hidden">
+        {/* Wrapper — popup + girl positioned together */}
+        <div className="relative">
+          {/* Main popup card */}
+          <div className="glass-card rounded-2xl p-8 sm:p-10 max-w-md w-full text-center space-y-6 border border-red-500/20 relative z-10">
+            <div className="w-16 h-16 mx-auto rounded-full bg-red-500/10 flex items-center justify-center">
+              <span className="text-3xl">🔞</span>
+            </div>
+            <h2 className="text-xl sm:text-2xl font-bold text-white">Age Verification Required</h2>
+            <p className="text-text-secondary text-sm leading-relaxed">
+              This section contains adult content intended for mature audiences only (18+). By proceeding, you confirm that you are of legal age in your jurisdiction.
+            </p>
+            <div className="flex flex-col gap-3">
+              <button onClick={() => setConfirmed(true)} className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-colors cursor-pointer">
+                I am 18+ — Enter
+              </button>
+              <a href="/" className="w-full py-3 bg-bg-card border border-border-subtle text-text-secondary font-medium rounded-xl hover:bg-bg-hover transition-colors block cursor-pointer">
+                Go Back
+              </a>
+            </div>
           </div>
-          <h2 className="text-xl sm:text-2xl font-bold text-white">Age Verification Required</h2>
-          <p className="text-text-secondary text-sm leading-relaxed">
-            This section contains adult content intended for mature audiences only (18+). By proceeding, you confirm that you are of legal age in your jurisdiction.
-          </p>
-          <div className="flex flex-col gap-3">
-            <button onClick={() => setConfirmed(true)} className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-colors cursor-pointer">
-              I am 18+ — Enter
-            </button>
-            <a href="/" className="w-full py-3 bg-bg-card border border-border-subtle text-text-secondary font-medium rounded-xl hover:bg-bg-hover transition-colors block cursor-pointer">
-              Go Back
-            </a>
+
+          {/* Anime girl — flush against right edge of popup, bottom-aligned */}
+          <div
+            className="absolute z-20 pointer-events-none select-none hidden sm:block"
+            style={{
+              right: "-100px",
+              bottom: "-8px",
+            }}
+          >
+            <img
+              src="/images/anime-girl-chibi.png"
+              alt=""
+              className="agegate-girl w-[150px] md:w-[180px] h-auto drop-shadow-[0_0_20px_rgba(239,68,68,0.3)]"
+              draggable={false}
+              aria-hidden="true"
+            />
+          </div>
+
+          {/* Mobile: girl below the card, centered */}
+          <div className="sm:hidden flex justify-end -mt-4 mr-2 pointer-events-none select-none relative z-20">
+            <img
+              src="/images/anime-girl-chibi.png"
+              alt=""
+              className="agegate-girl w-[110px] h-auto drop-shadow-[0_0_20px_rgba(239,68,68,0.3)]"
+              draggable={false}
+              aria-hidden="true"
+            />
           </div>
         </div>
       </div>
