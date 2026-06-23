@@ -8,8 +8,10 @@
   --color-border-subtle: #1e1e26;
   --color-border-bright: #2a2a35;
   --color-text-primary: #f0f0f3;
-  --color-text-secondary: #a1a1aa;
-  --color-text-muted: #5a5a6e;
+  /* Improved contrast: changed from #a1a1aa to #b8b8c0 for better accessibility */
+  --color-text-secondary: #b8b8c0;
+  /* Improved contrast: changed from #5a5a6e to #8b8b9a for WCAG AA compliance */
+  --color-text-muted: #8b8b9a;
   --color-accent: #ffffff;
   --color-accent-dim: #888888;
   --color-glow: rgba(255, 255, 255, 0.04);

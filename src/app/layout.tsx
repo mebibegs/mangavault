@@ -1,10 +1,14 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
-import AntiInspect from "@/components/AntiInspect";
-import CookieConsent from "@/components/CookieConsent";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://www.mangavault.in";
+
+export const viewport: Viewport = {
+  themeColor: "#0a0a0a",
+  width: "device-width",
+  initialScale: 1,
+};
 
 export const metadata: Metadata = {
   title: "MangaVault — Search Manga, Manhwa & Webtoons Across Multiple Sources",
@@ -48,15 +52,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className="dark">
       <head>
-        <meta name="theme-color" content="#0a0a0a" />
-        <meta name="monetag" content="fc5c59457a35d1a4d596d1768f27207d" />
-        {/* Resource hints for image CDNs — reduces TLS handshake latency */}
-        <link rel="preconnect" href="https://cdn.asurascans.com" crossOrigin="" />
-        <link rel="dns-prefetch" href="https://cdn.asurascans.com" />
-        <link rel="preconnect" href="https://webtoon-phinf.pstatic.net" crossOrigin="" />
-        <link rel="dns-prefetch" href="https://webtoon-phinf.pstatic.net" />
-        <link rel="preconnect" href="https://s1.manganato.gg" crossOrigin="" />
-        <link rel="dns-prefetch" href="https://s1.manganato.gg" />
         {/* JSON-LD Structured Data — WebSite + SearchAction */}
         <script
           type="application/ld+json"
@@ -100,9 +95,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             </p>
           </div>
         </noscript>
-        <AntiInspect />
         {children}
-        <CookieConsent />
       </body>
     </html>
   );

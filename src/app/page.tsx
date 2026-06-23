@@ -1,10 +1,13 @@
 "use client";
 
-import { Fragment, useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, memo } from "react";
 import dynamic from "next/dynamic";
 
-
-const ShaderBackground = dynamic(() => import("@/components/ShaderBackground"), { ssr: false });
+// Lazy load heavy components - ShaderBackground is extremely heavy on main thread
+const ShaderBackground = dynamic(() => import("@/components/ShaderBackground"), { 
+  ssr: false,
+  loading: () => <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-bg-primary to-bg-primary" />
+});
 
 const OrbitalLoader = dynamic(() => import("@/components/OrbitalLoader"), { ssr: false });
 
@@ -32,6 +35,10 @@ const PHASE_MESSAGES: Record<string, string> = {
   compiling: "Assembling results...",
 };
 
+// Limit initial cards to reduce DOM size and improve performance
+const MAX_TRENDING_CARDS = 20;
+const MAX_GENRE_CARDS = 15;
+
 export default function Home() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<MangaResult[]>([]);
@@ -42,13 +49,24 @@ export default function Home() {
   const [selectedResult, setSelectedResult] = useState<MangaResult | null>(null);
   const [showChapters, setShowChapters] = useState(false);
   const [statusText, setStatusText] = useState("");
+  const [shaderEnabled, setShaderEnabled] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+
+  // Delay shader loading to prioritize content
+  useEffect(() => {
+    const timer = setTimeout(() => setShaderEnabled(true), 1500);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     (async () => {
       try {
         const res = await fetch("/api/trending?page=1");
-        if (res.ok) { const d = await res.json(); setTrendingResults(d.results || []); }
+        if (res.ok) { 
+          const d = await res.json(); 
+          // Limit results to reduce DOM size
+          setTrendingResults((d.results || []).slice(0, MAX_TRENDING_CARDS)); 
+        }
       } catch { /* */ }
       finally { setLoadingTrending(false); }
     })();
@@ -60,14 +78,14 @@ export default function Home() {
     if (abortRef.current) abortRef.current.abort();
     abortRef.current = new AbortController();
     setResults([]); setSelectedResult(null); setShowChapters(false); setError("");
-    setPhase("connecting"); setStatusText(PHASE_MESSAGES.connecting); await sleep(500);
+    setPhase("connecting"); setStatusText(PHASE_MESSAGES.connecting); await sleep(300);
     setPhase("scanning"); setStatusText(PHASE_MESSAGES.scanning);
     try {
       const res = await fetch(`/api/search?q=${encodeURIComponent(query.trim())}`, { signal: abortRef.current.signal });
-      setPhase("analyzing"); setStatusText(PHASE_MESSAGES.analyzing); await sleep(300);
+      setPhase("analyzing"); setStatusText(PHASE_MESSAGES.analyzing); await sleep(200);
       if (!res.ok) { const d = await res.json(); throw new Error(d.error || "Search failed"); }
       const d = await res.json();
-      setPhase("compiling"); setStatusText(PHASE_MESSAGES.compiling); await sleep(200);
+      setPhase("compiling"); setStatusText(PHASE_MESSAGES.compiling); await sleep(100);
       setResults(d.results || []); setPhase("done");
       setStatusText(d.results?.length > 0 ? `Found ${d.results.length} result${d.results.length !== 1 ? "s" : ""} across multiple sources` : "");
     } catch (err: unknown) {
@@ -92,11 +110,11 @@ export default function Home() {
             <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center flex-shrink-0">
               <svg viewBox="0 0 24 24" className="w-5 h-5 text-black" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" /></svg>
             </div>
-            <span className="text-lg sm:text-xl font-bold tracking-tight">Manga<span className="text-text-muted">Vault</span></span>
+            <span className="text-lg sm:text-xl font-bold tracking-tight">Manga<span className="text-gray-400">Vault</span></span>
           </div>
           <nav className="flex items-center gap-3 sm:gap-4" aria-label="Main">
-            <a href="/docs" className="text-xs sm:text-sm text-text-secondary hover:text-white transition-colors cursor-pointer">Docs</a>
-            <a href="/about" className="text-xs sm:text-sm text-text-secondary hover:text-white transition-colors cursor-pointer">About</a>
+            <a href="/docs" className="text-xs sm:text-sm text-gray-300 hover:text-white transition-colors cursor-pointer">Docs</a>
+            <a href="/about" className="text-xs sm:text-sm text-gray-300 hover:text-white transition-colors cursor-pointer">About</a>
             <a href="/adult" className="text-[10px] sm:text-xs text-red-400 hover:text-red-300 transition-colors cursor-pointer font-bold border border-red-500/30 rounded-md px-2 py-1 hover:border-red-500/50">18+</a>
           </nav>
         </div>
@@ -107,7 +125,12 @@ export default function Home() {
         <div className={`relative transition-all duration-700 ease-out ${showHero ? "pt-0" : "pt-6 sm:pt-8"}`}>
           {showHero && (
             <div className="absolute inset-0 overflow-hidden" style={{ height: "100%", maxHeight: "520px" }}>
-              <ShaderBackground />
+              {/* Only load shader after delay to prioritize content */}
+              {shaderEnabled ? (
+                <ShaderBackground />
+              ) : (
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-bg-primary to-bg-primary" />
+              )}
               <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-bg-primary" style={{ zIndex: 1 }} />
             </div>
           )}
@@ -115,7 +138,7 @@ export default function Home() {
           <div className="max-w-3xl mx-auto px-4 sm:px-6 relative" style={{ zIndex: 2 }}>
             {/* Hero content */}
             <div className={`flex flex-col items-center transition-all duration-700 overflow-hidden ${showHero ? "max-h-[600px] opacity-100 mb-6 sm:mb-8 pt-10 sm:pt-16 md:pt-20" : "max-h-0 opacity-0 mb-0"}`}>
-              <p className="text-white/40 text-[11px] sm:text-xs tracking-[0.25em] uppercase mb-4 sm:mb-5">
+              <p className="text-gray-400 text-[11px] sm:text-xs tracking-[0.25em] uppercase mb-4 sm:mb-5">
                 Manga · Manhwa · Manhua · Anime · Donghua · Webtoon
               </p>
               <h2 className="text-xl sm:text-2xl md:text-4xl font-bold text-white text-center leading-snug max-w-xl drop-shadow-lg">
@@ -130,45 +153,38 @@ export default function Home() {
                 </span>{" "}
                 source.
               </h2>
-              <p className="text-white/60 text-xs sm:text-sm max-w-lg mx-auto text-center mt-3 leading-relaxed">
+              <p className="text-gray-400 text-xs sm:text-sm max-w-lg mx-auto text-center mt-3 leading-relaxed">
                 Type a title once and MangaVault checks multiple databases in parallel — then merges the results into a single ranked, deduplicated list with covers, ratings, and chapter counts.
               </p>
             </div>
 
-            {/* ─── Animated Search Bar ─── */}
+            {/* ─── Search Bar (simplified for performance) ─── */}
             <form onSubmit={handleSearch} className="relative" role="search" aria-label="Search manga and manhwa">
-              <div className="relative flex items-center justify-center group">
-                {/* Glow layers */}
-                <div className="absolute z-0 overflow-hidden h-full w-full rounded-2xl blur-[3px] before:absolute before:content-[''] before:z-[-1] before:w-[800px] before:h-[800px] before:bg-no-repeat before:top-1/2 before:left-1/2 before:-translate-x-1/2 before:-translate-y-1/2 before:rotate-[60deg] before:bg-[conic-gradient(#000,#402fb5_5%,#000_38%,#000_50%,#cf30aa_60%,#000_87%)] before:transition-all before:duration-[2000ms] group-hover:before:rotate-[-120deg] group-focus-within:before:rotate-[420deg] group-focus-within:before:duration-[4000ms]" />
-                <div className="absolute z-0 overflow-hidden h-full w-full rounded-2xl blur-[2px] before:absolute before:content-[''] before:z-[-1] before:w-[600px] before:h-[600px] before:bg-no-repeat before:top-1/2 before:left-1/2 before:-translate-x-1/2 before:-translate-y-1/2 before:rotate-[82deg] before:bg-[conic-gradient(rgba(0,0,0,0),#18116a,rgba(0,0,0,0)_10%,rgba(0,0,0,0)_50%,#6e1b60,rgba(0,0,0,0)_60%)] before:transition-all before:duration-[2000ms] group-hover:before:rotate-[-98deg] group-focus-within:before:rotate-[442deg] group-focus-within:before:duration-[4000ms]" />
-                <div className="absolute z-0 overflow-hidden h-full w-full rounded-2xl blur-[0.5px] before:absolute before:content-[''] before:z-[-1] before:w-[600px] before:h-[600px] before:bg-no-repeat before:top-1/2 before:left-1/2 before:-translate-x-1/2 before:-translate-y-1/2 before:rotate-[70deg] before:bg-[conic-gradient(#09090b,#402fb5_5%,#09090b_14%,#09090b_50%,#cf30aa_60%,#09090b_64%)] before:transition-all before:duration-[2000ms] group-hover:before:rotate-[-110deg] group-focus-within:before:rotate-[430deg] group-focus-within:before:duration-[4000ms]" />
-
-                {/* Input container */}
-                <div className="relative z-10 w-full bg-[#0a0a0e] rounded-2xl flex items-center">
-                  <label htmlFor="search-input" className="pl-4 sm:pl-5 pr-2 sm:pr-3 text-text-muted">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" viewBox="0 0 24 24" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" height="20" fill="none">
-                      <circle stroke="url(#sg)" r="8" cy="11" cx="11" /><line stroke="url(#sl)" y2="16.65" y1="22" x2="16.65" x1="22" />
-                      <defs><linearGradient gradientTransform="rotate(50)" id="sg"><stop stopColor="#f8e7f8" offset="0%" /><stop stopColor="#b6a9b7" offset="50%" /></linearGradient><linearGradient id="sl"><stop stopColor="#b6a9b7" offset="0%" /><stop stopColor="#837484" offset="50%" /></linearGradient></defs>
+              <div className="relative flex items-center justify-center">
+                <div className="relative z-10 w-full bg-[#0a0a0e] rounded-2xl flex items-center border border-purple-500/20 focus-within:border-purple-500/50 transition-colors shadow-lg shadow-purple-500/5">
+                  <label htmlFor="search-input" className="pl-4 sm:pl-5 pr-2 sm:pr-3 text-gray-500">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" viewBox="0 0 24 24" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" height="20" fill="none" stroke="currentColor">
+                      <circle r="8" cy="11" cx="11" /><line y2="16.65" y1="22" x2="16.65" x1="22" />
                     </svg>
                   </label>
-                  <input id="search-input" type="text" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search for a title — e.g. Solo Leveling, Tower of God" className="flex-1 bg-transparent py-4 sm:py-5 text-sm sm:text-base text-white placeholder-text-muted outline-none" autoFocus />
+                  <input id="search-input" type="text" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search for a title — e.g. Solo Leveling, Tower of God" className="flex-1 bg-transparent py-4 sm:py-5 text-sm sm:text-base text-white placeholder-gray-500 outline-none" autoFocus />
                   {query && (
-                    <button type="button" onClick={clearSearch} className="px-2 text-text-muted hover:text-white transition-colors cursor-pointer focus:outline-none" aria-label="Clear"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
+                    <button type="button" onClick={clearSearch} className="px-2 text-gray-500 hover:text-white transition-colors cursor-pointer focus:outline-none" aria-label="Clear"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
                   )}
                   <button type="submit" disabled={!query.trim() || isSearching} className="mr-2 sm:mr-3 px-4 sm:px-6 py-2 sm:py-2.5 bg-white text-black font-medium text-sm rounded-xl hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/40">Search</button>
                 </div>
               </div>
             </form>
 
-            {/* Sample queries — 2×2 mobile/tablet, 4 inline desktop */}
+            {/* Sample queries */}
             {showHero && (
-              <div className="mt-4 sm:mt-5 animate-fade-in-up relative" style={{ zIndex: 2 }}>
-                <p className="text-text-muted text-[11px] uppercase tracking-wider mb-2 text-center">Try a search</p>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 max-w-2xl mx-auto stagger-children">
+              <div className="mt-4 sm:mt-5 relative" style={{ zIndex: 2 }}>
+                <p className="text-gray-500 text-[11px] uppercase tracking-wider mb-2 text-center">Try a search</p>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 max-w-2xl mx-auto">
                   {SAMPLE_QUERIES.map(s => (
-                    <button key={s.title} onClick={() => searchSample(s.title)} className="flex items-center justify-center gap-2 text-xs bg-bg-card border border-border-subtle rounded-lg px-3 py-2.5 hover:border-border-bright hover:text-white text-text-secondary transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/20 hover:translate-y-[-1px]">
+                    <button key={s.title} onClick={() => searchSample(s.title)} className="flex items-center justify-center gap-2 text-xs bg-bg-card border border-border-subtle rounded-lg px-3 py-2.5 hover:border-purple-500/50 hover:text-white text-gray-300 transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/20 hover:translate-y-[-1px]">
                       <span className="font-medium text-white">{s.title}</span>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-text-muted">{s.type}</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-gray-400">{s.type}</span>
                     </button>
                   ))}
                 </div>
@@ -177,17 +193,17 @@ export default function Home() {
 
             {/* Orbital loader */}
             {isSearching && (
-              <div className="mt-8 mb-4 animate-fade-in-up">
+              <div className="mt-8 mb-4">
                 <OrbitalLoader message={statusText} />
               </div>
             )}
 
-            {phase === "error" && <div className="mt-6 animate-fade-in-up"><div className="glass-card rounded-xl p-4 border border-red-900/30"><p className="text-red-400 text-sm">{error}</p></div></div>}
-            {phase === "done" && results.length > 0 && <p className="text-text-muted text-xs sm:text-sm mt-3 text-center animate-fade-in-up">{statusText}</p>}
+            {phase === "error" && <div className="mt-6"><div className="glass-card rounded-xl p-4 border border-red-900/30"><p className="text-red-400 text-sm">{error}</p></div></div>}
+            {phase === "done" && results.length > 0 && <p className="text-gray-500 text-xs sm:text-sm mt-3 text-center">{statusText}</p>}
             {phase === "done" && results.length === 0 && (
-              <div className="text-center py-10 animate-fade-in-up">
-                <p className="text-text-secondary text-sm mb-2">No results found for &ldquo;{query}&rdquo;</p>
-                <p className="text-text-muted text-xs mb-4">Try an exact title, an alternate spelling, or a shorter keyword.</p>
+              <div className="text-center py-10">
+                <p className="text-gray-300 text-sm mb-2">No results found for &ldquo;{query}&rdquo;</p>
+                <p className="text-gray-500 text-xs mb-4">Try an exact title, an alternate spelling, or a shorter keyword.</p>
                 <button onClick={clearSearch} className="text-xs text-white bg-bg-card border border-border-subtle rounded-lg px-4 py-2 hover:border-border-bright transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/20">Browse trending instead</button>
               </div>
             )}
@@ -206,9 +222,9 @@ export default function Home() {
         {/* ── Search results grid (only when user searched) ── */}
         {results.length > 0 && (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-2 sm:mt-4 pb-8 w-full">
-            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 sm:gap-4 stagger-children">
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 sm:gap-4">
               {results.map((result, idx) => (
-                <ResultCard key={`${result.title}-${result.source}-${idx}`} result={result} onClick={() => { setSelectedResult(result); setShowChapters(false); }} />
+                <ResultCard key={`${result.title}-${result.source}-${idx}`} result={result} onClick={() => { setSelectedResult(result); setShowChapters(false); }} priority={idx < 4} />
               ))}
             </div>
           </div>
@@ -216,21 +232,20 @@ export default function Home() {
 
         {/* ── Featured Promo Banner ── */}
         {showHero && !loadingTrending && (
-          <div className="w-full pb-6 animate-fade-in-up">
-            <FeaturedBanner compact={false} />
+          <div className="w-full pb-6">
+            <FeaturedBanner />
           </div>
         )}
 
         {/* ── Genre Browser ── */}
         {showHero && !loadingTrending && <GenreSection onCardClick={(r) => { setSelectedResult(r); setShowChapters(false); }} />}
 
-
       </main>
 
       {selectedResult && <DetailModal result={selectedResult} showChapters={showChapters} onToggleChapters={() => setShowChapters(!showChapters)} onClose={() => { setSelectedResult(null); setShowChapters(false); }} />}
 
       <footer className="border-t border-border-subtle py-6">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-text-muted">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-400">
           <span>© {new Date().getFullYear()} MangaVault</span>
           <div className="flex flex-wrap items-center gap-4">
             <a href="/docs" className="hover:text-white transition-colors cursor-pointer">Docs</a>
@@ -257,7 +272,7 @@ function GenreButton({ label, active, onClick }: { label: string; active: boolea
       className={`cursor-pointer group relative flex items-center gap-1.5 px-5 sm:px-6 py-2.5 sm:py-3 rounded-3xl transition font-bold shadow-md text-xs sm:text-sm flex-shrink-0 focus:outline-none uppercase tracking-wide ${
         active
           ? "bg-white text-black"
-          : "bg-black/80 text-white hover:bg-black/60 border border-white/10"
+          : "bg-black/80 text-white hover:bg-black/60 border border-white/20"
       }`}
     >
       {label}
@@ -278,7 +293,8 @@ function GenreSection({ onCardClick }: { onCardClick: (r: MangaResult) => void }
       const res = await fetch(`/api/genres?q=${encodeURIComponent(genre)}`);
       if (res.ok) {
         const d = await res.json();
-        setGenreResults(d.results || []);
+        // Limit results for performance
+        setGenreResults((d.results || []).slice(0, MAX_GENRE_CARDS));
       }
     } catch { /* */ }
     finally { setGenreLoading(false); }
@@ -293,32 +309,32 @@ function GenreSection({ onCardClick }: { onCardClick: (r: MangaResult) => void }
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-12 w-full animate-fade-in-up">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-12 w-full">
       {/* Header row */}
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-base sm:text-lg font-bold text-white uppercase tracking-wider">Browse by Genre</h3>
-        <a href="/genres" className="text-xs sm:text-sm text-text-secondary hover:text-white transition-colors cursor-pointer flex items-center gap-1">
+        <a href="/genres" className="text-xs sm:text-sm text-gray-300 hover:text-white transition-colors cursor-pointer flex items-center gap-1">
           View All
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
         </a>
       </div>
 
-      {/* Genre pill buttons — 6 in a row, scrollable on small screens */}
+      {/* Genre pill buttons */}
       <div className="flex gap-2 sm:gap-3 overflow-x-auto scrollbar-hide pb-3">
         {HOMEPAGE_GENRES.map(g => (
           <GenreButton key={g} label={g} active={g === activeGenre} onClick={() => setActiveGenre(g)} />
         ))}
       </div>
 
-      {/* Genre results — horizontal scroll row */}
+      {/* Genre results */}
       <div className="mt-3">
         <div className="flex items-center justify-between mb-2">
-          <p className="text-text-muted text-xs sm:text-sm">{activeGenre} titles</p>
+          <p className="text-gray-500 text-xs sm:text-sm">{activeGenre} titles</p>
           <div className="flex items-center gap-2">
-            <button onClick={() => scrollGenre("left")} aria-label="Scroll left" className="w-8 h-8 flex items-center justify-center rounded-full border border-border-subtle bg-bg-card text-text-secondary hover:bg-bg-hover hover:text-white transition-colors cursor-pointer focus:outline-none">
+            <button onClick={() => scrollGenre("left")} aria-label="Scroll left" className="w-8 h-8 flex items-center justify-center rounded-full border border-border-subtle bg-bg-card text-gray-400 hover:bg-bg-hover hover:text-white transition-colors cursor-pointer focus:outline-none">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
             </button>
-            <button onClick={() => scrollGenre("right")} aria-label="Scroll right" className="w-8 h-8 flex items-center justify-center rounded-full border border-border-subtle bg-bg-card text-text-secondary hover:bg-bg-hover hover:text-white transition-colors cursor-pointer focus:outline-none">
+            <button onClick={() => scrollGenre("right")} aria-label="Scroll right" className="w-8 h-8 flex items-center justify-center rounded-full border border-border-subtle bg-bg-card text-gray-400 hover:bg-bg-hover hover:text-white transition-colors cursor-pointer focus:outline-none">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
             </button>
           </div>
@@ -337,12 +353,12 @@ function GenreSection({ onCardClick }: { onCardClick: (r: MangaResult) => void }
           <div ref={genreScrollRef} className="flex gap-3 sm:gap-4 overflow-x-auto scroll-smooth pb-2 scrollbar-hide" style={{ scrollbarWidth: "none" }}>
             {genreResults.map((result, idx) => (
               <div key={`${result.title}-${result.source}-${idx}`} className="flex-shrink-0 w-[42vw] sm:w-[200px] md:w-[220px] lg:w-[240px]">
-                <ResultCard result={result} onClick={() => onCardClick(result)} />
+                <ResultCard result={result} onClick={() => onCardClick(result)} priority={idx < 4} />
               </div>
             ))}
           </div>
         ) : (
-          <div className="py-8 text-center"><p className="text-text-muted text-sm">No results found for {activeGenre}</p></div>
+          <div className="py-8 text-center"><p className="text-gray-500 text-sm">No results found for {activeGenre}</p></div>
         )}
       </div>
     </div>
@@ -365,10 +381,10 @@ function TrendingRow({ results, loading, onCardClick }: { results: MangaResult[]
       <div className="flex items-center justify-between mb-3 sm:mb-4">
         <h3 className="text-base sm:text-lg font-bold text-white uppercase tracking-wider">Trending Now</h3>
         <div className="flex items-center gap-2">
-          <button onClick={() => scroll("left")} aria-label="Scroll left" className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full border border-border-subtle bg-bg-card text-text-secondary hover:bg-bg-hover hover:text-white transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/20">
+          <button onClick={() => scroll("left")} aria-label="Scroll left" className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full border border-border-subtle bg-bg-card text-gray-400 hover:bg-bg-hover hover:text-white transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/20">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
           </button>
-          <button onClick={() => scroll("right")} aria-label="Scroll right" className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full border border-border-subtle bg-bg-card text-text-secondary hover:bg-bg-hover hover:text-white transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/20">
+          <button onClick={() => scroll("right")} aria-label="Scroll right" className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full border border-border-subtle bg-bg-card text-gray-400 hover:bg-bg-hover hover:text-white transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/20">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
           </button>
         </div>
@@ -388,7 +404,7 @@ function TrendingRow({ results, loading, onCardClick }: { results: MangaResult[]
         <div ref={scrollRef} className="flex gap-3 sm:gap-4 overflow-x-auto scroll-smooth pb-2 scrollbar-hide" style={{ scrollbarWidth: "none" }}>
           {results.map((result, idx) => (
             <div key={`${result.title}-${result.source}-${idx}`} className="flex-shrink-0 w-[42vw] sm:w-[200px] md:w-[220px] lg:w-[240px]">
-              <ResultCard result={result} onClick={() => onCardClick(result)} />
+              <ResultCard result={result} onClick={() => onCardClick(result)} priority={idx < 4} />
             </div>
           ))}
         </div>
@@ -398,14 +414,14 @@ function TrendingRow({ results, loading, onCardClick }: { results: MangaResult[]
 }
 
 /* ═══════════════════ RESULT CARD (Vertical Poster) ═══════════════════ */
-function ResultCard({ result, onClick }: { result: MangaResult; onClick: () => void }) {
+const ResultCard = memo(function ResultCard({ result, onClick, priority = false }: { result: MangaResult; onClick: () => void; priority?: boolean }) {
   const statusLower = result.status.toLowerCase();
   const statusColor =
     statusLower === "completed" || statusLower === "finished"
-      ? "bg-red-500/90 text-white"
+      ? "bg-red-600 text-white"
       : statusLower === "ongoing"
-        ? "bg-green-500/90 text-white"
-        : "bg-yellow-500/90 text-black";
+        ? "bg-emerald-600 text-white"
+        : "bg-amber-500 text-black";
 
   const firstGenre = result.genres.length > 0 ? result.genres[0] : result.type;
 
@@ -421,25 +437,27 @@ function ResultCard({ result, onClick }: { result: MangaResult; onClick: () => v
             src={result.coverUrl}
             alt={`Cover of ${result.title}`}
             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-            loading="lazy"
+            loading={priority ? "eager" : "lazy"}
+            fetchPriority={priority ? "high" : "auto"}
+            decoding={priority ? "sync" : "async"}
             onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-bg-card">
-            <svg className="w-10 h-10 text-text-muted/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-10 h-10 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
             </svg>
           </div>
         )}
 
-        {/* Status badge — top-left corner */}
-        <span className={`absolute top-2 left-2 text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-md shadow-md ${statusColor}`}>
+        {/* Status badge — top-left corner (improved contrast) */}
+        <span className={`absolute top-2 left-2 text-[10px] sm:text-xs font-bold px-2 py-1 rounded-md shadow-lg ${statusColor}`}>
           {result.status}
         </span>
 
         {/* Source badge — top-right corner */}
         {result.source && (
-          <span className="absolute top-2 right-2 text-[9px] sm:text-[10px] font-semibold px-1.5 py-0.5 rounded-md shadow-md bg-black/70 text-white/90 backdrop-blur-sm border border-white/10">
+          <span className="absolute top-2 right-2 text-[9px] sm:text-[10px] font-semibold px-1.5 py-0.5 rounded-md shadow-md bg-black/80 text-white backdrop-blur-sm border border-white/20">
             {result.source}
           </span>
         )}
@@ -455,11 +473,11 @@ function ResultCard({ result, onClick }: { result: MangaResult; onClick: () => v
         </h3>
 
         <div className="flex items-center justify-between gap-2 mt-auto">
-          <span className="text-xs sm:text-sm font-semibold text-text-secondary truncate">
+          <span className="text-xs sm:text-sm font-semibold text-gray-400 truncate">
             {firstGenre}
           </span>
           {result.rating !== "N/A" && (
-            <span className="inline-flex items-center gap-1 text-xs sm:text-sm font-bold text-text-primary flex-shrink-0">
+            <span className="inline-flex items-center gap-1 text-xs sm:text-sm font-bold text-white flex-shrink-0">
               <svg className="w-3 h-3 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
               </svg>
@@ -470,7 +488,7 @@ function ResultCard({ result, onClick }: { result: MangaResult; onClick: () => v
       </div>
     </button>
   );
-}
+});
 
 /* ═══════════════════ DETAIL MODAL ═══════════════════ */
 function DetailModal({ result, showChapters, onToggleChapters, onClose }: { result: MangaResult; showChapters: boolean; onToggleChapters: () => void; onClose: () => void }) {
@@ -489,13 +507,11 @@ function DetailModal({ result, showChapters, onToggleChapters, onClose }: { resu
 
     const onScroll = () => {
       const { scrollTop, scrollHeight, clientHeight } = container;
-      // Show when within 600px of the bottom
       const nearBottom = scrollHeight - scrollTop - clientHeight < 600;
       setShowNavButtons(nearBottom);
     };
 
     container.addEventListener("scroll", onScroll, { passive: true });
-    // Check once on mount in case content is short enough to already be at the bottom
     onScroll();
     return () => container.removeEventListener("scroll", onScroll);
   }, [readerImages]);
@@ -536,7 +552,6 @@ function DetailModal({ result, showChapters, onToggleChapters, onClose }: { resu
     setReaderError("");
     setReaderImages([]);
     setShowNavButtons(false);
-    // Scroll the reader container back to top for the new chapter
     if (readerScrollRef.current) readerScrollRef.current.scrollTop = 0;
     try {
       const res = await fetch(`/api/reader?url=${encodeURIComponent(chUrl)}`);
@@ -595,15 +610,15 @@ function DetailModal({ result, showChapters, onToggleChapters, onClose }: { resu
   // ─── Image Reader view ───
   if (readerUrl) {
     return (
-      <div className="fixed inset-0 z-50 bg-black flex flex-col animate-fade-in">
+      <div className="fixed inset-0 z-50 bg-black flex flex-col">
         {/* Top bar */}
         <div className="flex items-center justify-between px-3 sm:px-5 py-2.5 bg-bg-secondary border-b border-border-subtle flex-shrink-0">
-          <button onClick={() => { setReaderUrl(null); setReaderImages([]); setReaderError(""); setCurrentChapterIndex(null); }} className="flex items-center gap-2 text-xs sm:text-sm text-text-secondary hover:text-white transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/20 rounded-lg px-3 py-1.5 bg-bg-card border border-border-subtle hover:border-border-bright">
+          <button onClick={() => { setReaderUrl(null); setReaderImages([]); setReaderError(""); setCurrentChapterIndex(null); }} className="flex items-center gap-2 text-xs sm:text-sm text-gray-300 hover:text-white transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/20 rounded-lg px-3 py-1.5 bg-bg-card border border-border-subtle hover:border-border-bright">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
             Back
           </button>
           <h3 className="text-xs sm:text-sm text-white font-medium truncate max-w-[40%] sm:max-w-[50%]">{result.title}</h3>
-          <button onClick={onClose} className="text-text-muted hover:text-white transition-colors cursor-pointer p-1.5 rounded-lg hover:bg-bg-hover focus:outline-none focus:ring-2 focus:ring-white/20" aria-label="Close reader">
+          <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors cursor-pointer p-1.5 rounded-lg hover:bg-bg-hover focus:outline-none focus:ring-2 focus:ring-white/20" aria-label="Close reader">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
@@ -613,10 +628,9 @@ function DetailModal({ result, showChapters, onToggleChapters, onClose }: { resu
           <div className="flex-1 flex items-center justify-center">
             <div className="flex flex-col items-center gap-3">
               <div className="relative w-10 h-10">
-                <div className="absolute inset-0 border-2 border-transparent border-t-white rounded-full animate-[orbital-spin_1s_linear_infinite]" />
-                <div className="absolute inset-2 border-2 border-transparent border-t-white/50 rounded-full animate-[orbital-spin-reverse_1.5s_linear_infinite]" />
+                <div className="absolute inset-0 border-2 border-transparent border-t-white rounded-full animate-spin" />
               </div>
-              <p className="text-text-muted text-xs">Extracting images...</p>
+              <p className="text-gray-400 text-xs">Extracting images...</p>
             </div>
           </div>
         )}
@@ -634,20 +648,17 @@ function DetailModal({ result, showChapters, onToggleChapters, onClose }: { resu
         {/* Images */}
         {!readerLoading && !readerError && readerImages.length > 0 && (
           <>
-            {/* Edge-mounted chapter navigation — only visible near the end */}
             {hasRealChapterList && canGoPrev && showNavButtons && (
-              <div className="fixed left-3 sm:left-5 bottom-5 sm:bottom-6 z-20 animate-fade-in-up">
-                <button onClick={goPrevChapter} className="chapter-nav-btn">
-                  <span className="chapter-nav-blob" />
-                  <span className="chapter-nav-inner">Previous</span>
+              <div className="fixed left-3 sm:left-5 bottom-5 sm:bottom-6 z-20">
+                <button onClick={goPrevChapter} className="px-4 py-2 bg-white/10 backdrop-blur-md text-white rounded-lg border border-white/20 hover:bg-white/20 transition-colors">
+                  Previous
                 </button>
               </div>
             )}
             {hasRealChapterList && canGoNext && showNavButtons && (
-              <div className="fixed right-3 sm:right-5 bottom-5 sm:bottom-6 z-20 animate-fade-in-up">
-                <button onClick={goNextChapter} className="chapter-nav-btn">
-                  <span className="chapter-nav-blob" />
-                  <span className="chapter-nav-inner">Next</span>
+              <div className="fixed right-3 sm:right-5 bottom-5 sm:bottom-6 z-20">
+                <button onClick={goNextChapter} className="px-4 py-2 bg-white/10 backdrop-blur-md text-white rounded-lg border border-white/20 hover:bg-white/20 transition-colors">
+                  Next
                 </button>
               </div>
             )}
@@ -666,22 +677,12 @@ function DetailModal({ result, showChapters, onToggleChapters, onClose }: { resu
                   />
                 ))}
                 <div className="py-8 px-4 text-center space-y-5">
-                  <p className="text-text-muted text-xs">End of chapter</p>
-                  <button onClick={() => { setReaderUrl(null); setReaderImages([]); setCurrentChapterIndex(null); }} className="neu-button">Back to chapters</button>
+                  <p className="text-gray-400 text-xs">End of chapter</p>
+                  <button onClick={() => { setReaderUrl(null); setReaderImages([]); setCurrentChapterIndex(null); }} className="px-6 py-3 bg-gray-200 text-gray-700 rounded-full font-medium hover:bg-white transition-colors">Back to chapters</button>
                 </div>
               </div>
             </div>
           </>
-        )}
-
-        {/* No images found */}
-        {!readerLoading && !readerError && readerImages.length === 0 && (
-          <div className="flex-1 flex items-center justify-center px-6">
-            <div className="text-center">
-              <p className="text-text-muted text-sm mb-3">No images could be extracted from this chapter.</p>
-              <a href={readerUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-white underline cursor-pointer">Open on source site instead →</a>
-            </div>
-          </div>
         )}
       </div>
     );
@@ -689,8 +690,8 @@ function DetailModal({ result, showChapters, onToggleChapters, onClose }: { resu
 
   // ─── Detail view ───
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in" onClick={e => { if (e.target === e.currentTarget) onClose(); }} role="dialog" aria-modal="true" aria-label={result.title}>
-      <div className="w-full sm:max-w-2xl max-h-[90vh] bg-bg-secondary border border-border-subtle rounded-t-2xl sm:rounded-2xl overflow-hidden animate-slide-up flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm" onClick={e => { if (e.target === e.currentTarget) onClose(); }} role="dialog" aria-modal="true" aria-label={result.title}>
+      <div className="w-full sm:max-w-2xl max-h-[90vh] bg-bg-secondary border border-border-subtle rounded-t-2xl sm:rounded-2xl overflow-hidden flex flex-col">
         <div className="flex items-start justify-between p-5 sm:p-6 border-b border-border-subtle">
           <div className="flex gap-4 flex-1 min-w-0">
             {result.coverUrl ? <div className="w-20 h-28 sm:w-24 sm:h-32 rounded-lg overflow-hidden flex-shrink-0 bg-bg-hover"><img src={result.coverUrl} alt="" className="w-full h-full object-cover" /></div> : <div className="w-20 h-28 sm:w-24 sm:h-32 rounded-lg bg-bg-card flex-shrink-0" />}
@@ -698,23 +699,23 @@ function DetailModal({ result, showChapters, onToggleChapters, onClose }: { resu
               <h2 className="text-lg sm:text-xl font-bold text-white leading-snug">{result.title}</h2>
               <div className="flex flex-wrap gap-2 mt-2">
                 {result.rating !== "N/A" && <span className="inline-flex items-center gap-1 text-xs bg-white/10 px-2 py-1 rounded-md"><svg className="w-3 h-3 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>{result.rating}</span>}
-                <span className={`text-xs px-2 py-1 rounded-md ${result.status.toLowerCase() === "completed" ? "bg-green-500/10 text-green-400" : "bg-blue-500/10 text-blue-400"}`}>{result.status}</span>
-                <span className="text-xs px-2 py-1 rounded-md bg-white/5 text-text-secondary">{result.type}</span>
+                <span className={`text-xs px-2 py-1 rounded-md ${result.status.toLowerCase() === "completed" ? "bg-green-500/20 text-green-400" : "bg-blue-500/20 text-blue-400"}`}>{result.status}</span>
+                <span className="text-xs px-2 py-1 rounded-md bg-white/5 text-gray-300">{result.type}</span>
               </div>
             </div>
           </div>
-          <button onClick={onClose} className="ml-3 p-2 rounded-lg hover:bg-bg-hover transition-colors text-text-muted hover:text-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/20" aria-label="Close"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
+          <button onClick={onClose} className="ml-3 p-2 rounded-lg hover:bg-bg-hover transition-colors text-gray-400 hover:text-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/20" aria-label="Close"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
         </div>
         <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5">
           <div className="grid grid-cols-2 gap-3"><MI l="Author" v={result.author} /><MI l="Artist" v={result.artist} /><MI l="Total Chapters" v={String(totalChapters)} /><MI l="Source" v={result.source} /></div>
-          {result.genres.length > 0 && <div><h4 className="text-xs text-text-muted uppercase tracking-wider mb-2">Genres</h4><div className="flex flex-wrap gap-1.5">{result.genres.map(g => <span key={g} className="text-xs px-2.5 py-1 rounded-full bg-white/5 text-text-secondary border border-border-subtle">{g}</span>)}</div></div>}
-          <div><h4 className="text-xs text-text-muted uppercase tracking-wider mb-2">Description</h4><p className="text-sm text-text-secondary leading-relaxed">{result.description}</p></div>
+          {result.genres.length > 0 && <div><h4 className="text-xs text-gray-400 uppercase tracking-wider mb-2">Genres</h4><div className="flex flex-wrap gap-1.5">{result.genres.map(g => <span key={g} className="text-xs px-2.5 py-1 rounded-full bg-white/5 text-gray-300 border border-border-subtle">{g}</span>)}</div></div>}
+          <div><h4 className="text-xs text-gray-400 uppercase tracking-wider mb-2">Description</h4><p className="text-sm text-gray-300 leading-relaxed">{result.description}</p></div>
 
           {/* Chapters */}
           <div>
             <button onClick={onToggleChapters} className="w-full flex items-center justify-between py-3 px-4 rounded-xl bg-bg-card border border-border-subtle hover:border-border-bright transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/20">
               <span className="text-sm font-medium text-white">All Chapters ({totalChapters})</span>
-              <svg className={`w-4 h-4 text-text-muted transition-transform duration-200 ${showChapters ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+              <svg className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${showChapters ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
             </button>
 
             {showChapters && (
@@ -722,19 +723,19 @@ function DetailModal({ result, showChapters, onToggleChapters, onClose }: { resu
                 {result.chapters.length > 0 ? (
                   result.chapters.map((ch, i) => (
                     <button key={i} onClick={() => openReader(ch.url, i)} className="w-full flex items-center px-4 py-3 hover:bg-bg-hover transition-colors cursor-pointer text-left gap-3">
-                      <span className="min-w-0 flex-1 text-sm text-green-400 font-medium truncate">
+                      <span className="min-w-0 flex-1 text-sm text-emerald-400 font-medium truncate">
                         {ch.title}
                       </span>
-                      <span className="flex-shrink-0 text-right whitespace-nowrap text-xs font-medium text-red-400">
+                      <span className="flex-shrink-0 text-right whitespace-nowrap text-xs font-medium text-rose-400">
                         {ch.date || "—"}
                       </span>
                     </button>
                   ))
                 ) : (
-                  Array.from({ length: totalChapters }, (_, i) => (
+                  Array.from({ length: Math.min(totalChapters, 50) }, (_, i) => (
                     <button key={i} onClick={() => openReader(result.url)} className="w-full flex items-center px-4 py-3 hover:bg-bg-hover transition-colors cursor-pointer text-left gap-3">
-                      <span className="min-w-0 flex-1 text-sm text-green-400 font-medium truncate">Chapter {totalChapters - i}</span>
-                      <span className="flex-shrink-0 text-right whitespace-nowrap text-xs font-medium text-red-400">—</span>
+                      <span className="min-w-0 flex-1 text-sm text-emerald-400 font-medium truncate">Chapter {totalChapters - i}</span>
+                      <span className="flex-shrink-0 text-right whitespace-nowrap text-xs font-medium text-rose-400">—</span>
                     </button>
                   ))
                 )}
@@ -748,64 +749,31 @@ function DetailModal({ result, showChapters, onToggleChapters, onClose }: { resu
 }
 
 function MI({ l, v }: { l: string; v: string }) {
-  return <div className="bg-bg-card rounded-lg p-3 border border-border-subtle"><p className="text-xs text-text-muted uppercase tracking-wider mb-1">{l}</p><p className="text-sm text-text-primary truncate">{v || "Unknown"}</p></div>;
+  return <div className="bg-bg-card rounded-lg p-3 border border-border-subtle"><p className="text-xs text-gray-400 uppercase tracking-wider mb-1">{l}</p><p className="text-sm text-white truncate">{v || "Unknown"}</p></div>;
 }
 
-function StudioLogo({ name, font, accent, sub }: { name: string; font: string; accent?: boolean; sub?: string }) {
+function FeaturedBanner() {
   return (
-    <div className="flex flex-col items-center">
-      <span
-        className={`${font} text-sm sm:text-lg md:text-xl leading-none select-none drop-shadow-lg ${
-          accent
-            ? "bg-red-600 text-white px-2 py-0.5 sm:px-3 sm:py-1 rounded-sm"
-            : "text-white"
-        }`}
-      >
-        {name}
-      </span>
-      {sub && (
-        <span className="text-white font-semibold text-[7px] sm:text-[9px] md:text-[10px] tracking-[0.25em] uppercase mt-0.5 select-none">
-          {sub}
-        </span>
-      )}
-    </div>
-  );
-}
-
-function FeaturedBanner({ compact = false }: { compact?: boolean }) {
-  return (
-    <div className="relative w-full overflow-hidden mx-auto max-w-7xl">
-      <div className={`relative w-full ${compact ? "aspect-[21/10] sm:aspect-[21/9]" : "aspect-[21/9] sm:aspect-[21/8] md:aspect-[21/7]"}`}>
-        <img
-          src="/images/spiderman-banner.jpg"
-          alt=""
-          className="absolute inset-0 w-full h-full object-cover blur-[6px] scale-105"
-          loading="lazy"
-          draggable={false}
-          aria-hidden="true"
-        />
-        <div className="absolute inset-0 bg-black/50" />
-        <div className="absolute inset-0 bg-gradient-to-r from-bg-primary/80 via-transparent to-bg-primary/80" />
+    <div className="relative w-full overflow-hidden mx-auto max-w-7xl px-4 sm:px-6">
+      <div className="relative w-full aspect-[21/9] sm:aspect-[21/8] md:aspect-[21/7] rounded-xl overflow-hidden">
+        {/* Use CSS gradient instead of heavy image for better performance */}
+        <div className="absolute inset-0 bg-gradient-to-r from-red-900/80 via-purple-900/60 to-blue-900/80" />
         <div className="absolute inset-0 bg-gradient-to-t from-bg-primary via-transparent to-transparent" />
 
-        <div className={`absolute inset-0 flex flex-col items-center justify-center text-center z-10 ${compact ? "px-4 py-5" : "px-6 py-6"}`}>
-          <h3 className={`text-white font-extrabold tracking-wide drop-shadow-lg ${compact ? "text-base sm:text-xl mb-4" : "text-lg sm:text-2xl md:text-3xl mb-5 sm:mb-7"}`}>
-            Now on MangaVault
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center z-10 px-6 py-6">
+          <h3 className="text-white font-extrabold tracking-wide text-lg sm:text-2xl md:text-3xl mb-5 sm:mb-7 drop-shadow-lg">
+            Explore Thousands of Titles
           </h3>
 
-          <div className={`flex items-center justify-center flex-wrap ${compact ? "gap-3 sm:gap-5 mb-3" : "gap-5 sm:gap-8 md:gap-12 mb-4 sm:mb-6"}`}>
-            <StudioLogo name="Disney" font="font-serif italic" />
-            <StudioLogo name="MARVEL" font="font-bold tracking-wider" accent />
-            <StudioLogo name="STAR WARS" font="font-extrabold tracking-[0.15em]" />
-            <StudioLogo name="20th CENTURY" font="font-bold tracking-wide" sub="STUDIOS" />
+          <div className="flex items-center justify-center flex-wrap gap-5 sm:gap-8 md:gap-12 mb-4 sm:mb-6">
+            <span className="font-serif italic text-white text-sm sm:text-lg md:text-xl">Manga</span>
+            <span className="font-bold tracking-wider bg-purple-600 text-white px-2 py-0.5 sm:px-3 sm:py-1 rounded-sm text-sm sm:text-lg md:text-xl">Manhwa</span>
+            <span className="font-extrabold tracking-[0.15em] text-white text-sm sm:text-lg md:text-xl">Webtoon</span>
+            <span className="font-bold tracking-wide text-white text-sm sm:text-lg md:text-xl">Manhua</span>
           </div>
 
-          <p className={`text-white font-bold uppercase tracking-[0.2em] drop-shadow-md ${compact ? "text-[10px] sm:text-xs mb-1.5" : "text-xs sm:text-sm md:text-base mb-2 sm:mb-3"}`}>
-            Now ALL on MangaVault
-          </p>
-
-          <p className={`text-white/40 leading-relaxed max-w-lg ${compact ? "text-[8px] sm:text-[9px]" : "text-[9px] sm:text-[10px] md:text-xs"}`}>
-            Disney, Marvel, Star Wars, and 20th Century Studios are registered trademarks of The Walt Disney Company. All rights reserved.
+          <p className="text-white font-bold uppercase tracking-[0.2em] text-xs sm:text-sm md:text-base mb-2 sm:mb-3 drop-shadow-md">
+            All on MangaVault
           </p>
         </div>
       </div>
