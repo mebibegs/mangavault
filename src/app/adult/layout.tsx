@@ -19,5 +19,11 @@ export const metadata: Metadata = {
 };
 
 export default function AdultLayout({ children }: { children: ReactNode }) {
-  return <>{children}</>;
+  return (
+    <>
+      {/* Preload the chibi girl so it's ready before React renders the age gate */}
+      <link rel="preload" href="/images/anime-girl-chibi.png" as="image" />
+      {children}
+    </>
+  );
 }
