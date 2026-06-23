@@ -1,11 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { scrapeAllOmegaTitles, searchOmega } from "@/lib/omega-scraper";
 
-function proxyImageUrl(realUrl: string): string {
+/**
+ * Optimize image URL using wsrv.nl (free image CDN)
+ * Resizes to 400px width and converts to WebP
+ */
+function optimizeImageUrl(realUrl: string, width = 400): string {
   if (!realUrl || realUrl.length < 5) return "";
-  if (realUrl.startsWith("/api/")) return realUrl;
-  if (!realUrl.startsWith("http")) return realUrl;
-  return `/api/img?url=${encodeURIComponent(realUrl)}`;
+  if (realUrl.startsWith("data:")) return realUrl;
+  if (realUrl.includes("wsrv.nl")) return realUrl;
+  
+  const params = new URLSearchParams({
+    url: realUrl,
+    w: String(width),
+    output: "webp",
+    q: "80",
+    fit: "cover",
+  });
+  
+  return `https://wsrv.nl/?${params.toString()}`;
 }
 
 /**
@@ -48,7 +61,7 @@ export async function GET(req: NextRequest) {
         genres: r.genres,
         chapters: [],
         chapterCount: r.chapterCount,
-        coverUrl: r.coverUrl ? proxyImageUrl(r.coverUrl) : "",
+        coverUrl: r.coverUrl ? optimizeImageUrl(r.coverUrl) : "",
         url: "",
         source: "",
         author: r.author,
