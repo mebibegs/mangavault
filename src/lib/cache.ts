@@ -1,5 +1,5 @@
 import { LRUCache } from "lru-cache";
-import { db } from "@/db";
+import { db, isDatabaseAvailable } from "@/db";
 import { cache, queryStats } from "@/db/schema";
 import { eq, sql, desc } from "drizzle-orm";
 import type { MangaResult } from "./scraper";
@@ -34,7 +34,9 @@ export async function getCachedSearch(query: string): Promise<MangaResult[] | nu
     return memHit;
   }
 
-  // L2: PostgreSQL
+  // L2: PostgreSQL (skip if db not available)
+  if (!isDatabaseAvailable()) return null;
+  
   try {
     const now = new Date();
     const rows = await db
@@ -61,7 +63,9 @@ export async function setCachedSearch(query: string, results: MangaResult[]): Pr
   // Always set L1
   memCache.set(key, results);
 
-  // Set L2 (PostgreSQL)
+  // Set L2 (PostgreSQL) - skip if db not available
+  if (!isDatabaseAvailable()) return;
+  
   try {
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 min TTL
     await db
@@ -89,7 +93,9 @@ export async function getCachedTrending(
   const memHit = trendingCache.get(key);
   if (memHit) return memHit;
 
-  // L2: PostgreSQL
+  // L2: PostgreSQL (skip if db not available)
+  if (!isDatabaseAvailable()) return null;
+  
   try {
     const now = new Date();
     const rows = await db
@@ -119,7 +125,9 @@ export async function setCachedTrending(
   // L1
   trendingCache.set(key, data);
 
-  // L2: PostgreSQL
+  // L2: PostgreSQL (skip if db not available)
+  if (!isDatabaseAvailable()) return;
+  
   try {
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 min TTL
     await db
@@ -139,6 +147,9 @@ export async function setCachedTrending(
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function trackQueryFrequency(query: string): Promise<void> {
+  // Skip if db not available
+  if (!isDatabaseAvailable()) return;
+  
   const normalizedQuery = query.toLowerCase().trim();
 
   try {
@@ -159,6 +170,9 @@ export async function trackQueryFrequency(query: string): Promise<void> {
 }
 
 export async function getTopQueries(count: number = 50): Promise<string[]> {
+  // Skip if db not available
+  if (!isDatabaseAvailable()) return [];
+  
   try {
     const rows = await db
       .select({ query: queryStats.query })
@@ -179,6 +193,9 @@ export async function getTopQueries(count: number = 50): Promise<string[]> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function cleanupExpiredCache(): Promise<number> {
+  // Skip if db not available
+  if (!isDatabaseAvailable()) return 0;
+  
   try {
     const now = new Date();
     const result = await db.delete(cache).where(sql`${cache.expiresAt} < ${now}`);
@@ -200,6 +217,10 @@ export function clearMemoryCache(): void {
 
 export async function clearAllCache(): Promise<void> {
   clearMemoryCache();
+  
+  // Skip if db not available
+  if (!isDatabaseAvailable()) return;
+  
   try {
     await db.delete(cache);
   } catch (err) {
