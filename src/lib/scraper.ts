@@ -318,7 +318,7 @@ function parseSource1Detail(html: string, url: string, fallbackTitle: string): M
     if (!title) title = fallbackTitle;
     if (!title) return null;
     const uniqueChapters = dedupeChapters(chapters);
-    return { title, description: description||"No description available.", rating, status: status.charAt(0).toUpperCase()+status.slice(1), type: type.charAt(0).toUpperCase()+type.slice(1), genres, chapters: uniqueChapters, chapterCount: chapterCount||String(uniqueChapters.length), coverUrl, url, source:"Source A", author, artist };
+    return { title, description: description||"No description available.", rating, status: status.charAt(0).toUpperCase()+status.slice(1), type: type.charAt(0).toUpperCase()+type.slice(1), genres, chapters: uniqueChapters, chapterCount: chapterCount||String(uniqueChapters.length), coverUrl, url, source:"Asura Scans", author, artist };
   } catch { return null; }
 }
 
@@ -393,7 +393,7 @@ function parseSource2Detail(html: string, url: string): MangaResult | null {
       }
     });
     const uniqueChapters = dedupeChapters(chapters);
-    return { title, description:description||"No description available.", rating, status:"Ongoing", type, genres:[], chapters: uniqueChapters, chapterCount:String(uniqueChapters.length), coverUrl, url, source:"Source B", author:"Unknown", artist:"Unknown" };
+    return { title, description:description||"No description available.", rating, status:"Ongoing", type, genres:[], chapters: uniqueChapters, chapterCount:String(uniqueChapters.length), coverUrl, url, source:"Demonic Scans", author:"Unknown", artist:"Unknown" };
   } catch { return null; }
 }
 
@@ -431,7 +431,7 @@ function parseSource2ListingPage(html: string): MangaResult[] {
         chapterCount: "0",
         coverUrl: img,
         url: fullUrl,
-        source: "Source B",
+        source: "Demonic Scans",
         author: "Unknown",
         artist: "Unknown",
       });
@@ -543,7 +543,7 @@ function parseSource3Detail(html: string, url: string): MangaResult | null {
       if (t && u) chapters.push({ title: t, url: u.startsWith("http") ? u : `https://scythescans.com${u}`, date: d });
     });
     const uniqueChapters = dedupeChapters(chapters);
-    return { title, description:description||"No description available.", rating, status, type, genres, chapters: uniqueChapters, chapterCount:String(uniqueChapters.length), coverUrl, url, source:"Source C", author, artist };
+    return { title, description:description||"No description available.", rating, status, type, genres, chapters: uniqueChapters, chapterCount:String(uniqueChapters.length), coverUrl, url, source:"Scythe Scans", author, artist };
   } catch { return null; }
 }
 
@@ -588,7 +588,7 @@ function parseSource3ListingPage(html: string): MangaResult[] {
         chapterCount: latestCh ? latestCh.replace(/\D/g, "") : "0",
         coverUrl,
         url: fullUrl,
-        source: "Source C",
+        source: "Scythe Scans",
         author: "Unknown",
         artist: "Unknown",
       });
@@ -605,7 +605,7 @@ function parseSource3ListingPage(html: string): MangaResult[] {
         const img = $(el).find("img").attr("data-src") || $(el).find("img").attr("src") || "";
         if (!title || title.length < 3) return;
         if (results.find(r => r.url === fullUrl)) return;
-        results.push({ title, description:"", rating:"N/A", status:"Ongoing", type:"Manhwa", genres:[], chapters:[], chapterCount:"0", coverUrl:img, url:fullUrl, source:"Source C", author:"Unknown", artist:"Unknown" });
+        results.push({ title, description:"", rating:"N/A", status:"Ongoing", type:"Manhwa", genres:[], chapters:[], chapterCount:"0", coverUrl:img, url:fullUrl, source:"Scythe Scans", author:"Unknown", artist:"Unknown" });
       });
     }
 
@@ -835,7 +835,7 @@ async function parseWebtoonDetailAsync(html: string, url: string, fallbackCover:
       chapterCount: String(uniqueChapters.length),
       coverUrl,
       url,
-      source: "Source D",
+      source: "Webtoons",
       author,
       artist: author,
     };
@@ -879,7 +879,7 @@ async function browseSource4(_page: number): Promise<MangaResult[]> {
         chapterCount: "0",
         coverUrl,
         url: fullUrl,
-        source: "Source D",
+        source: "Webtoons",
         author: "Unknown",
         artist: "Unknown",
       });

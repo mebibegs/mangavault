@@ -75,7 +75,7 @@ function parseAsuraGenrePage(html: string, genreName: string): MangaResult[] {
       chapterCount: "0",
       coverUrl: card.img,
       url: fullUrl,
-      source: "Source A",
+      source: "Asura Scans",
       author: "Unknown",
       artist: "Unknown",
     });

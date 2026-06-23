@@ -437,6 +437,13 @@ function ResultCard({ result, onClick }: { result: MangaResult; onClick: () => v
           {result.status}
         </span>
 
+        {/* Source badge — top-right corner */}
+        {result.source && (
+          <span className="absolute top-2 right-2 text-[9px] sm:text-[10px] font-semibold px-1.5 py-0.5 rounded-md shadow-md bg-black/70 text-white/90 backdrop-blur-sm border border-white/10">
+            {result.source}
+          </span>
+        )}
+
         {/* Gradient overlay at the bottom of poster for readability */}
         <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
       </div>

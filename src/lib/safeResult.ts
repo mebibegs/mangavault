@@ -1,22 +1,34 @@
-import { buildProxiedImageUrl, encryptSourceRef, encryptImageUrl } from "./crypto";
+/**
+ * Source code → human-readable name mapping
+ */
+const SOURCE_NAMES: Record<string, string> = {
+  "Source A": "Asura Scans",
+  "Source B": "Demonic Scans",
+  "Source C": "Scythe Scans",
+  "Source D": "Webtoons",
+  "Source E": "Manganato",
+  "Source F": "Atsu",
+  "Source G": "Omega Scans",
+};
 
 /**
- * Encrypt a chapter/series URL so the real domain is hidden from the client.
- * The reader endpoint will decrypt it to fetch the actual page.
+ * Build a proxied image URL via /api/img so the browser can load
+ * images from CDNs that require specific Referer headers.
  */
-function encryptUrl(url: string): string {
-  if (!url) return "";
-  try {
-    return `enc_${encryptImageUrl(url)}`;
-  } catch {
-    return "";
-  }
+function proxyImageUrl(realUrl: string): string {
+  if (!realUrl || realUrl.length < 5) return "";
+  // Already proxied
+  if (realUrl.startsWith("/api/img") || realUrl.startsWith("/api/image")) return realUrl;
+  // Only proxy external URLs
+  if (!realUrl.startsWith("http")) return realUrl;
+  return `/api/img?url=${encodeURIComponent(realUrl)}`;
 }
 
 /**
- * Transforms a raw result (from MongoDB or live scrape) into a safe API response
- * where all source CDN URLs are proxied through encrypted tokens and
- * source identifiers are encrypted.
+ * Transforms a raw result (from MongoDB or live scrape) into a safe API response.
+ * - Source names are shown as readable labels (e.g. "Asura Scans")
+ * - Cover images go through /api/img proxy for cross-origin loading
+ * - Chapter and series URLs are passed through directly (no encryption)
  */
 export function toSafeResult(doc: Record<string, unknown>) {
   const coverUrl = (doc.coverUrl as string) || "";
@@ -34,13 +46,13 @@ export function toSafeResult(doc: Record<string, unknown>) {
     genres: (doc.genres as string[]) || [],
     chapters: chapters.map((ch) => ({
       title: ch.title,
-      url: encryptUrl(ch.url),
-      date: ch.date,
+      url: ch.url || "",
+      date: ch.date || "",
     })),
     chapterCount: (doc.chapterCount as string) || "0",
-    coverUrl: coverUrl ? buildProxiedImageUrl(coverUrl) : "",
-    url: encryptUrl(url),
-    source: source ? `src_${encryptSourceRef(source, url).substring(0, 8)}` : "",
+    coverUrl: coverUrl ? proxyImageUrl(coverUrl) : "",
+    url: url || "",
+    source: SOURCE_NAMES[source] || source || "Unknown",
     author: (doc.author as string) || "Unknown",
     artist: (doc.artist as string) || "Unknown",
   };

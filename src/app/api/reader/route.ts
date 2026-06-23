@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as cheerio from "cheerio";
-import { buildProxiedImageUrl, decryptImageToken } from "@/lib/crypto";
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
@@ -28,19 +27,10 @@ function webtoonCookies(): string {
 }
 
 export async function GET(req: NextRequest) {
-  let chapterUrl = req.nextUrl.searchParams.get("url");
+  const chapterUrl = req.nextUrl.searchParams.get("url");
 
   if (!chapterUrl) {
     return NextResponse.json({ error: "Missing url parameter" }, { status: 400 });
-  }
-
-  // If the URL is encrypted (enc_ prefix), decrypt it first
-  if (chapterUrl.startsWith("enc_")) {
-    try {
-      chapterUrl = decryptImageToken(chapterUrl.slice(4));
-    } catch {
-      return NextResponse.json({ error: "Invalid encrypted URL" }, { status: 403 });
-    }
   }
 
   const allowed = [
@@ -228,8 +218,6 @@ function extractWebtoonImages(html: string): string[] {
   if (images.length > 0) return images;
 
   // ③ Regex fallback: find all webtoon CDN image URLs in raw HTML
-  //    These are the full-resolution panel images, NOT thumbnails.
-  //    Thumbnails contain "/thumb_" in the path; panels don't.
   for (const m of html.matchAll(
     /https:\/\/webtoon-phinf\.pstatic\.net\/[^"'\s\\]+\.(?:jpg|jpeg|png|webp)\?type=q\d+/gi
   )) {
@@ -243,9 +231,11 @@ function extractWebtoonImages(html: string): string[] {
   return images;
 }
 
-/** Wrap an image URL through the encrypted image proxy. */
+/** Wrap an image URL through the simple /api/img proxy. */
 function proxyUrl(raw: string): string {
-  return buildProxiedImageUrl(raw);
+  if (!raw || raw.length < 5) return "";
+  if (raw.startsWith("/api/")) return raw;
+  return `/api/img?url=${encodeURIComponent(raw)}`;
 }
 
 // ──────────────────────────────────────────────────────────────

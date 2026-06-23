@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { scrapeAllOmegaTitles, searchOmega } from "@/lib/omega-scraper";
-import { buildProxiedImageUrl } from "@/lib/crypto";
+
+function proxyImageUrl(realUrl: string): string {
+  if (!realUrl || realUrl.length < 5) return "";
+  if (realUrl.startsWith("/api/")) return realUrl;
+  if (!realUrl.startsWith("http")) return realUrl;
+  return `/api/img?url=${encodeURIComponent(realUrl)}`;
+}
 
 /**
  * Adult API — serves ONLY OmegaScans content.
@@ -42,7 +48,7 @@ export async function GET(req: NextRequest) {
         genres: r.genres,
         chapters: [],
         chapterCount: r.chapterCount,
-        coverUrl: r.coverUrl ? buildProxiedImageUrl(r.coverUrl) : "",
+        coverUrl: r.coverUrl ? proxyImageUrl(r.coverUrl) : "",
         url: "",
         source: "",
         author: r.author,

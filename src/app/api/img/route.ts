@@ -15,12 +15,12 @@ const ALLOWED_HOSTS = [
 ];
 
 /**
- * Image proxy for Webtoons CDN.
+ * Image proxy that adds the correct Referer header per source.
  *
- * Webtoon-phinf.pstatic.net returns 403 unless the request carries
- *   Referer: https://www.webtoons.com/
- * Browsers can't be told to send a fake Referer, so we pipe the bytes
- * through this endpoint which adds the header server-side.
+ * Many manga CDNs return 403 unless the request carries their own
+ * site as the Referer. Browsers can't be told to send a fake Referer,
+ * so we pipe the bytes through this endpoint which adds the header
+ * server-side.
  *
  * Uses streaming (pipe body) instead of buffering the full ArrayBuffer
  * to avoid memory pressure when 100+ images load in parallel.
@@ -52,6 +52,25 @@ export async function GET(req: NextRequest) {
     });
   }
 
+  // Determine the correct Referer header based on the image source
+  const hostname = parsedUrl.hostname.toLowerCase();
+  let referer = `https://${parsedUrl.hostname}/`;
+  if (hostname.includes("pstatic.net") || hostname.includes("webtoons.com") || hostname.includes("cdnwebtoons.com")) {
+    referer = "https://www.webtoons.com/";
+  } else if (hostname.includes("asurascans.com")) {
+    referer = "https://asurascans.com/";
+  } else if (hostname.includes("demonicscans.org")) {
+    referer = "https://demonicscans.org/";
+  } else if (hostname.includes("scythescans.com")) {
+    referer = "https://scythescans.com/";
+  } else if (hostname.includes("manganato.gg") || hostname.includes("2xstorage.com")) {
+    referer = "https://manganato.gg/";
+  } else if (hostname.includes("atsu.moe")) {
+    referer = "https://atsu.moe/";
+  } else if (hostname.includes("omegascans.org")) {
+    referer = "https://omegascans.org/";
+  }
+
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 20000);
@@ -62,7 +81,7 @@ export async function GET(req: NextRequest) {
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
         Accept: "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9",
-        Referer: "https://www.webtoons.com/",
+        Referer: referer,
       },
       signal: controller.signal,
     });

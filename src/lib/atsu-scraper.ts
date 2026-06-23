@@ -51,7 +51,7 @@ function parseAtsuMeta(html: string, url: string): MangaResult | null {
     chapterCount: "0",
     coverUrl,
     url,
-    source: "Source F",
+    source: "Atsu",
     author: "Unknown",
     artist: "Unknown",
   };

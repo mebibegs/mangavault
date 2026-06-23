@@ -107,7 +107,7 @@ export async function scrapeWebtoonGenre(genreSlug: string): Promise<MangaResult
       chapterCount: "0",
       coverUrl,
       url: fullUrl,
-      source: "Source D",
+      source: "Webtoons",
       author,
       artist: author,
     });

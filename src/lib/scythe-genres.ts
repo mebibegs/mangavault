@@ -86,7 +86,7 @@ export async function scrapeScytheGenre(slug: string): Promise<MangaResult[]> {
     chapterCount: "0",
     coverUrl: c.img,
     url: c.href,
-    source: "Source C",
+    source: "Scythe Scans",
     author: "Unknown",
     artist: "Unknown",
   }));
@@ -123,7 +123,7 @@ export async function scrapeAllScytheGenres(): Promise<MangaResult[]> {
         seen.set(key, {
           title: c.title, description: "", rating: "N/A", status: "Ongoing",
           type: "Manhwa", genres: [], chapters: [], chapterCount: "0",
-          coverUrl: c.img, url: c.href, source: "Source C",
+          coverUrl: c.img, url: c.href, source: "Scythe Scans",
           author: "Unknown", artist: "Unknown",
         });
       }

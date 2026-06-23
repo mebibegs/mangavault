@@ -75,7 +75,7 @@ function parseManganatoListPage(html: string, genreName: string): MangaResult[] 
       chapterCount: "0",
       coverUrl: img,
       url: fullUrl,
-      source: "Source E",
+      source: "Manganato",
       author: "Unknown",
       artist: "Unknown",
     });
@@ -210,7 +210,7 @@ export async function scrapeManganatoSitemap(limit = 10000): Promise<MangaResult
         chapterCount: "0",
         coverUrl: `https://img-r2.2xstorage.com/thumb/${slug}.webp`,
         url,
-        source: "Source E",
+        source: "Manganato",
         author: "Unknown",
         artist: "Unknown",
       });
@@ -276,6 +276,6 @@ export async function parseManganatoDetail(url: string): Promise<MangaResult | n
     title, description: description || "No description available.", rating,
     status, type: "Manhwa", genres, chapters,
     chapterCount: String(chapters.length), coverUrl, url,
-    source: "Source E", author, artist,
+    source: "Manganato", author, artist,
   };
 }

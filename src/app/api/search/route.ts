@@ -79,7 +79,7 @@ export async function GET(req: NextRequest) {
       if (total > 0) {
         let results = await titles
           .find(
-            { $text: { $search: query }, source: { $ne: "Source G" } },
+            { $text: { $search: query }, source: { $ne: "Omega Scans" } },
             { projection: { score: { $meta: "textScore" } } }
           )
           .sort({ score: { $meta: "textScore" } })
@@ -91,7 +91,7 @@ export async function GET(req: NextRequest) {
           results = await titles
             .find({
               $or: [{ title: regex }, { description: regex }, { genres: regex }],
-              source: { $ne: "Source G" },
+              source: { $ne: "Omega Scans" },
             })
             .limit(50)
             .toArray();

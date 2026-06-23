@@ -63,7 +63,7 @@ function parseDemonicListPage(html: string): MangaResult[] {
       chapterCount: "0",
       coverUrl: card.img,
       url: fullUrl,
-      source: "Source B",
+      source: "Demonic Scans",
       author: "Unknown",
       artist: "Unknown",
     });

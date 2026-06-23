@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
       const total = await titles.countDocuments();
       if (total > 0) {
         const regex = new RegExp(genreLower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
-        const results = await titles.find({ $or: [{ genres: regex }, { type: regex }, { description: regex }], source: { $ne: "Source G" } }).sort({ rating: -1, updatedAt: -1 }).limit(200).toArray();
+        const results = await titles.find({ $or: [{ genres: regex }, { type: regex }, { description: regex }], source: { $ne: "Omega Scans" } }).sort({ rating: -1, updatedAt: -1 }).limit(200).toArray();
         if (results.length >= 5) {
           return NextResponse.json({
             success: true,

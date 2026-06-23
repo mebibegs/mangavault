@@ -72,7 +72,7 @@ export async function scrapeAllOmegaTitles(): Promise<MangaResult[]> {
           chapterCount: String(s.meta?.chapters_count || 0),
           coverUrl: s.thumbnail || "",
           url: `https://omegascans.org/series/${s.series_slug}`,
-          source: "Source G",
+          source: "Omega Scans",
           author: "Unknown",
           artist: "Unknown",
         });
@@ -119,7 +119,7 @@ export async function searchOmega(query: string): Promise<MangaResult[]> {
       chapterCount: String(s.meta?.chapters_count || 0),
       coverUrl: s.thumbnail || "",
       url: `https://omegascans.org/series/${s.series_slug}`,
-      source: "Source G",
+      source: "Omega Scans",
       author: "Unknown",
       artist: "Unknown",
     }));
