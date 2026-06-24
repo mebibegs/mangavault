@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://www.mangavault.in";
+const BASE_URL = "https://www.mangavault.in";
 
 // Force static generation at build time
 export const dynamic = "force-static";
