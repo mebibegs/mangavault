@@ -5,6 +5,11 @@ const nextConfig: NextConfig = {
   images: {
     loader: "custom",
     loaderFile: "./src/lib/imageLoader.ts",
+    // Issue 2: Prevent Next.js from requesting 3840px-wide cover images.
+    // These are the widths the <Image> component will choose from.
+    // Covers are displayed at max ~300px (600px for 2x retina).
+    deviceSizes: [320, 420, 640, 768, 1024, 1280],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
   },
 
   async headers() {
@@ -42,6 +47,7 @@ const nextConfig: NextConfig = {
               "object-src 'none'",
               "base-uri 'self'",
               "form-action 'self'",
+              "report-uri /api/csp-report",
             ].join("; "),
           },
         ],

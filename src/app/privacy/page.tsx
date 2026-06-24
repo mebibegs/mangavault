@@ -44,7 +44,7 @@ export default function PrivacyPage() {
       <main className="max-w-3xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
         <h2 className="text-2xl sm:text-3xl font-bold mb-8">Privacy Policy</h2>
         <p className="text-text-muted text-xs mb-6">
-          Last updated: {new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+          Last updated: June 23, 2026
         </p>
 
         <div className="space-y-6 text-text-secondary text-sm sm:text-base leading-relaxed">
@@ -100,9 +100,9 @@ export default function PrivacyPage() {
             <p>
               MangaVault queries external manga/manhwa databases to provide
               search results. These requests are made server-side; your browser
-              does not connect to these sources directly. Ad services (Monetag)
-              may be loaded on certain pages and are subject to their own privacy
-              policies.
+              does not connect to these sources directly. Cloudflare is used
+              for DNS, CDN, and basic web analytics — their privacy policy
+              applies to data they process on our behalf.
             </p>
           </section>
 

@@ -23,13 +23,13 @@ export const metadata: Metadata = {
     siteName: "MangaVault",
     type: "website",
     url: BASE_URL,
-    images: [{ url: `${BASE_URL}/og-image.png`, width: 1200, height: 630, alt: "MangaVault — One Search, Every Manga Source" }],
+    images: [{ url: `${BASE_URL}/opengraph-image`, width: 1200, height: 630, alt: "MangaVault — One Search, Every Manga Source" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "MangaVault — One Search, Every Manga Source",
     description: "Search manga, manhwa, manhua across multiple sources simultaneously. Deduplicated, ranked results in a single list.",
-    images: [`${BASE_URL}/og-image.png`],
+    images: [`${BASE_URL}/opengraph-image`],
   },
   icons: { icon: [{ url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" }], apple: "/apple-touch-icon.png" },
   manifest: "/manifest.json",
@@ -59,7 +59,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body className="bg-bg-primary text-text-primary antialiased min-h-screen">
         <noscript>
           <div style={{ position: "fixed", inset: 0, backgroundColor: "#0a0a0a", color: "#fff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", zIndex: 99999, padding: "20px", textAlign: "center" }}>
-            <h1 style={{ fontSize: "24px", marginBottom: "16px" }}>JavaScript Required</h1>
+            <p style={{ fontSize: "24px", marginBottom: "16px", fontWeight: "bold" }}>JavaScript Required</p>
             <p style={{ color: "#888", maxWidth: "400px" }}>MangaVault requires JavaScript to function — please enable it and reload.</p>
           </div>
         </noscript>
