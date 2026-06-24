@@ -12,35 +12,25 @@ const SOURCE_NAMES: Record<string, string> = {
 };
 
 /**
- * Build an optimized image URL through our own /api/img proxy.
+ * Build a proxy URL for our /api/img endpoint.
  *
- * The proxy:
- *   1. Adds the correct Referer header so CDNs don't 403
- *   2. When `w` is provided, uses Sharp to resize + transcode to WebP
+ * The proxy handles:
+ *   1. Correct Referer header so CDNs don't 403
+ *   2. When w/q params are provided by Next.js <Image> loader,
+ *      Sharp resizes + transcodes to WebP
  *
- * Cover images are displayed at ~300 px so we request w=400 (2x retina).
- * This turns an 8 MB JPEG into a ~50 KB WebP.
+ * We intentionally do NOT bake in w/q here — the Next.js Image component's
+ * custom loader appends the correct width from its `sizes` prop.
  */
-function proxyImageUrl(realUrl: string, width?: number): string {
+function proxyImageUrl(realUrl: string): string {
   if (!realUrl || realUrl.length < 5) return "";
-  // Already proxied
   if (realUrl.startsWith("/api/")) return realUrl;
-  // Only proxy external URLs
   if (!realUrl.startsWith("http")) return realUrl;
-
-  const params = new URLSearchParams({ url: realUrl });
-  if (width && width > 0) {
-    params.set("w", String(width));
-    params.set("q", "80");
-  }
-  return `/api/img?${params.toString()}`;
+  return `/api/img?url=${encodeURIComponent(realUrl)}`;
 }
 
 /**
- * Transforms a raw result (from MongoDB or live scrape) into a safe API response.
- * - Source names are shown as readable labels (e.g. "Asura Scans")
- * - Cover images go through /api/img proxy with resize (400px WebP)
- * - Chapter and series URLs are passed through directly
+ * Transforms a raw result into a safe API response.
  */
 export function toSafeResult(doc: Record<string, unknown>) {
   const coverUrl = (doc.coverUrl as string) || "";
@@ -62,8 +52,7 @@ export function toSafeResult(doc: Record<string, unknown>) {
       date: ch.date || "",
     })),
     chapterCount: (doc.chapterCount as string) || "0",
-    // Covers: proxy + resize to 400px + WebP
-    coverUrl: coverUrl ? proxyImageUrl(coverUrl, 400) : "",
+    coverUrl: coverUrl ? proxyImageUrl(coverUrl) : "",
     url: url || "",
     source: SOURCE_NAMES[source] || source || "Unknown",
     author: (doc.author as string) || "Unknown",

@@ -2,19 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { scrapeAllOmegaTitles, searchOmega } from "@/lib/omega-scraper";
 
 /**
- * Build an optimized image URL through /api/img proxy with resize.
+ * Build a proxy URL for /api/img (width added by client-side loader)
  */
-function optimizeImageUrl(realUrl: string, width = 400): string {
+function proxyImageUrl(realUrl: string): string {
   if (!realUrl || realUrl.length < 5) return "";
   if (realUrl.startsWith("/api/")) return realUrl;
   if (!realUrl.startsWith("http")) return realUrl;
-
-  const params = new URLSearchParams({ url: realUrl });
-  if (width > 0) {
-    params.set("w", String(width));
-    params.set("q", "80");
-  }
-  return `/api/img?${params.toString()}`;
+  return `/api/img?url=${encodeURIComponent(realUrl)}`;
 }
 
 /**
@@ -57,7 +51,7 @@ export async function GET(req: NextRequest) {
         genres: r.genres,
         chapters: [],
         chapterCount: r.chapterCount,
-        coverUrl: r.coverUrl ? optimizeImageUrl(r.coverUrl) : "",
+        coverUrl: r.coverUrl ? proxyImageUrl(r.coverUrl) : "",
         url: "",
         source: "",
         author: r.author,
