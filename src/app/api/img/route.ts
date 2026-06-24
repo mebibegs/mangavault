@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import sharp from "sharp";
 
 const ALLOWED_HOSTS = [
   "pstatic.net",
@@ -15,18 +16,22 @@ const ALLOWED_HOSTS = [
 ];
 
 /**
- * Image proxy with optional resizing for performance.
- * 
+ * Image proxy with on-the-fly resizing and WebP conversion via Sharp.
+ *
  * Query params:
- *   - url: The source image URL (required)
- *   - w: Max width (optional, default: original)
- *   - q: Quality 1-100 (optional, default: 80)
- * 
- * For cover images displayed at ~300px width, use: /api/img?url=...&w=400&q=75
+ *   - url:  source image URL (required)
+ *   - w:    max width in px  (optional, 0 = original)
+ *   - q:    quality 1-100    (optional, default 80)
+ *
+ * When `w` is provided the image is resized (aspect ratio preserved)
+ * and transcoded to WebP, which is typically 30-50 % smaller than JPEG.
+ *
+ * Without `w` the original bytes are streamed through unchanged so the
+ * chapter reader still gets full-resolution panels.
  */
 export async function GET(req: NextRequest) {
   const imageUrl = req.nextUrl.searchParams.get("url");
-  const width = parseInt(req.nextUrl.searchParams.get("w") || "0", 10);
+  const width = Math.max(0, parseInt(req.nextUrl.searchParams.get("w") || "0", 10));
   const quality = Math.min(100, Math.max(1, parseInt(req.nextUrl.searchParams.get("q") || "80", 10)));
 
   if (!imageUrl) {
@@ -46,14 +51,14 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  if (!ALLOWED_HOSTS.some(h => parsedUrl.hostname.endsWith(h))) {
+  if (!ALLOWED_HOSTS.some((h) => parsedUrl.hostname.endsWith(h))) {
     return new Response(JSON.stringify({ error: "Host not allowed" }), {
       status: 403,
       headers: { "Content-Type": "application/json" },
     });
   }
 
-  // Determine the correct Referer header based on the image source
+  // --- Determine the correct Referer based on the image host -----------
   const hostname = parsedUrl.hostname.toLowerCase();
   let referer = `https://${parsedUrl.hostname}/`;
   if (hostname.includes("pstatic.net") || hostname.includes("webtoons.com") || hostname.includes("cdnwebtoons.com")) {
@@ -74,7 +79,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 20000);
+    const timeout = setTimeout(() => controller.abort(), 20_000);
 
     const upstream = await fetch(imageUrl, {
       headers: {
@@ -92,37 +97,44 @@ export async function GET(req: NextRequest) {
       return new Response(null, { status: upstream.status });
     }
 
-    const contentType = upstream.headers.get("content-type") || "image/jpeg";
-    
-    // If no resize requested, stream directly
-    if (!width || width <= 0) {
-      const contentLength = upstream.headers.get("content-length") || "";
+    // ------------------------------------------------------------------
+    // Fast path: no resize requested → stream the original bytes through
+    // ------------------------------------------------------------------
+    if (!width) {
+      const ct = upstream.headers.get("content-type") || "image/jpeg";
+      const cl = upstream.headers.get("content-length") || "";
       const headers: Record<string, string> = {
-        "Content-Type": contentType,
+        "Content-Type": ct,
         "Cache-Control": "public, max-age=31536000, immutable",
+        "CDN-Cache-Control": "max-age=31536000",
+        "Vercel-CDN-Cache-Control": "max-age=31536000",
         "Access-Control-Allow-Origin": "*",
-        "Vary": "Accept",
       };
-      if (contentLength) headers["Content-Length"] = contentLength;
+      if (cl) headers["Content-Length"] = cl;
       return new Response(upstream.body, { status: 200, headers });
     }
 
-    // For resizing, we need to buffer the image
-    // In production, you'd use Sharp or a CDN like Cloudinary/imgix
-    // For now, we'll pass through but with aggressive caching
-    const contentLength = upstream.headers.get("content-length") || "";
-    const headers: Record<string, string> = {
-      "Content-Type": contentType,
-      "Cache-Control": "public, max-age=31536000, immutable",
-      "Access-Control-Allow-Origin": "*",
-      "Vary": "Accept",
-      // Hint to CDNs that this can be cached
-      "CDN-Cache-Control": "max-age=31536000",
-      "Vercel-CDN-Cache-Control": "max-age=31536000",
-    };
-    if (contentLength) headers["Content-Length"] = contentLength;
+    // ------------------------------------------------------------------
+    // Resize path: buffer → sharp → WebP
+    // ------------------------------------------------------------------
+    const buffer = Buffer.from(await upstream.arrayBuffer());
 
-    return new Response(upstream.body, { status: 200, headers });
+    const optimized = await sharp(buffer)
+      .resize({ width, withoutEnlargement: true })
+      .webp({ quality })
+      .toBuffer();
+
+    return new Response(new Uint8Array(optimized), {
+      status: 200,
+      headers: {
+        "Content-Type": "image/webp",
+        "Content-Length": String(optimized.byteLength),
+        "Cache-Control": "public, max-age=31536000, immutable",
+        "CDN-Cache-Control": "max-age=31536000",
+        "Vercel-CDN-Cache-Control": "max-age=31536000",
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
   } catch {
     return new Response(null, { status: 502 });
   }

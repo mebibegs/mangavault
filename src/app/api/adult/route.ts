@@ -2,23 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { scrapeAllOmegaTitles, searchOmega } from "@/lib/omega-scraper";
 
 /**
- * Optimize image URL using wsrv.nl (free image CDN)
- * Resizes to 400px width and converts to WebP
+ * Build an optimized image URL through /api/img proxy with resize.
  */
 function optimizeImageUrl(realUrl: string, width = 400): string {
   if (!realUrl || realUrl.length < 5) return "";
-  if (realUrl.startsWith("data:")) return realUrl;
-  if (realUrl.includes("wsrv.nl")) return realUrl;
-  
-  const params = new URLSearchParams({
-    url: realUrl,
-    w: String(width),
-    output: "webp",
-    q: "80",
-    fit: "cover",
-  });
-  
-  return `https://wsrv.nl/?${params.toString()}`;
+  if (realUrl.startsWith("/api/")) return realUrl;
+  if (!realUrl.startsWith("http")) return realUrl;
+
+  const params = new URLSearchParams({ url: realUrl });
+  if (width > 0) {
+    params.set("w", String(width));
+    params.set("q", "80");
+  }
+  return `/api/img?${params.toString()}`;
 }
 
 /**

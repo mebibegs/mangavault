@@ -12,42 +12,34 @@ const SOURCE_NAMES: Record<string, string> = {
 };
 
 /**
- * Build an optimized image URL using wsrv.nl (free image CDN).
- * This service handles:
- * - Resizing to specified dimensions
- * - Converting to WebP format (smaller file size)
- * - Proper caching
- * 
- * For cover images displayed at ~300px width, we resize to 400px
- * to account for high-DPI displays while keeping file size small.
+ * Build an optimized image URL through our own /api/img proxy.
+ *
+ * The proxy:
+ *   1. Adds the correct Referer header so CDNs don't 403
+ *   2. When `w` is provided, uses Sharp to resize + transcode to WebP
+ *
+ * Cover images are displayed at ~300 px so we request w=400 (2x retina).
+ * This turns an 8 MB JPEG into a ~50 KB WebP.
  */
-function optimizeImageUrl(realUrl: string, width = 400): string {
+function proxyImageUrl(realUrl: string, width?: number): string {
   if (!realUrl || realUrl.length < 5) return "";
-  
-  // Skip if already optimized or is a data URL
-  if (realUrl.startsWith("data:")) return realUrl;
-  if (realUrl.includes("wsrv.nl")) return realUrl;
-  
-  // Use wsrv.nl for image optimization (free, no signup)
-  // - w: width (height auto-calculated to maintain aspect ratio)
-  // - output: webp for smaller file size
-  // - fit: cover for proper cropping
-  // - q: quality (80 is good balance of quality/size)
-  const params = new URLSearchParams({
-    url: realUrl,
-    w: String(width),
-    output: "webp",
-    q: "80",
-    fit: "cover",
-  });
-  
-  return `https://wsrv.nl/?${params.toString()}`;
+  // Already proxied
+  if (realUrl.startsWith("/api/")) return realUrl;
+  // Only proxy external URLs
+  if (!realUrl.startsWith("http")) return realUrl;
+
+  const params = new URLSearchParams({ url: realUrl });
+  if (width && width > 0) {
+    params.set("w", String(width));
+    params.set("q", "80");
+  }
+  return `/api/img?${params.toString()}`;
 }
 
 /**
  * Transforms a raw result (from MongoDB or live scrape) into a safe API response.
  * - Source names are shown as readable labels (e.g. "Asura Scans")
- * - Cover images are optimized via wsrv.nl (resized to 400px, WebP format)
+ * - Cover images go through /api/img proxy with resize (400px WebP)
  * - Chapter and series URLs are passed through directly
  */
 export function toSafeResult(doc: Record<string, unknown>) {
@@ -70,19 +62,11 @@ export function toSafeResult(doc: Record<string, unknown>) {
       date: ch.date || "",
     })),
     chapterCount: (doc.chapterCount as string) || "0",
-    // Optimize cover images: resize to 400px width, convert to WebP
-    coverUrl: coverUrl ? optimizeImageUrl(coverUrl, 400) : "",
+    // Covers: proxy + resize to 400px + WebP
+    coverUrl: coverUrl ? proxyImageUrl(coverUrl, 400) : "",
     url: url || "",
     source: SOURCE_NAMES[source] || source || "Unknown",
     author: (doc.author as string) || "Unknown",
     artist: (doc.artist as string) || "Unknown",
   };
-}
-
-/**
- * Get a higher resolution optimized image URL for detail views
- */
-export function getHighResImageUrl(realUrl: string): string {
-  if (!realUrl || realUrl.length < 5) return "";
-  return optimizeImageUrl(realUrl, 600);
 }

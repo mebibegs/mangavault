@@ -52,6 +52,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className="dark">
       <head>
+        {/* No external image CDN preconnects needed — images go through /api/img */}
         {/* JSON-LD Structured Data — WebSite + SearchAction */}
         <script
           type="application/ld+json"
