@@ -435,7 +435,7 @@ function TrendingRow({ results, loading, onCardClick }: { results: MangaResult[]
 // ═══════════════════════════════════════════════════════════════
 // RESULT CARD
 // ═══════════════════════════════════════════════════════════════
-const ResultCard = memo(function ResultCard({ result, onClick, priority = false }: { result: MangaResult; onClick: () => void; priority?: boolean }) {
+export const ResultCard = memo(function ResultCard({ result, onClick, priority = false }: { result: MangaResult; onClick: () => void; priority?: boolean }) {
   return (
     <div onClick={onClick} className="glass-card rounded-xl overflow-hidden cursor-pointer group hover:scale-[1.02] transition-transform duration-200" role="button" tabIndex={0} onKeyDown={e => e.key === "Enter" && onClick()}>
       <div className="relative aspect-[3/4] overflow-hidden bg-bg-hover">
