@@ -98,15 +98,30 @@ body {
 
 /* ─── Glass Card ─── */
 .glass-card {
-  background: rgba(20, 20, 24, 0.75);
-  backdrop-filter: blur(12px);
+  background: rgba(20, 20, 24, 0.80);
+  /* Reduced blur — 8px is visually identical but ~40% cheaper than 12px */
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.04);
+  /* isolate keeps the stacking context tight; stops blur from bleeding to siblings */
+  isolation: isolate;
+  /* GPU layer per card — hover transform doesn't trigger full-page compositing */
+  transform: translateZ(0);
   transition: border-color 200ms ease, background 200ms ease, transform 200ms ease, box-shadow 200ms ease;
 }
 
 .glass-card:hover {
   border-color: rgba(255, 255, 255, 0.08);
   background: rgba(28, 28, 34, 0.85);
+}
+
+/* On mobile, drop backdrop-filter entirely — too expensive for mid-range Androids */
+@media (max-width: 640px) {
+  .glass-card {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: rgba(20, 20, 24, 0.95);
+  }
 }
 
 /* ─── Search bar ─── */
@@ -156,18 +171,23 @@ body {
   display: block;
   height: 1.2em;
   line-height: 1.2em;
+  /* Animation is on the first span only — siblings are passengers */
   animation: word-slot-spin 7.2s ease-in-out infinite;
+  /* GPU-only animation */
+  will-change: transform;
 }
 
-/* 6 unique items — cycles through each and loops back to start */
+/* 6 words — each holds for ~5% then transitions over ~11.6% */
+/* 99.9% snaps back to 0 just before loop so the jump is invisible */
 @keyframes word-slot-spin {
-  0%,    5%   { transform: translateY(0); }        /* Manga   */
-  16.6%, 21%  { transform: translateY(-100%); }    /* Manhwa  */
-  33.3%, 38%  { transform: translateY(-200%); }    /* Manhua  */
-  50%,   55%  { transform: translateY(-300%); }    /* Anime   */
-  66.6%, 71%  { transform: translateY(-400%); }    /* Webtoon */
-  83.3%, 95%  { transform: translateY(-500%); }    /* Donghua */
-  100%        { transform: translateY(0); }        /* Loop back to Manga */
+  0%,    4.9% { transform: translateY(0); }          /* Manga   */
+  16.6%, 21%  { transform: translateY(-100%); }      /* Manhwa  */
+  33.2%, 38%  { transform: translateY(-200%); }      /* Manhua  */
+  49.9%, 55%  { transform: translateY(-300%); }      /* Anime   */
+  66.5%, 71%  { transform: translateY(-400%); }      /* Webtoon */
+  83.2%, 95%  { transform: translateY(-500%); }      /* Donghua */
+  99.9%       { transform: translateY(-500%); }      /* hold before instant reset */
+  100%        { transform: translateY(0); }           /* instant loop — invisible */
 }
 
 /* ─── Neumorphic back button ─── */
@@ -320,4 +340,60 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ─── Performance: GPU compositing hints ─── */
+
+/* Promote sticky header to its own compositing layer so scroll doesn't repaint it */
+header {
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+/* Prevent backdrop-filter from causing full-page repaints on scroll */
+.glass-card {
+  isolation: isolate;
+}
+
+/* Content-visibility for below-fold sections — browser skips layout+paint until near viewport */
+.cv-auto {
+  content-visibility: auto;
+  /* Rough estimated height so the browser reserves scroll space */
+  contain-intrinsic-size: 0 400px;
+}
+
+/* Scrollable rows: contain layout so sibling changes don't invalidate them */
+.scroll-row {
+  contain: layout style;
+  /* Promote scroll container so compositor handles it, not main thread */
+  will-change: scroll-position;
+  /* Force GPU layer for the overflow-x scrolling container */
+  transform: translateZ(0);
+}
+
+/* Card grid: contain so individual card hover animations don't force full grid layout */
+.card-grid {
+  contain: layout style;
+}
+
+/* Touch scroll fast-tap on mobile — removes 300ms delay */
+* {
+  touch-action: manipulation;
+}
+
+/* Prevent layout thrash from hover scale on cards — promote each to GPU layer */
+.glass-card {
+  transform: translateZ(0);
+}
+
+/* ─── Smooth momentum scroll on iOS ─── */
+.overflow-y-auto,
+.overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ─── Reduce paint area for modal backdrop ─── */
+.modal-backdrop {
+  isolation: isolate;
+  contain: strict;
 }

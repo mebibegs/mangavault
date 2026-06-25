@@ -15,6 +15,13 @@ const ADULT_GENRES = ["All", "Action", "Comedy", "Drama", "Fantasy", "Harem", "I
 
 export default function AdultPage() {
   const [confirmed, setConfirmed] = useState(false);
+
+  // Check cookie on mount — returning users who already confirmed skip the gate
+  useEffect(() => {
+    if (document.cookie.includes("adult_verified=1")) {
+      setConfirmed(true);
+    }
+  }, []);
   const [results, setResults] = useState<MangaResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
@@ -98,7 +105,14 @@ export default function AdultPage() {
               This section contains adult content intended for mature audiences only (18+). By proceeding, you confirm that you are of legal age in your jurisdiction.
             </p>
             <div className="flex flex-col gap-3">
-              <button onClick={() => setConfirmed(true)} className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-colors cursor-pointer">
+              <button
+                onClick={() => {
+                  // Set cookie so middleware allows through on next navigation
+                  document.cookie = "adult_verified=1; path=/; max-age=2592000; SameSite=Lax";
+                  setConfirmed(true);
+                }}
+                className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-colors cursor-pointer"
+              >
                 I am 18+ — Enter
               </button>
               <a href="/" className="w-full py-3 bg-bg-card border border-border-subtle text-text-secondary font-medium rounded-xl hover:bg-bg-hover transition-colors block cursor-pointer">

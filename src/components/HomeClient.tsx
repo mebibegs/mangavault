@@ -114,7 +114,7 @@ export default function HomeClient({ initialTrending }: { initialTrending: Manga
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header */}
-      <header className="border-b border-border-subtle bg-bg-secondary/80 backdrop-blur-md sticky top-0 z-50">
+      <header className="border-b border-border-subtle bg-bg-secondary sticky top-0 z-50" style={{ transform: "translateZ(0)" }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
           <div className="flex items-center gap-3 cursor-pointer" onClick={clearSearch} role="link" tabIndex={0} onKeyDown={e => e.key === "Enter" && clearSearch()}>
             <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center flex-shrink-0">
@@ -212,7 +212,7 @@ export default function HomeClient({ initialTrending }: { initialTrending: Manga
         {/* Search results */}
         {results.length > 0 && (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-2 sm:mt-4 pb-8 w-full">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div className="card-grid grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
               {results.map((result, idx) => (
                 <ResultCard key={`${result.title}-${result.source}-${idx}`} result={result} onClick={() => { setSelectedResult(result); setShowChapters(false); }} priority={idx < 4} />
               ))}
@@ -334,7 +334,7 @@ function TrendingRow({ results, loading, onCardClick }: { results: MangaResult[]
       {loading ? (
         <div className="flex gap-3 sm:gap-4 overflow-hidden">{[...Array(6)].map((_, i) => (<div key={i} className="glass-card rounded-xl overflow-hidden animate-pulse flex-shrink-0 w-[42vw] sm:w-[200px] md:w-[220px] lg:w-[240px]" aria-hidden="true"><div className="aspect-[3/4] bg-bg-hover" /><div className="p-3 space-y-2"><div className="h-4 bg-bg-hover rounded w-3/4" /><div className="h-3 bg-bg-hover rounded w-1/2" /></div></div>))}</div>
       ) : (
-        <div ref={scrollRef} className="flex gap-3 sm:gap-4 overflow-x-auto scroll-smooth pb-2 scrollbar-hide" style={{ scrollbarWidth: "none" }}>
+        <div ref={scrollRef} className="scroll-row flex gap-3 sm:gap-4 overflow-x-auto scroll-smooth pb-2 scrollbar-hide" style={{ scrollbarWidth: "none" }}>
           {results.map((result, idx) => (
             <div key={`${result.title}-${result.source}-${idx}`} className="flex-shrink-0 w-[42vw] sm:w-[200px] md:w-[220px] lg:w-[240px]">
               <ResultCard result={result} onClick={() => onCardClick(result)} priority={idx < 6} />

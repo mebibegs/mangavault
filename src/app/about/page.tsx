@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 
-const BASE_URL = "https://www.mangavault.in";
-
 // Force static generation at build time
 export const dynamic = "force-static";
 
@@ -10,18 +8,20 @@ export const metadata: Metadata = {
   description:
     "Learn how MangaVault searches manga, manhwa, and webtoon sources in parallel and returns deduplicated results in a single ranked feed.",
   alternates: {
-    canonical: `${BASE_URL}/about`,
+    canonical: "/about",
   },
   openGraph: {
     title: "About MangaVault",
     description:
       "How parallel manga search works — one query, multiple sources, deduplicated results.",
-    url: `${BASE_URL}/about`,
+    url: "/about",
+    images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: "About MangaVault" }],
   },
   twitter: {
+    card: "summary_large_image",
     title: "About MangaVault",
-    description:
-      "Learn how MangaVault queries multiple manga databases simultaneously.",
+    description: "Learn how MangaVault queries multiple manga databases simultaneously.",
+    images: ["/opengraph-image"],
   },
 };
 

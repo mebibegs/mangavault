@@ -4,14 +4,11 @@ import { useEffect, useRef } from "react";
 const VS = `attribute vec4 aVertexPosition;void main(){gl_Position=aVertexPosition;}`;
 
 const FS = `
-precision highp float;
+precision mediump float;
 uniform vec2 iResolution;
 uniform float iTime;
 const float overallSpeed=0.2;
 const float gridSmoothWidth=0.015;
-const float axisWidth=0.05;
-const float majorLineWidth=0.025;
-const float minorLineWidth=0.0125;
 const float scale=5.0;
 const vec4 lineColor=vec4(0.35,0.18,0.7,1.0);
 const float minLineWidth=0.01;
@@ -26,10 +23,9 @@ const float offsetFrequency=0.5;
 const float offsetSpeed=1.33*overallSpeed;
 const float minOffsetSpread=0.6;
 const float maxOffsetSpread=2.0;
-const int linesPerGroup=16;
+const int linesPerGroup=10;
 #define drawSmoothLine(pos,halfWidth,t) smoothstep(halfWidth,0.0,abs(pos-(t)))
 #define drawCrispLine(pos,halfWidth,t) smoothstep(halfWidth+gridSmoothWidth,halfWidth,abs(pos-(t)))
-#define drawCircle(pos,radius,coord) smoothstep(radius+gridSmoothWidth,radius,length(coord-(pos)))
 float random(float t){return(cos(t)+cos(t*1.3+1.3)+cos(t*1.4+1.4))/3.0;}
 float getPlasmaY(float x,float hf,float off){return random(x*lineFrequency+iTime*lineSpeed)*hf*lineAmplitude+off;}
 void main(){
@@ -49,9 +45,6 @@ void main(){
     float off=random(op+ot*(1.0+ni))*mix(minOffsetSpread,maxOffsetSpread,hf);
     float lp=getPlasmaY(space.x,hf,off);
     float line=drawSmoothLine(lp,hw,space.y)/2.0+drawCrispLine(lp,hw*0.15,space.y);
-    float cx=mod(float(l)+iTime*lineSpeed,25.0)-12.0;
-    vec2 cp=vec2(cx,getPlasmaY(cx,hf,off));
-    line+=drawCircle(cp,0.01,space)*4.0;
     lines+=line*lineColor*r;
   }
   vec4 bg=mix(vec4(0.04,0.04,0.12,1.0),vec4(0.12,0.04,0.2,1.0),uv.x);
@@ -66,7 +59,16 @@ export default function ShaderBackground() {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const gl = canvas.getContext("webgl");
+
+    // Skip WebGL on low-end or mobile devices that would lag
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReducedMotion) return;
+
+    const gl = canvas.getContext("webgl", {
+      antialias: false,       // saves fill-rate on mobile
+      powerPreference: "low-power", // lets browser/GPU throttle aggressively
+      alpha: false,
+    });
     if (!gl) return;
 
     function loadShader(gl: WebGLRenderingContext, type: number, src: string) {
@@ -95,25 +97,41 @@ export default function ShaderBackground() {
     const uRes = gl.getUniformLocation(prog, "iResolution");
     const uTime = gl.getUniformLocation(prog, "iTime");
 
+    // Cap render resolution so the fill-rate stays cheap on small screens
+    const MAX_DIM = 640;
     const resize = () => {
       const p = canvas.parentElement;
       if (!p) return;
-      const dpr = Math.min(window.devicePixelRatio, 2);
-      canvas.width = Math.round(p.clientWidth * dpr);
-      canvas.height = Math.round(p.clientHeight * dpr);
-      canvas.style.width = p.clientWidth + "px";
-      canvas.style.height = p.clientHeight + "px";
+      // Use a max DPR of 1 for the shader canvas — we don't need pixel-perfect
+      const dpr = 1;
+      const w = Math.min(p.clientWidth, MAX_DIM);
+      const h = Math.min(p.clientHeight, MAX_DIM);
+      canvas.width = Math.round(w * dpr);
+      canvas.height = Math.round(h * dpr);
+      // CSS stretches the canvas to fill the container via absolute inset-0
       gl.viewport(0, 0, canvas.width, canvas.height);
     };
 
-    window.addEventListener("resize", resize);
+    window.addEventListener("resize", resize, { passive: true });
     resize();
 
+    // Pause rendering when the tab is hidden or user scrolls (not visible)
+    let paused = false;
+    const handleVisibility = () => { paused = document.hidden; };
+    document.addEventListener("visibilitychange", handleVisibility);
+
     const t0 = performance.now();
-    const render = () => {
-      const t = (performance.now() - t0) / 1000;
-      gl.clearColor(0, 0, 0, 1);
-      gl.clear(gl.COLOR_BUFFER_BIT);
+    // Throttle to ~30 fps to save GPU/battery; the animation is subtle enough
+    let lastFrame = 0;
+    const TARGET_FPS = 30;
+    const FRAME_BUDGET = 1000 / TARGET_FPS;
+
+    const render = (now: number) => {
+      rafRef.current = requestAnimationFrame(render);
+      if (paused) return;
+      if (now - lastFrame < FRAME_BUDGET) return;
+      lastFrame = now;
+      const t = (now - t0) / 1000;
       gl.useProgram(prog);
       gl.uniform2f(uRes, canvas.width, canvas.height);
       gl.uniform1f(uTime, t);
@@ -121,15 +139,22 @@ export default function ShaderBackground() {
       gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
       gl.enableVertexAttribArray(aPos);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-      rafRef.current = requestAnimationFrame(render);
     };
     rafRef.current = requestAnimationFrame(render);
 
     return () => {
       window.removeEventListener("resize", resize);
+      document.removeEventListener("visibilitychange", handleVisibility);
       cancelAnimationFrame(rafRef.current);
     };
   }, []);
 
-  return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" style={{ zIndex: 0 }} />;
+  return (
+    <canvas
+      ref={canvasRef}
+      className="absolute inset-0 w-full h-full"
+      style={{ zIndex: 0, imageRendering: "auto" }}
+      aria-hidden="true"
+    />
+  );
 }

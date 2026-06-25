@@ -31,7 +31,10 @@ const ALLOWED_HOSTS = [
  */
 export async function GET(req: NextRequest) {
   const imageUrl = req.nextUrl.searchParams.get("url");
-  const width = Math.max(0, parseInt(req.nextUrl.searchParams.get("w") || "0", 10));
+  // Cap at 640 for thumbnails — full-resolution is only needed in the reader
+  // (reader uses the proxy without a w= param, so width=0 = passthrough)
+  const rawWidth = parseInt(req.nextUrl.searchParams.get("w") || "0", 10);
+  const width = rawWidth > 0 ? Math.min(rawWidth, 640) : 0;
   const quality = Math.min(100, Math.max(1, parseInt(req.nextUrl.searchParams.get("q") || "80", 10)));
 
   if (!imageUrl) {

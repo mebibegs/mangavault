@@ -38,16 +38,33 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Fallback
+    // Fallback: fire all sources in parallel with individual timeouts so one
+    // slow source doesn't block the whole response
+    const withTimeout = <T>(p: Promise<T>, ms: number, fallback: T): Promise<T> =>
+      Promise.race([p, new Promise<T>((res) => setTimeout(() => res(fallback), ms))]);
+
+    type CatalogPage = { results: MangaResult[]; hasMore: boolean };
+    const emptyPages: [CatalogPage, CatalogPage, CatalogPage] = [
+      { results: [], hasMore: false },
+      { results: [], hasMore: false },
+      { results: [], hasMore: false },
+    ];
+
     const [browseResults, searchResults, webtoonGenre] = await Promise.allSettled([
-      Promise.all([browseCatalog(1), browseCatalog(2), browseCatalog(3)]),
-      searchAllSources(genreTerm),
-      scrapeWebtoonGenreByName(genreTerm),
+      withTimeout(
+        Promise.all([browseCatalog(1), browseCatalog(2), browseCatalog(3)]),
+        12_000,
+        emptyPages
+      ),
+      withTimeout(searchAllSources(genreTerm), 12_000, [] as MangaResult[]),
+      withTimeout(scrapeWebtoonGenreByName(genreTerm), 8_000, [] as MangaResult[]),
     ]);
     const pool: MangaResult[] = [];
-    if (browseResults.status === "fulfilled") for (const r of browseResults.value) pool.push(...r.results);
-    if (searchResults.status === "fulfilled") pool.push(...searchResults.value);
-    if (webtoonGenre.status === "fulfilled") pool.push(...webtoonGenre.value);
+    if (browseResults.status === "fulfilled" && Array.isArray(browseResults.value)) {
+      for (const r of browseResults.value as CatalogPage[]) pool.push(...(r.results || []));
+    }
+    if (searchResults.status === "fulfilled") pool.push(...(searchResults.value as MangaResult[]));
+    if (webtoonGenre.status === "fulfilled") pool.push(...(webtoonGenre.value as MangaResult[]));
 
     const seen = new Set<string>();
     const unique: MangaResult[] = [];
@@ -55,12 +72,15 @@ export async function GET(req: NextRequest) {
       const key = r.title.toLowerCase().replace(/[^a-z0-9]/g, "");
       if (key.length > 2 && !seen.has(key)) { seen.add(key); unique.push(r); }
     }
+
+    // Try strict genre match first, then loose, then return everything
     const matched = unique.filter((r) => {
       const desc = normalizeGenre(r.description);
       const type = normalizeGenre(r.type);
       return r.genres.some((g) => { const gl = normalizeGenre(g); return gl.includes(genreLower) || genreLower.includes(gl); }) || type.includes(genreLower) || desc.includes(genreLower);
     });
-    const finalResults = matched.length >= 3 ? matched : unique;
+    // Always return something — prefer matched, fall back to all unique results
+    const finalResults = matched.length >= 3 ? matched : unique.length > 0 ? unique : [];
     if (unique.length > 0) upsertResults(unique).catch(() => {});
 
     return NextResponse.json({

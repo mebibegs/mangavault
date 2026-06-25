@@ -6,6 +6,19 @@ export const metadata: Metadata = {
   title: "Terms of Service — MangaVault",
   description:
     "MangaVault terms of service. Rules for using the MangaVault search engine and API.",
+  alternates: { canonical: "/terms" },
+  openGraph: {
+    title: "Terms of Service — MangaVault",
+    description: "Rules for using MangaVault, the manga/manhwa search engine and API.",
+    url: "/terms",
+    images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: "MangaVault Terms of Service" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Terms of Service — MangaVault",
+    description: "Rules for using MangaVault, the manga/manhwa search engine and API.",
+    images: ["/opengraph-image"],
+  },
 };
 
 export default function TermsPage() {
@@ -26,7 +39,7 @@ export default function TermsPage() {
       <main className="max-w-3xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
         <h2 className="text-2xl sm:text-3xl font-bold mb-8">Terms of Service</h2>
         <p className="text-text-muted text-xs mb-6">
-          Last updated: June 23, 2026
+          Last updated: June 24, 2026
         </p>
 
         <div className="space-y-6 text-text-secondary text-sm sm:text-base leading-relaxed">

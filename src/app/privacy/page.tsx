@@ -6,6 +6,19 @@ export const metadata: Metadata = {
   title: "Privacy Policy — MangaVault",
   description:
     "MangaVault privacy policy. Learn how we handle your data, what we collect, and your rights under GDPR and Indian IT Rules.",
+  alternates: { canonical: "/privacy" },
+  openGraph: {
+    title: "Privacy Policy — MangaVault",
+    description: "How MangaVault handles your data, what we collect, and your rights.",
+    url: "/privacy",
+    images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: "MangaVault Privacy Policy" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Privacy Policy — MangaVault",
+    description: "How MangaVault handles your data, what we collect, and your rights.",
+    images: ["/opengraph-image"],
+  },
 };
 
 export default function PrivacyPage() {
@@ -44,7 +57,7 @@ export default function PrivacyPage() {
       <main className="max-w-3xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
         <h2 className="text-2xl sm:text-3xl font-bold mb-8">Privacy Policy</h2>
         <p className="text-text-muted text-xs mb-6">
-          Last updated: June 23, 2026
+          Last updated: June 24, 2026
         </p>
 
         <div className="space-y-6 text-text-secondary text-sm sm:text-base leading-relaxed">

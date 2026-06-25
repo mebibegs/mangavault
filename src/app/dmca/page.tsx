@@ -6,6 +6,19 @@ export const metadata: Metadata = {
   title: "DMCA Takedown — MangaVault",
   description:
     "DMCA takedown procedure for MangaVault. Report copyright infringement and request content removal.",
+  alternates: { canonical: "/dmca" },
+  openGraph: {
+    title: "DMCA Takedown — MangaVault",
+    description: "Copyright takedown procedure. Report infringing content for removal.",
+    url: "/dmca",
+    images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: "MangaVault DMCA Policy" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "DMCA Takedown — MangaVault",
+    description: "Copyright takedown procedure. Report infringing content for removal.",
+    images: ["/opengraph-image"],
+  },
 };
 
 export default function DmcaPage() {
@@ -26,7 +39,7 @@ export default function DmcaPage() {
       <main className="max-w-3xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
         <h2 className="text-2xl sm:text-3xl font-bold mb-8">DMCA Takedown Policy</h2>
         <p className="text-text-muted text-xs mb-6">
-          Last updated: June 23, 2026
+          Last updated: June 24, 2026
         </p>
 
         <div className="space-y-6 text-text-secondary text-sm sm:text-base leading-relaxed">

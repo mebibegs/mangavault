@@ -1,12 +1,9 @@
 /**
  * Custom image loader for Next.js <Image> component.
  *
- * Routes all images through /api/img which handles:
- * - Correct Referer header per source CDN
- * - Sharp resize to requested width
- * - WebP transcoding at specified quality
- *
- * This fixes Issue 1 (oversized cover images).
+ * All cover images are pre-proxied via safeResult.ts as /api/img?url=...
+ * This loader adds/updates the w= and q= params so Sharp resizes to the
+ * exact width the browser needs — fixing the w=3840 oversized image bug.
  */
 export default function imgLoader({
   src,
@@ -17,14 +14,19 @@ export default function imgLoader({
   width: number;
   quality?: number;
 }): string {
-  // If it's already a proxied URL, append/update width param
+  // Already a proxied URL — update w/q while keeping the url= param intact
   if (src.startsWith("/api/img")) {
-    const url = new URL(src, "http://localhost");
-    url.searchParams.set("w", String(width));
-    url.searchParams.set("q", String(quality || 75));
-    return `${url.pathname}?${url.searchParams.toString()}`;
+    const u = new URL(src, "http://localhost");
+    u.searchParams.set("w", String(width));
+    u.searchParams.set("q", String(quality ?? 75));
+    return `${u.pathname}?${u.searchParams.toString()}`;
   }
 
-  // Pass through non-proxied URLs (local images, etc.)
+  // External http(s) URL — wrap it in the proxy
+  if (src.startsWith("http")) {
+    return `/api/img?url=${encodeURIComponent(src)}&w=${width}&q=${quality ?? 75}`;
+  }
+
+  // Local/static assets — return as-is
   return src;
 }

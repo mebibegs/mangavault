@@ -38,12 +38,16 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com https://*.mangavault.in/cdn-cgi/scripts/",
+              // Cloudflare Insights script + cdn-cgi scripts
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com https://*.mangavault.in/cdn-cgi/scripts/ https://challenges.cloudflare.com",
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https: http:",
               "font-src 'self' data:",
               "connect-src 'self' https: http:",
-              "frame-src 'none'",
+              // Cloudflare Turnstile iframes + cdn-cgi frames
+              "frame-src 'self' https://challenges.cloudflare.com",
+              // Cloudflare beacon endpoint (cdn-cgi/rum, cdn-cgi/beacon)
+              "worker-src 'none'",
               "object-src 'none'",
               "base-uri 'self'",
               "form-action 'self'",

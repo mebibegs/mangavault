@@ -81,7 +81,7 @@ export default function DetailModal({ result, showChapters, onToggleChapters, on
           <>
             {prevEntry && showNavButtons && <div className="fixed left-3 sm:left-5 bottom-5 sm:bottom-6 z-20"><button onClick={() => openReader(prevEntry.chapter.url, prevEntry.index)} className="px-4 py-2 bg-white/10 backdrop-blur-md text-white rounded-lg border border-white/20 hover:bg-white/20 transition-colors">Previous</button></div>}
             {nextEntry && showNavButtons && <div className="fixed right-3 sm:right-5 bottom-5 sm:bottom-6 z-20"><button onClick={() => openReader(nextEntry.chapter.url, nextEntry.index)} className="px-4 py-2 bg-white/10 backdrop-blur-md text-white rounded-lg border border-white/20 hover:bg-white/20 transition-colors">Next</button></div>}
-            <div ref={readerScrollRef} className="flex-1 overflow-y-auto">
+            <div ref={readerScrollRef} className="flex-1 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: "touch" }}>
               <div className="max-w-3xl mx-auto flex flex-col items-center">
                 {readerImages.map((src, i) => (<img key={i} src={src} alt={`Page ${i + 1}`} className="w-full h-auto select-none" loading={i < 3 ? "eager" : "lazy"} referrerPolicy="no-referrer" draggable={false} />))}
                 <div className="py-8 px-4 text-center space-y-5"><p className="text-gray-400 text-xs">End of chapter</p><button onClick={() => { setReaderUrl(null); setReaderImages([]); setCurrentChapterIndex(null); }} className="px-6 py-3 bg-gray-200 text-gray-700 rounded-full font-medium hover:bg-white transition-colors">Back to chapters</button></div>
@@ -110,7 +110,7 @@ export default function DetailModal({ result, showChapters, onToggleChapters, on
           </div>
           <button onClick={onClose} className="ml-3 p-2 rounded-lg hover:bg-bg-hover transition-colors text-gray-400 hover:text-white cursor-pointer" aria-label="Close"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
         </div>
-        <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5">
+        <div className="flex-1 overflow-y-auto overscroll-contain p-5 sm:p-6 space-y-5" style={{ WebkitOverflowScrolling: "touch" }}>
           <div className="grid grid-cols-2 gap-3">
             <MI l="Author" v={result.author} /><MI l="Artist" v={result.artist} /><MI l="Total Chapters" v={String(totalChapters)} /><MI l="Source" v={result.source} />
           </div>
@@ -122,7 +122,7 @@ export default function DetailModal({ result, showChapters, onToggleChapters, on
               <svg className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${showChapters ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
             </button>
             {showChapters && (
-              <div className="mt-2 overflow-y-auto rounded-xl border border-border-subtle divide-y divide-border-subtle" style={{ maxHeight: "50vh" }}>
+              <div className="mt-2 overflow-y-auto overscroll-contain rounded-xl border border-border-subtle divide-y divide-border-subtle" style={{ maxHeight: "50vh", WebkitOverflowScrolling: "touch" }}>
                 {result.chapters.length > 0 ? result.chapters.map((ch, i) => (
                   <button key={i} onClick={() => openReader(ch.url, i)} className="w-full flex items-center px-4 py-3 hover:bg-bg-hover transition-colors cursor-pointer text-left gap-3">
                     <span className="min-w-0 flex-1 text-sm text-emerald-400 font-medium truncate">{ch.title}</span>

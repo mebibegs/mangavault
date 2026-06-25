@@ -58,6 +58,26 @@ function getClientIp(req: NextRequest): string {
 
 export function middleware(req: NextRequest): NextResponse {
   const { pathname } = req.nextUrl;
+
+  // ─── Adult gate — server-side cookie check ───────────────────────────────
+  // The client-side gate sets `adult_verified=1` on confirm.
+  // Here we enforce it at the middleware layer for non-API routes under /adult.
+  if (pathname.startsWith("/adult") && !pathname.startsWith("/api/")) {
+    const verified = req.cookies.get("adult_verified")?.value;
+    if (verified !== "1") {
+      // Redirect to the age-gate page; the client component will set the cookie
+      // on confirm and redirect back. We pass the original path as `next` so
+      // the gate can return users where they intended to go.
+      const gate = req.nextUrl.clone();
+      gate.pathname = "/adult";
+      gate.searchParams.set("gate", "1");
+      // Only redirect if not already on the gate itself to avoid loops
+      if (!req.nextUrl.searchParams.has("gate")) {
+        return NextResponse.redirect(gate);
+      }
+    }
+  }
+
   if (!pathname.startsWith("/api/")) return NextResponse.next();
 
   const ip = getClientIp(req);
@@ -84,5 +104,5 @@ export function middleware(req: NextRequest): NextResponse {
 }
 
 export const config = {
-  matcher: ["/api/:path*"],
+  matcher: ["/api/:path*", "/adult/:path*"],
 };
