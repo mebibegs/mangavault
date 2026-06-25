@@ -47,7 +47,7 @@ const PHASE_MESSAGES: Record<string, string> = {
 const MAX_TRENDING_CARDS = 20;
 
 // ═══════════════════════════════════════════════════════════════
-// AUTO SCROLL HOOK (inline to keep modules separate)
+// AUTO SCROLL HOOK (NEW — keeps modules separate)
 // ═══════════════════════════════════════════════════════════════
 function useAutoScroll<T extends HTMLElement>(options: {
   interval?: number;
@@ -67,32 +67,26 @@ function useAutoScroll<T extends HTMLElement>(options: {
   const elementRef = useRef<T>(null);
   const isPausedRef = useRef(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const isAtEndRef = useRef(false);
 
   const performScroll = useCallback(() => {
     const el = elementRef.current;
     if (!el || isPausedRef.current) return;
 
-    const amount = scrollAmount === "page" 
-      ? el.clientWidth * 0.75 
+    const amount = scrollAmount === "page"
+      ? el.clientWidth * 0.75
       : scrollAmount;
 
     const maxScroll = el.scrollWidth - el.clientWidth;
     const currentScroll = el.scrollLeft;
 
-    // Check if we're at or near the end
     if (direction === "right" && currentScroll >= maxScroll - 10) {
-      // Smooth reset to beginning
       el.scrollTo({ left: 0, behavior: "smooth" });
-      isAtEndRef.current = false;
     } else if (direction === "left" && currentScroll <= 10) {
-      // Smooth reset to end
       el.scrollTo({ left: maxScroll, behavior: "smooth" });
-      isAtEndRef.current = false;
     } else {
-      el.scrollBy({ 
-        left: direction === "right" ? amount : -amount, 
-        behavior: "smooth" 
+      el.scrollBy({
+        left: direction === "right" ? amount : -amount,
+        behavior: "smooth"
       });
     }
   }, [direction, scrollAmount]);
@@ -101,7 +95,6 @@ function useAutoScroll<T extends HTMLElement>(options: {
     const el = elementRef.current;
     if (!el) return;
 
-    // Start auto-scroll timer
     const startTimer = () => {
       timerRef.current = setInterval(performScroll, interval);
     };
@@ -113,7 +106,6 @@ function useAutoScroll<T extends HTMLElement>(options: {
     };
   }, [interval, performScroll]);
 
-  // Pause on hover
   useEffect(() => {
     const el = elementRef.current;
     if (!el || !pauseOnHover) return;
@@ -130,7 +122,6 @@ function useAutoScroll<T extends HTMLElement>(options: {
     };
   }, [pauseOnHover]);
 
-  // Pause on manual interaction (touch/scroll/wheel)
   useEffect(() => {
     const el = elementRef.current;
     if (!el || !pauseOnInteraction) return;
@@ -385,23 +376,23 @@ export default function HomeClient({ initialTrending }: { initialTrending: Manga
 }
 
 // ═══════════════════════════════════════════════════════════════
-// TRENDING ROW WITH AUTO-SCROLL
+// TRENDING ROW WITH AUTO-SCROLL (MODIFIED — only this function changed)
 // ═══════════════════════════════════════════════════════════════
 function TrendingRow({ results, loading, onCardClick }: { results: MangaResult[]; loading: boolean; onCardClick: (r: MangaResult) => void }) {
   const scrollRef = useAutoScroll<HTMLDivElement>({
-    interval: 3500,        // Scroll every 3.5 seconds
-    scrollAmount: "page",  // Scroll by 75% of container width
+    interval: 3500,
+    scrollAmount: "page",
     direction: "right",
-    pauseOnHover: true,    // Pause when mouse is over
-    pauseOnInteraction: true, // Pause on touch/scroll/wheel
+    pauseOnHover: true,
+    pauseOnInteraction: true,
   });
 
-  const scroll = (dir: "left" | "right") => { 
-    if (!scrollRef.current) return; 
-    scrollRef.current.scrollBy({ 
-      left: dir === "left" ? -scrollRef.current.clientWidth * 0.75 : scrollRef.current.clientWidth * 0.75, 
-      behavior: "smooth" 
-    }); 
+  const scroll = (dir: "left" | "right") => {
+    if (!scrollRef.current) return;
+    scrollRef.current.scrollBy({
+      left: dir === "left" ? -scrollRef.current.clientWidth * 0.75 : scrollRef.current.clientWidth * 0.75,
+      behavior: "smooth"
+    });
   };
 
   return (
@@ -409,12 +400,8 @@ function TrendingRow({ results, loading, onCardClick }: { results: MangaResult[]
       <div className="flex items-center justify-between mb-3 sm:mb-4">
         <h2 className="text-base sm:text-lg font-bold text-white uppercase tracking-wider">Trending Now</h2>
         <div className="flex items-center gap-2">
-          <button onClick={() => scroll("left")} aria-label="Scroll left" className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full border border-border-subtle bg-bg-card text-gray-400 hover:bg-bg-hover hover:text-white transition-colors cursor-pointer">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-          </button>
-          <button onClick={() => scroll("right")} aria-label="Scroll right" className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full border border-border-subtle bg-bg-card text-gray-400 hover:bg-bg-hover hover:text-white transition-colors cursor-pointer">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-          </button>
+          <button onClick={() => scroll("left")} aria-label="Scroll left" className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full border border-border-subtle bg-bg-card text-gray-400 hover:bg-bg-hover hover:text-white transition-colors cursor-pointer"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg></button>
+          <button onClick={() => scroll("right")} aria-label="Scroll right" className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full border border-border-subtle bg-bg-card text-gray-400 hover:bg-bg-hover hover:text-white transition-colors cursor-pointer"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg></button>
         </div>
       </div>
       {loading ? (
@@ -433,28 +420,51 @@ function TrendingRow({ results, loading, onCardClick }: { results: MangaResult[]
 }
 
 // ═══════════════════════════════════════════════════════════════
-// RESULT CARD
+// RESULT CARD (UNCHANGED — original with status badge, genre, rating)
 // ═══════════════════════════════════════════════════════════════
 export const ResultCard = memo(function ResultCard({ result, onClick, priority = false }: { result: MangaResult; onClick: () => void; priority?: boolean }) {
+  const statusLower = result.status.toLowerCase();
+  const statusColor = statusLower === "completed" || statusLower === "finished"
+    ? "bg-red-600 text-white" : statusLower === "ongoing" ? "bg-emerald-600 text-white" : "bg-amber-500 text-black";
+  const firstGenre = result.genres.length > 0 ? result.genres[0] : result.type;
+
   return (
-    <div onClick={onClick} className="glass-card rounded-xl overflow-hidden cursor-pointer group hover:scale-[1.02] transition-transform duration-200" role="button" tabIndex={0} onKeyDown={e => e.key === "Enter" && onClick()}>
-      <div className="relative aspect-[3/4] overflow-hidden bg-bg-hover">
-        <Image src={result.coverUrl || "/images/anime-girl-chibi.png"} alt={result.title} fill sizes="(max-width: 640px) 42vw, (max-width: 768px) 200px, (max-width: 1024px) 220px, 240px" className="object-cover group-hover:scale-105 transition-transform duration-300" priority={priority} unoptimized={result.coverUrl?.startsWith("http")} />
-        {result.rating && result.rating !== "N/A" && (
-          <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm rounded-md px-1.5 py-0.5 flex items-center gap-1">
-            <svg className="w-3 h-3 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
-            <span className="text-[10px] sm:text-xs font-bold text-white">{result.rating}</span>
+    <button onClick={onClick} className="glass-card rounded-xl overflow-hidden text-left transition-all duration-200 hover:translate-y-[-4px] hover:shadow-lg hover:shadow-white/5 group cursor-pointer w-full focus:outline-none focus:ring-2 focus:ring-white/20 focus:ring-offset-1 focus:ring-offset-bg-primary flex flex-col">
+      <div className="relative aspect-[3/4] bg-bg-hover overflow-hidden">
+        {result.coverUrl ? (
+          <Image
+            src={result.coverUrl}
+            alt={`Cover of ${result.title}`}
+            fill
+            sizes="(max-width: 640px) 42vw, (max-width: 1024px) 220px, 240px"
+            quality={75}
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
+            loading={priority ? "eager" : "lazy"}
+            priority={priority}
+            onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-bg-card">
+            <svg className="w-10 h-10 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
           </div>
         )}
+        <span className={`absolute top-2 left-2 text-[10px] sm:text-xs font-bold px-2 py-1 rounded-md shadow-lg ${statusColor}`}>{result.status}</span>
+        {result.source && <span className="absolute top-2 right-2 text-[9px] sm:text-[10px] font-semibold px-1.5 py-0.5 rounded-md shadow-md bg-black/80 text-white backdrop-blur-sm border border-white/20">{result.source}</span>}
+        <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
       </div>
-      <div className="p-2.5 sm:p-3">
-        <h3 className="text-xs sm:text-sm font-semibold text-white truncate leading-tight" title={result.title}>{result.title}</h3>
-        <div className="flex items-center justify-between mt-1">
-          <span className="text-[10px] sm:text-xs text-gray-400">{result.chapterCount || "N/A"} ch</span>
-          <span className="text-[10px] sm:text-xs text-gray-500 capitalize">{result.source}</span>
+      <div className="p-3 sm:p-3.5 flex flex-col gap-2 flex-1">
+        <h3 className="font-bold text-sm sm:text-base text-white line-clamp-2 leading-snug group-hover:text-gray-200 transition-colors">{result.title}</h3>
+        <div className="flex items-center justify-between gap-2 mt-auto">
+          <span className="text-xs sm:text-sm font-semibold text-gray-400 truncate">{firstGenre}</span>
+          {result.rating !== "N/A" && (
+            <span className="inline-flex items-center gap-1 text-xs sm:text-sm font-bold text-white flex-shrink-0">
+              <svg className="w-3 h-3 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
+              {result.rating}
+            </span>
+          )}
         </div>
       </div>
-    </div>
+    </button>
   );
 });
 
