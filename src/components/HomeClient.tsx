@@ -45,9 +45,8 @@ const PHASE_MESSAGES: Record<string, string> = {
 };
 
 const MAX_TRENDING_CARDS = 20;
-
 // ═══════════════════════════════════════════════════════════════
-// AUTO SCROLL HOOK (NEW — keeps modules separate)
+// AUTO SCROLL HOOK
 // ═══════════════════════════════════════════════════════════════
 function useAutoScroll<T extends HTMLElement>(options: {
   interval?: number;
@@ -275,99 +274,95 @@ export default function HomeClient({ initialTrending }: { initialTrending: Manga
                     <circle r="8" cy="11" cx="11" /><line y2="16.65" y1="22" x2="16.65" x1="22" />
                   </svg>
                 </label>
-                <input id="search-input" type="text" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search manga, manhwa, anime..." className="flex-1 bg-transparent text-white placeholder-gray-500 text-sm sm:text-base py-3 sm:py-3.5 pr-4 focus:outline-none" aria-label="Search manga and manhwa" />
+                <input id="search-input" type="text" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search for a title — e.g. Solo Leveling, Tower of God" className="flex-1 bg-transparent py-4 sm:py-5 text-sm sm:text-base text-white placeholder-gray-500 outline-none" autoFocus />
                 {query && (
-                  <button type="button" onClick={clearSearch} className="pr-4 text-gray-500 hover:text-white transition-colors" aria-label="Clear search">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                  </button>
+                  <button type="button" onClick={clearSearch} className="px-2 text-gray-500 hover:text-white transition-colors cursor-pointer" aria-label="Clear"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
                 )}
+                <button type="submit" disabled={!query.trim() || isSearching} className="mr-2 sm:mr-3 px-4 sm:px-6 py-2 sm:py-2.5 bg-white text-black font-medium text-sm rounded-xl hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 cursor-pointer">Search</button>
               </div>
             </form>
 
-            {/* Sample Queries */}
+            {/* Sample queries */}
             {showHero && (
-              <div className="flex flex-wrap justify-center gap-2 mt-3 sm:mt-4">
-                {SAMPLE_QUERIES.map((s) => (
-                  <button key={s.title} onClick={() => searchSample(s.title)} className="text-[11px] sm:text-xs text-gray-400 hover:text-white bg-bg-card border border-border-subtle rounded-full px-3 py-1.5 transition-colors cursor-pointer">
-                    {s.title} <span className="text-gray-600">· {s.type}</span>
-                  </button>
-                ))}
+              <div className="mt-4 sm:mt-5 relative" style={{ zIndex: 2 }}>
+                <p className="text-gray-500 text-[11px] uppercase tracking-wider mb-2 text-center">Try a search</p>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 max-w-2xl mx-auto">
+                  {SAMPLE_QUERIES.map(s => (
+                    <button key={s.title} onClick={() => searchSample(s.title)} className="flex items-center justify-center gap-2 text-xs bg-bg-card border border-border-subtle rounded-lg px-3 py-2.5 hover:border-purple-500/50 hover:text-white text-gray-300 transition-all duration-200 cursor-pointer hover:translate-y-[-1px]">
+                      <span className="font-medium text-white">{s.title}</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-gray-400">{s.type}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {isSearching && <div className="mt-8 mb-4"><OrbitalLoader message={statusText} /></div>}
+            {phase === "error" && <div className="mt-6"><div className="glass-card rounded-xl p-4 border border-red-900/30"><p className="text-red-400 text-sm">{error}</p></div></div>}
+            {phase === "done" && results.length > 0 && <p className="text-gray-500 text-xs sm:text-sm mt-3 text-center">{statusText}</p>}
+            {phase === "done" && results.length === 0 && (
+              <div className="text-center py-10">
+                <p className="text-gray-300 text-sm mb-2">No results found for &ldquo;{query}&rdquo;</p>
+                <p className="text-gray-500 text-xs mb-4">Try an exact title, an alternate spelling, or a shorter keyword.</p>
+                <button onClick={clearSearch} className="text-xs text-white bg-bg-card border border-border-subtle rounded-lg px-4 py-2 hover:border-border-bright transition-colors cursor-pointer">Browse trending instead</button>
               </div>
             )}
           </div>
         </div>
 
-        {/* Search Results */}
-        {isSearching && (
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 w-full mt-6 sm:mt-8">
-            <div className="flex flex-col items-center justify-center py-12 sm:py-20">
-              <OrbitalLoader />
-              <p className="mt-4 text-sm text-gray-400 animate-pulse">{statusText}</p>
-            </div>
-          </div>
-        )}
+        {/* Trending */}
+        {showTrending && <TrendingRow results={trendingResults} loading={loadingTrending} onCardClick={(r) => { setSelectedResult(r); setShowChapters(false); }} />}
 
-        {phase === "error" && error && (
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 w-full mt-6">
-            <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-center">
-              <p className="text-red-400 text-sm">{error}</p>
-              <button onClick={clearSearch} className="mt-2 text-xs text-white bg-bg-card border border-border-subtle rounded-lg px-4 py-2 hover:border-border-bright transition-colors cursor-pointer">Try again</button>
-            </div>
-          </div>
-        )}
-
+        {/* Search results */}
         {results.length > 0 && (
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 w-full mt-6 sm:mt-8">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base sm:text-lg font-bold text-white">Search Results</h2>
-              <button onClick={clearSearch} className="text-xs text-gray-400 hover:text-white transition-colors">Clear</button>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-2 sm:mt-4 pb-8 w-full">
+            <div className="card-grid grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
               {results.map((result, idx) => (
-                <ResultCard key={`${result.title}-${result.source}-${idx}`} result={result} onClick={() => { setSelectedResult(result); setShowChapters(false); }} priority={idx < 10} />
+                <ResultCard key={`${result.title}-${result.source}-${idx}`} result={result} onClick={() => { setSelectedResult(result); setShowChapters(false); }} priority={idx < 4} />
               ))}
             </div>
           </div>
         )}
 
-        {/* No Results */}
-        {phase === "done" && results.length === 0 && !error && (
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 w-full mt-6 text-center py-12">
-            <p className="text-gray-400 text-sm">No results found. Try a different query.</p>
-            <button onClick={clearSearch} className="mt-3 text-xs text-white bg-bg-card border border-border-subtle rounded-lg px-4 py-2 hover:border-border-bright transition-colors cursor-pointer">Browse trending instead</button>
+        {/* Featured Banner */}
+        {showHero && !loadingTrending && (
+          <div className="w-full pb-6">
+            <div className="relative w-full overflow-hidden mx-auto max-w-7xl px-4 sm:px-6">
+              <div className="relative w-full aspect-[21/9] sm:aspect-[21/8] md:aspect-[21/7] rounded-xl overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-red-900/80 via-purple-900/60 to-blue-900/80" />
+                <div className="absolute inset-0 bg-gradient-to-t from-bg-primary via-transparent to-transparent" />
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center z-10 px-6 py-6">
+                  <h3 className="text-white font-extrabold tracking-wide text-lg sm:text-2xl md:text-3xl mb-5 sm:mb-7 drop-shadow-lg">Explore Thousands of Titles</h3>
+                  <div className="flex items-center justify-center flex-wrap gap-5 sm:gap-8 md:gap-12 mb-4 sm:mb-6">
+                    <span className="font-serif italic text-white text-sm sm:text-lg md:text-xl">Manga</span>
+                    <span className="font-bold tracking-wider bg-purple-600 text-white px-2 py-0.5 sm:px-3 sm:py-1 rounded-sm text-sm sm:text-lg md:text-xl">Manhwa</span>
+                    <span className="font-extrabold tracking-[0.15em] text-white text-sm sm:text-lg md:text-xl">Webtoon</span>
+                    <span className="font-bold tracking-wide text-white text-sm sm:text-lg md:text-xl">Manhua</span>
+                  </div>
+                  <p className="text-white font-bold uppercase tracking-[0.2em] text-xs sm:text-sm md:text-base mb-2 sm:mb-3 drop-shadow-md">All on MangaVault</p>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
-        {/* Trending */}
-        {showTrending && <TrendingRow results={trendingResults} loading={loadingTrending} onCardClick={(r) => { setSelectedResult(r); setShowChapters(false); }} />}
-
-        {/* Genre Section */}
+        {/* Genre Browser */}
         {showHero && !loadingTrending && <GenreSection onCardClick={(r) => { setSelectedResult(r); setShowChapters(false); }} />}
       </main>
 
-      {/* Detail Modal */}
-      {selectedResult && (
-        <DetailModal result={selectedResult} showChapters={showChapters} onClose={() => setSelectedResult(null)} onToggleChapters={() => setShowChapters(!showChapters)} />
-      )}
+      {/* Issue 8: DetailModal is lazy-loaded — 0 KiB in initial bundle */}
+      {selectedResult && <DetailModal result={selectedResult} showChapters={showChapters} onToggleChapters={() => setShowChapters(!showChapters)} onClose={() => { setSelectedResult(null); setShowChapters(false); }} />}
 
-      {/* Footer */}
-      <footer className="border-t border-border-subtle bg-bg-secondary mt-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded bg-white flex items-center justify-center">
-                <svg viewBox="0 0 24 24" className="w-4 h-4 text-black" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" /></svg>
-              </div>
-              <span className="text-sm font-bold">MangaVault</span>
-            </div>
-            <div className="flex items-center gap-4 sm:gap-6 text-xs text-gray-400">
-              <a href="/about" className="hover:text-white transition-colors">About</a>
-              <a href="/privacy" className="hover:text-white transition-colors">Privacy</a>
-              <a href="/terms" className="hover:text-white transition-colors">Terms</a>
-              <a href="/dmca" className="hover:text-white transition-colors">DMCA</a>
-              <a href="/contact" className="hover:text-white transition-colors">Contact</a>
-            </div>
-            <p className="text-[10px] sm:text-xs text-gray-500">© {new Date().getFullYear()} MangaVault. All rights reserved.</p>
+      <footer className="border-t border-border-subtle py-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-400">
+          <span>© {new Date().getFullYear()} MangaVault</span>
+          <div className="flex flex-wrap items-center gap-4">
+            <a href="/docs" className="hover:text-white transition-colors">Docs</a>
+            <a href="/about" className="hover:text-white transition-colors">About</a>
+            <a href="/privacy" className="hover:text-white transition-colors">Privacy</a>
+            <a href="/terms" className="hover:text-white transition-colors">Terms</a>
+            <a href="/dmca" className="hover:text-white transition-colors">DMCA</a>
+            <a href="mailto:hello@mangavault.in" className="hover:text-white transition-colors">Contact</a>
           </div>
         </div>
       </footer>
@@ -376,51 +371,7 @@ export default function HomeClient({ initialTrending }: { initialTrending: Manga
 }
 
 // ═══════════════════════════════════════════════════════════════
-// TRENDING ROW WITH AUTO-SCROLL (MODIFIED — only this function changed)
-// ═══════════════════════════════════════════════════════════════
-function TrendingRow({ results, loading, onCardClick }: { results: MangaResult[]; loading: boolean; onCardClick: (r: MangaResult) => void }) {
-  const scrollRef = useAutoScroll<HTMLDivElement>({
-    interval: 3500,
-    scrollAmount: "page",
-    direction: "right",
-    pauseOnHover: true,
-    pauseOnInteraction: true,
-  });
-
-  const scroll = (dir: "left" | "right") => {
-    if (!scrollRef.current) return;
-    scrollRef.current.scrollBy({
-      left: dir === "left" ? -scrollRef.current.clientWidth * 0.75 : scrollRef.current.clientWidth * 0.75,
-      behavior: "smooth"
-    });
-  };
-
-  return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-4 sm:mt-6 w-full">
-      <div className="flex items-center justify-between mb-3 sm:mb-4">
-        <h2 className="text-base sm:text-lg font-bold text-white uppercase tracking-wider">Trending Now</h2>
-        <div className="flex items-center gap-2">
-          <button onClick={() => scroll("left")} aria-label="Scroll left" className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full border border-border-subtle bg-bg-card text-gray-400 hover:bg-bg-hover hover:text-white transition-colors cursor-pointer"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg></button>
-          <button onClick={() => scroll("right")} aria-label="Scroll right" className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full border border-border-subtle bg-bg-card text-gray-400 hover:bg-bg-hover hover:text-white transition-colors cursor-pointer"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg></button>
-        </div>
-      </div>
-      {loading ? (
-        <div className="flex gap-3 sm:gap-4 overflow-hidden">{[...Array(6)].map((_, i) => (<div key={i} className="glass-card rounded-xl overflow-hidden animate-pulse flex-shrink-0 w-[42vw] sm:w-[200px] md:w-[220px] lg:w-[240px]" aria-hidden="true"><div className="aspect-[3/4] bg-bg-hover" /><div className="p-3 space-y-2"><div className="h-4 bg-bg-hover rounded w-3/4" /><div className="h-3 bg-bg-hover rounded w-1/2" /></div></div>))}</div>
-      ) : (
-        <div ref={scrollRef} className="scroll-row flex gap-3 sm:gap-4 overflow-x-auto scroll-smooth pb-2 scrollbar-hide" style={{ scrollbarWidth: "none" }}>
-          {results.map((result, idx) => (
-            <div key={`${result.title}-${result.source}-${idx}`} className="flex-shrink-0 w-[42vw] sm:w-[200px] md:w-[220px] lg:w-[240px]">
-              <ResultCard result={result} onClick={() => onCardClick(result)} priority={idx < 6} />
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════
-// RESULT CARD (UNCHANGED — original with status badge, genre, rating)
+// RESULT CARD — uses Next.js <Image> (Issue 1)
 // ═══════════════════════════════════════════════════════════════
 export const ResultCard = memo(function ResultCard({ result, onClick, priority = false }: { result: MangaResult; onClick: () => void; priority?: boolean }) {
   const statusLower = result.status.toLowerCase();
@@ -468,4 +419,43 @@ export const ResultCard = memo(function ResultCard({ result, onClick, priority =
   );
 });
 
+// ═══════════════════════════════════════════════════════════════
+// TRENDING ROW
+// ═══════════════════════════════════════════════════════════════// ═══════════════════════════════════════════════════════════════
+// TRENDING ROW
+// ═══════════════════════════════════════════════════════════════
+function TrendingRow({ results, loading, onCardClick }: { results: MangaResult[]; loading: boolean; onCardClick: (r: MangaResult) => void }) {
+  const scrollRef = useAutoScroll<HTMLDivElement>({
+    interval: 3500,
+    scrollAmount: "page",
+    direction: "right",
+    pauseOnHover: true,
+    pauseOnInteraction: true,
+  });
+
+  const scroll = (dir: "left" | "right") => { if (!scrollRef.current) return; scrollRef.current.scrollBy({ left: dir === "left" ? -scrollRef.current.clientWidth * 0.75 : scrollRef.current.clientWidth * 0.75, behavior: "smooth" }); };
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-4 sm:mt-6 w-full">
+      <div className="flex items-center justify-between mb-3 sm:mb-4">
+        <h2 className="text-base sm:text-lg font-bold text-white uppercase tracking-wider">Trending Now</h2>
+        <div className="flex items-center gap-2">
+          <button onClick={() => scroll("left")} aria-label="Scroll left" className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full border border-border-subtle bg-bg-card text-gray-400 hover:bg-bg-hover hover:text-white transition-colors cursor-pointer"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg></button>
+          <button onClick={() => scroll("right")} aria-label="Scroll right" className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full border border-border-subtle bg-bg-card text-gray-400 hover:bg-bg-hover hover:text-white transition-colors cursor-pointer"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg></button>
+        </div>
+      </div>
+      {loading ? (
+        <div className="flex gap-3 sm:gap-4 overflow-hidden">{[...Array(6)].map((_, i) => (<div key={i} className="glass-card rounded-xl overflow-hidden animate-pulse flex-shrink-0 w-[42vw] sm:w-[200px] md:w-[220px] lg:w-[240px]" aria-hidden="true"><div className="aspect-[3/4] bg-bg-hover" /><div className="p-3 space-y-2"><div className="h-4 bg-bg-hover rounded w-3/4" /><div className="h-3 bg-bg-hover rounded w-1/2" /></div></div>))}</div>
+      ) : (
+        <div ref={scrollRef} className="scroll-row flex gap-3 sm:gap-4 overflow-x-auto scroll-smooth pb-2 scrollbar-hide" style={{ scrollbarWidth: "none" }}>
+          {results.map((result, idx) => (
+            <div key={`${result.title}-${result.source}-${idx}`} className="flex-shrink-0 w-[42vw] sm:w-[200px] md:w-[220px] lg:w-[240px]">
+              <ResultCard result={result} onClick={() => onCardClick(result)} priority={idx < 6} />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
