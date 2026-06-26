@@ -8,6 +8,10 @@
       "maxDuration": 120,
       "memory": 512
     },
+    "src/app/api/cron/sync-all/route.ts": {
+      "maxDuration": 300,
+      "memory": 1024
+    },
     "src/app/api/search/route.ts": {
       "maxDuration": 30,
       "memory": 512
@@ -45,6 +49,10 @@
     {
       "path": "/api/cron/prewarm",
       "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/sync-all",
+      "schedule": "0 2 * * *"
     }
   ]
 }
