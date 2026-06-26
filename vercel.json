@@ -1,5 +1,13 @@
 {
   "functions": {
+    "src/app/api/adult/route.ts": {
+      "maxDuration": 30,
+      "memory": 512
+    },
+    "src/app/api/sync/omega/route.ts": {
+      "maxDuration": 120,
+      "memory": 512
+    },
     "src/app/api/search/route.ts": {
       "maxDuration": 30,
       "memory": 512
