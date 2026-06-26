@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { scrapeAllOmegaTitles, searchOmega } from "@/lib/omega-scraper";
+import { scrapeAdultOmegaTitles, searchAdultOmega } from "@/lib/omega-scraper";
 
 /**
- * Build a proxy URL for /api/img (width added by client-side loader)
+ * Build a proxy URL for /api/img
  */
 function proxyImageUrl(realUrl: string): string {
   if (!realUrl || realUrl.length < 5) return "";
@@ -12,9 +12,9 @@ function proxyImageUrl(realUrl: string): string {
 }
 
 /**
- * Adult API — serves ONLY OmegaScans content.
- * Always fetches fresh from OmegaScans API to ensure correct cover URLs and slugs.
- * MongoDB is used only for chapter caching (via /api/adult/chapters).
+ * Adult API — serves ONLY adult-tagged OmegaScans content.
+ * Uses genre classification from omega-scraper to ensure only adult-genre
+ * titles are served here; SFW titles are excluded.
  */
 export async function GET(req: NextRequest) {
   const query = req.nextUrl.searchParams.get("q") || "";
@@ -25,18 +25,23 @@ export async function GET(req: NextRequest) {
   const skip = (page - 1) * limit;
 
   try {
-    // Always fetch from OmegaScans API for correct data
-    const allResults = query ? await searchOmega(query) : await scrapeAllOmegaTitles();
+    // Fetch only adult-classified titles
+    const allResults = query
+      ? await searchAdultOmega(query)
+      : await scrapeAdultOmegaTitles();
 
     // Filter by genre if specified
-    const filtered = genre && genre !== "All"
-      ? allResults.filter((r) => r.genres.some((g) => g.toLowerCase().includes(genre.toLowerCase())))
-      : allResults;
+    const filtered =
+      genre && genre !== "All"
+        ? allResults.filter((r) =>
+            r.genres.some((g) => g.toLowerCase().includes(genre.toLowerCase()))
+          )
+        : allResults;
 
     // Paginate
     const pageResults = filtered.slice(skip, skip + limit);
 
-    // Transform: proxy cover images, include slug
+    // Transform: proxy cover images, extract slug
     const results = pageResults.map((r) => {
       const slug = r.url.includes("omegascans.org/series/")
         ? r.url.split("/series/")[1]?.split("/")[0] || ""
@@ -69,6 +74,9 @@ export async function GET(req: NextRequest) {
       hasMore: skip + limit < filtered.length,
     });
   } catch {
-    return NextResponse.json({ error: "Failed to fetch adult content" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch adult content" },
+      { status: 500 }
+    );
   }
 }

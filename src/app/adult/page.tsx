@@ -11,7 +11,33 @@ interface MangaResult {
   omegaSlug?: string;
 }
 
-const ADULT_GENRES = ["All", "Action", "Comedy", "Drama", "Fantasy", "Harem", "Isekai", "Romance", "Slice of Life", "Supernatural"];
+const ADULT_GENRES = [
+  "All",
+  "Action",
+  "Adult",
+  "Boys Love",
+  "Comedy",
+  "Doujinshi",
+  "Drama",
+  "Ecchi",
+  "Erotica",
+  "Fantasy",
+  "Full Color",
+  "Harem",
+  "Hentai",
+  "Isekai",
+  "Mature",
+  "Netorare",
+  "Office Workers",
+  "Pornographic",
+  "Romance",
+  "Slice of Life",
+  "SM BDSM",
+  "Smut",
+  "Supernatural",
+  "Yaoi",
+  "Yuri",
+];
 
 export default function AdultPage() {
   const [confirmed, setConfirmed] = useState(false);
