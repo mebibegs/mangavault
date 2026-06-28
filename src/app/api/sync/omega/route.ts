@@ -2,13 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { scrapeAllOmegaTitles } from "@/lib/omega-scraper";
 import { upsertResults } from "@/lib/sync";
 import { ensureIndexes } from "@/lib/mongodb";
-import { guardPrivateApi } from "@/lib/originGuard";
+import { guardCronApi } from "@/lib/cronAuth";
 
 export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
-  const guard = guardPrivateApi(req);
-  if (guard) return guard as NextResponse;
+  const guard = guardCronApi(req);
+  if (guard) return guard;
 
   try {
     await ensureIndexes();
@@ -23,6 +23,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      source: "omega",
       scraped: results.length,
       inserted,
       updated,

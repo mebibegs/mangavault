@@ -2,13 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { scrapeAtsuTitles } from "@/lib/atsu-scraper";
 import { upsertResults } from "@/lib/sync";
 import { ensureIndexes } from "@/lib/mongodb";
-import { guardPrivateApi } from "@/lib/originGuard";
+import { guardCronApi } from "@/lib/cronAuth";
 
 export const maxDuration = 300;
 
 export async function GET(req: NextRequest) {
-  const guard = guardPrivateApi(req);
-  if (guard) return guard as NextResponse;
+  const guard = guardCronApi(req);
+  if (guard) return guard;
 
   const limit = Math.min(2000, parseInt(req.nextUrl.searchParams.get("limit") || "500", 10));
 
@@ -25,6 +25,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      source: "atsu",
       scraped: results.length,
       inserted,
       updated,

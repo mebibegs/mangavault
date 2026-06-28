@@ -8,6 +8,30 @@
       "maxDuration": 120,
       "memory": 512
     },
+    "src/app/api/sync/asura/route.ts": {
+      "maxDuration": 300,
+      "memory": 1024
+    },
+    "src/app/api/sync/webtoons/route.ts": {
+      "maxDuration": 300,
+      "memory": 1024
+    },
+    "src/app/api/sync/demonic/route.ts": {
+      "maxDuration": 300,
+      "memory": 512
+    },
+    "src/app/api/sync/scythe/route.ts": {
+      "maxDuration": 300,
+      "memory": 512
+    },
+    "src/app/api/sync/manganato/route.ts": {
+      "maxDuration": 300,
+      "memory": 1024
+    },
+    "src/app/api/sync/atsu/route.ts": {
+      "maxDuration": 300,
+      "memory": 512
+    },
     "src/app/api/cron/sync-all/route.ts": {
       "maxDuration": 300,
       "memory": 1024
@@ -43,16 +67,40 @@
   },
   "crons": [
     {
+      "path": "/api/sync/omega",
+      "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/sync/asura",
+      "schedule": "10 1 * * *"
+    },
+    {
+      "path": "/api/sync/webtoons",
+      "schedule": "20 1 * * *"
+    },
+    {
+      "path": "/api/sync/demonic",
+      "schedule": "30 1 * * *"
+    },
+    {
+      "path": "/api/sync/scythe",
+      "schedule": "40 1 * * *"
+    },
+    {
+      "path": "/api/sync/manganato",
+      "schedule": "50 1 * * *"
+    },
+    {
+      "path": "/api/sync/atsu",
+      "schedule": "0 2 * * *"
+    },
+    {
       "path": "/api/cron",
       "schedule": "0 3 * * *"
     },
     {
       "path": "/api/cron/prewarm",
       "schedule": "0 4 * * *"
-    },
-    {
-      "path": "/api/cron/sync-all",
-      "schedule": "0 2 * * *"
     }
   ]
 }
