@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
     // Process queries sequentially to avoid overwhelming scrapers
     for (const query of topQueries) {
       // Check if already cached
-      const existing = await getCachedSearch(query);
+      const existing = await getCachedSearch(query.query);
       if (existing && existing.length > 0) {
         skipped++;
         continue;
@@ -53,9 +53,9 @@ export async function GET(req: NextRequest) {
 
       // Fetch and cache
       try {
-        const results = await searchAllSources(query);
+        const results = await searchAllSources(query.query);
         if (results.length > 0) {
-          await setCachedSearch(query, results);
+          await setCachedSearch(query.query, results);
           warmed++;
         }
       } catch {

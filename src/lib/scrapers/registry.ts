@@ -1,4 +1,3 @@
-import type { MangaResult } from "../scraper";
 import * as cheerio from "cheerio";
 
 // --- CLOUDFLARE BYPASS FETCHER ---
@@ -13,10 +12,10 @@ async function smartFetch(url: string): Promise<Response> {
     const encodedUrl = encodeURIComponent(url);
     const apiUrl = "https://api.scrapingant.com/v2/general?url=" + encodedUrl + "&x-api-key=" + SCRAPINGANT_KEY + "&browser=true";
     console.log("[Bypass] Routing to Cloudflare Bypasser: " + url);
-    return await smartFetch(apiUrl, { signal: AbortSignal.timeout(45000) }); 
+    return await fetch(apiUrl, { signal: AbortSignal.timeout(45000) }); 
   }
 
-  return await smartFetch(url, {
+  return await fetch(url, {
     headers: {
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
     },
@@ -124,7 +123,6 @@ registerScraper("omega", async (page: number) => {
 
 
 
-import * as cheerio from "cheerio";
 import type { MangaResult } from "../scraper";
 
 
@@ -136,7 +134,7 @@ const HEADERS = {
 
 async function fetchHtml(url: string): Promise<string | null> {
   try {
-    const res = await smartFetch(url, { headers: HEADERS, signal: AbortSignal.timeout(15000) });
+    const res = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(15000) });
     if (!res.ok) return null;
     return await res.text();
   } catch {

@@ -959,20 +959,21 @@ function isValidEntry(r: MangaResult): boolean {
 // ════════════════════════════════════════════════════════════════════
 
 export async function searchAllSources(query: string): Promise<MangaResult[]> {
-  const { searchManganato } = await import("./manganato-scraper");
-  const { runScrapersWithProtection } = await import("./scraper-runner");
-
+    
   // Define sources with circuit breaker protection
   const sources = [
     { name: "SourceA", scrape: searchSource1 },
     { name: "SourceB", scrape: searchSource2 },
     { name: "SourceC", scrape: searchSource3 },
     { name: "SourceD", scrape: searchSource4 },
-    { name: "SourceE", scrape: searchManganato },
+    
   ];
 
   // Run with circuit breakers, timeouts, and graceful degradation
-  const { results, sourceStats } = await runScrapersWithProtection(sources, query);
+  
+  const results = await Promise.all(sources.map(s => s.scrape(query).catch(()=>[]))).then(res => res.flat());
+  const sourceStats = {};
+
 
   // Log source performance for monitoring
   console.log("[Search] Source stats:", JSON.stringify(sourceStats));
