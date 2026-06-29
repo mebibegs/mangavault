@@ -340,7 +340,7 @@ async function searchSource1(query: string): Promise<MangaResult[]> {
 }
 
 // Browse multiple pages from Source 1 for catalog
-async function browseSource1(page: number): Promise<MangaResult[]> {
+export async function browseSource1(page: number): Promise<MangaResult[]> {
   try {
     // Asura browse page (they use client-side rendering, but the browse page has items)
     const html = await fetchSafe(`https://asurascans.com/browse?page=${page}&sort=update`);
@@ -461,7 +461,7 @@ async function searchSource2(query: string): Promise<MangaResult[]> {
   } catch { return []; }
 }
 
-async function browseSource2(page: number): Promise<MangaResult[]> {
+export async function browseSource2(page: number): Promise<MangaResult[]> {
   try {
     // Demonic scans listing pages
     const urls = [
@@ -628,7 +628,7 @@ async function searchSource3(query: string): Promise<MangaResult[]> {
   } catch { return []; }
 }
 
-async function browseSource3(page: number): Promise<MangaResult[]> {
+export async function browseSource3(page: number): Promise<MangaResult[]> {
   try {
     const urls = [
       `https://scythescans.com/page/${page}/`,
@@ -844,7 +844,7 @@ async function parseWebtoonDetailAsync(html: string, url: string, fallbackCover:
   }
 }
 
-async function browseSource4(_page: number): Promise<MangaResult[]> {
+export async function browseSource4(_page: number): Promise<MangaResult[]> {
   try {
     // Webtoons popular page
     const html = await fetchSafeWebtoon("https://www.webtoons.com/en/top");

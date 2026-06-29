@@ -1,170 +1,19 @@
 {
   "functions": {
-    "src/app/api/adult/route.ts": {
-      "maxDuration": 30,
-      "memory": 512
-    },
-    "src/app/api/sync/omega/route.ts": {
-      "maxDuration": 120,
-      "memory": 512
-    },
-    "src/app/api/sync/asura/route.ts": {
-      "maxDuration": 120,
-      "memory": 512
-    },
-    "src/app/api/sync/webtoons/route.ts": {
-      "maxDuration": 120,
-      "memory": 512
-    },
-    "src/app/api/sync/demonic/route.ts": {
-      "maxDuration": 120,
-      "memory": 512
-    },
-    "src/app/api/sync/scythe/route.ts": {
-      "maxDuration": 120,
-      "memory": 512
-    },
-    "src/app/api/sync/manganato/route.ts": {
-      "maxDuration": 120,
-      "memory": 512
-    },
-    "src/app/api/sync/atsu/route.ts": {
-      "maxDuration": 120,
-      "memory": 512
-    },
-    "src/app/api/cron/sync-all/route.ts": {
-      "maxDuration": 300,
-      "memory": 1024
-    },
-    "src/app/api/search/route.ts": {
-      "maxDuration": 30,
-      "memory": 512
-    },
-    "src/app/api/trending/route.ts": {
-      "maxDuration": 30,
-      "memory": 512
-    },
-    "src/app/api/reader/route.ts": {
-      "maxDuration": 15,
-      "memory": 256
-    },
-    "src/app/api/image/route.ts": {
-      "maxDuration": 15,
-      "memory": 256
-    },
-    "src/app/api/sync/route.ts": {
-      "maxDuration": 120,
-      "memory": 512
-    },
-    "src/app/api/cron/route.ts": {
-      "maxDuration": 60,
-      "memory": 512
-    },
-    "src/app/api/cron/prewarm/route.ts": {
-      "maxDuration": 60,
-      "memory": 512
-    }
+    "src/app/api/adult/route.ts": { "maxDuration": 30, "memory": 512 },
+    "src/app/api/cron/trigger/route.ts": { "maxDuration": 30, "memory": 256 },
+    "src/app/api/sync/worker/route.ts": { "maxDuration": 60, "memory": 512 },
+    "src/app/api/search/route.ts": { "maxDuration": 30, "memory": 512 },
+    "src/app/api/trending/route.ts": { "maxDuration": 30, "memory": 512 },
+    "src/app/api/reader/route.ts": { "maxDuration": 15, "memory": 256 },
+    "src/app/api/image/route.ts": { "maxDuration": 15, "memory": 256 },
+    "src/app/api/cron/route.ts": { "maxDuration": 60, "memory": 512 },
+    "src/app/api/cron/prewarm/route.ts": { "maxDuration": 60, "memory": 512 }
   },
   "crons": [
     {
-      "path": "/api/sync/omega?batch=1",
-      "schedule": "0 1 * * *"
-    },
-    {
-      "path": "/api/sync/omega?batch=2",
-      "schedule": "3 1 * * *"
-    },
-    {
-      "path": "/api/sync/omega?batch=3",
-      "schedule": "6 1 * * *"
-    },
-    {
-      "path": "/api/sync/asura?batch=1",
-      "schedule": "10 1 * * *"
-    },
-    {
-      "path": "/api/sync/asura?batch=2",
-      "schedule": "13 1 * * *"
-    },
-    {
-      "path": "/api/sync/asura?batch=3",
-      "schedule": "16 1 * * *"
-    },
-    {
-      "path": "/api/sync/asura?batch=4",
-      "schedule": "19 1 * * *"
-    },
-    {
-      "path": "/api/sync/webtoons?batch=1",
-      "schedule": "22 1 * * *"
-    },
-    {
-      "path": "/api/sync/webtoons?batch=2",
-      "schedule": "25 1 * * *"
-    },
-    {
-      "path": "/api/sync/webtoons?batch=3",
-      "schedule": "28 1 * * *"
-    },
-    {
-      "path": "/api/sync/demonic?batch=1",
-      "schedule": "31 1 * * *"
-    },
-    {
-      "path": "/api/sync/demonic?batch=2",
-      "schedule": "34 1 * * *"
-    },
-    {
-      "path": "/api/sync/demonic?batch=3",
-      "schedule": "37 1 * * *"
-    },
-    {
-      "path": "/api/sync/demonic?batch=4",
-      "schedule": "40 1 * * *"
-    },
-    {
-      "path": "/api/sync/scythe?batch=1",
-      "schedule": "43 1 * * *"
-    },
-    {
-      "path": "/api/sync/scythe?batch=2",
-      "schedule": "46 1 * * *"
-    },
-    {
-      "path": "/api/sync/scythe?batch=3",
-      "schedule": "49 1 * * *"
-    },
-    {
-      "path": "/api/sync/manganato?batch=1",
-      "schedule": "52 1 * * *"
-    },
-    {
-      "path": "/api/sync/manganato?batch=2",
-      "schedule": "55 1 * * *"
-    },
-    {
-      "path": "/api/sync/manganato?batch=3",
-      "schedule": "58 1 * * *"
-    },
-    {
-      "path": "/api/sync/manganato?batch=4",
-      "schedule": "1 2 * * *"
-    },
-    {
-      "path": "/api/sync/manganato?batch=5",
-      "schedule": "4 2 * * *"
-    },
-    {
-      "path": "/api/sync/atsu?batch=1",
-      "schedule": "7 2 * * *"
-    },
-    {
-      "path": "/api/sync/atsu?batch=2",
-      "schedule": "10 2 * * *"
-    },
-    {
-      "path": "/api/sync/atsu?batch=3",
-      "schedule": "13 2 * * *"
+      "path": "/api/cron/trigger",
+      "schedule": "0 */4 * * *"
     },
     {
       "path": "/api/cron",
