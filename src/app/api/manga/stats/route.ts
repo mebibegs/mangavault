@@ -1,4 +1,3 @@
-const availableSources = ["Asura", "Manganato", "Demonic", "Scythe", "Omega", "Webtoons"];
 /**
  * Manga Database Stats API
  * 
@@ -11,6 +10,8 @@ import { getDbStats, getAllGenres } from "@/lib/manga-db";
 
 
 export const dynamic = "force-dynamic";
+
+const availableSources = ["Asura", "Manganato", "Demonic", "Scythe", "Omega", "Webtoons"];
 
 export async function GET(req: NextRequest) {
   try {
