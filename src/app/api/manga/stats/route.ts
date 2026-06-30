@@ -1,3 +1,4 @@
+const availableSources = ["Asura", "Manganato", "Demonic", "Scythe", "Omega", "Webtoons"];
 /**
  * Manga Database Stats API
  * 
@@ -7,7 +8,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getDbStats, getAllGenres } from "@/lib/manga-db";
-import { getAvailableSources } from "@/lib/scrapers";
+
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,7 @@ export async function GET(req: NextRequest) {
       byStatus: stats.byStatus,
       sources: {
         active: stats.sources,
-        available: getAvailableSources(),
+        available: availableSources,
       },
       genres: {
         total: genres.length,
