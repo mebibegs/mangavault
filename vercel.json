@@ -1,40 +1,27 @@
 {
   "functions": {
-    "src/app/api/adult/route.ts": {
-      "maxDuration": 10,
-      "memory": 512
+    "src/app/api/adult/route.ts": { "maxDuration": 30, "memory": 512 },
+    "src/app/api/cron/trigger/route.ts": { "maxDuration": 30, "memory": 256 },
+    "src/app/api/sync/worker/route.ts": { "maxDuration": 60, "memory": 512 },
+    "src/app/api/search/route.ts": { "maxDuration": 30, "memory": 512 },
+    "src/app/api/trending/route.ts": { "maxDuration": 30, "memory": 512 },
+    "src/app/api/reader/route.ts": { "maxDuration": 15, "memory": 256 },
+    "src/app/api/image/route.ts": { "maxDuration": 15, "memory": 256 },
+    "src/app/api/cron/route.ts": { "maxDuration": 60, "memory": 512 },
+    "src/app/api/cron/prewarm/route.ts": { "maxDuration": 60, "memory": 512 }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/trigger",
+      "schedule": "0 */4 * * *"
     },
-    "src/app/api/cron/trigger/route.ts": {
-      "maxDuration": 10,
-      "memory": 256
+    {
+      "path": "/api/cron",
+      "schedule": "0 3 * * *"
     },
-    "src/app/api/sync/worker/route.ts": {
-      "maxDuration": 10,
-      "memory": 512
-    },
-    "src/app/api/search/route.ts": {
-      "maxDuration": 10,
-      "memory": 512
-    },
-    "src/app/api/trending/route.ts": {
-      "maxDuration": 10,
-      "memory": 512
-    },
-    "src/app/api/reader/route.ts": {
-      "maxDuration": 10,
-      "memory": 256
-    },
-    "src/app/api/image/route.ts": {
-      "maxDuration": 10,
-      "memory": 256
-    },
-    "src/app/api/cron/route.ts": {
-      "maxDuration": 10,
-      "memory": 512
-    },
-    "src/app/api/cron/prewarm/route.ts": {
-      "maxDuration": 10,
-      "memory": 512
+    {
+      "path": "/api/cron/prewarm",
+      "schedule": "0 4 * * *"
     }
-  }
+  ]
 }

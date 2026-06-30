@@ -20,8 +20,7 @@ export async function GET(req: NextRequest) {
   const workerUrl = `${protocol}://${host}/api/sync/worker`;
 
   const sources = [
-    "asura", "manganato", "demonic", "scythe", "omega", "webtoons",
-    "flamecomics", "mangafire", "mangago", "vortexscans", "toongod", "webtoonscan", "mangavaultxyz"
+    "asura", "manganato", "demonic", "scythe", "omega", "webtoons"
   ];
 
   let queued = 0;
