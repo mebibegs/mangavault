@@ -905,58 +905,101 @@ async function parseWebtoonDetailAsync(html: string, url: string, fallbackCover:
   }
 }
 
-export async function browseSource4(_page: number): Promise<MangaResult[]> {
+// Derive a readable title from a /list?title_no= URL slug
+function titleFromWebtoonUrl(href: string): string {
+  const m = href.match(/\/en\/[^/]+\/([^/]+)\/list/);
+  if (!m) return "";
+  return m[1].split("-").filter(Boolean).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+}
+
+/**
+ * Browse the Webtoons catalog.
+ *
+ * The /en/ranking/trending page only exposes ~30 titles AND ignores the page
+ * number entirely — so the old code "paginated" 100 times over the same 30
+ * titles (each QStash run wasted while adding nothing new).
+ *
+ * The /en/genre page is fully server-rendered and lists the entire catalog
+ * (~580 titles) with real titles + covers in one shot. We use it as the single
+ * catalog page (page 1) and return [] for page > 1 so the sync worker stops
+ * instead of looping forever.
+ */
+export async function browseSource4(page: number): Promise<MangaResult[]> {
   try {
-    // Webtoons trending ranking page (old /en/top now redirects here)
-    const html = await fetchSafeWebtoon("https://www.webtoons.com/en/ranking/trending");
-    if (!html) return [];
-    const $ = cheerio.load(html);
+    // Genre catalog is a single page; signal "no more" for any higher page.
+    if (page > 1) return [];
 
     const results: MangaResult[] = [];
     const seen = new Set<string>();
 
-    // Derive a readable title from a /list?title_no= URL slug
-    const titleFromUrl = (href: string): string => {
-      const m = href.match(/\/en\/[^/]+\/([^/]+)\/list/);
-      if (!m) return "";
-      return m[1].split("-").filter(Boolean).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
-    };
-
-    $("a[href*='/list?title_no=']").each((_, el) => {
-      const href = $(el).attr("href") || "";
+    const addCard = (href: string, title: string, coverUrl: string, author: string, genre: string) => {
       if (!href || seen.has(href)) return;
-      seen.add(href);
-
-      // Titles are JS-rendered on the ranking page, so fall back to title attr / URL slug
-      let title = $(el).find(".subj, .info .subj, p.subj").text().trim();
-      if (!title) title = $(el).attr("title") || "";
-      if (!title || title.length < 2) title = titleFromUrl(href);
+      if (!title || title.length < 2) title = titleFromWebtoonUrl(href);
       if (!title || title.length < 2) return;
-
-      const img = $(el).find("img").first();
-      const coverUrl = img.attr("src") || img.attr("data-src") || img.attr("data-src") || "";
-
-      const fullUrl = href.startsWith("http") ? href : `https://www.webtoons.com${href}`;
-
+      seen.add(href);
       results.push({
         title,
         description: "",
         rating: "N/A",
         status: "Ongoing",
         type: "Webtoon",
-        genres: [],
+        genres: genre ? [genre] : [],
         chapters: [],
         chapterCount: "0",
         coverUrl,
-        url: fullUrl,
+        url: href.startsWith("http") ? href : `https://www.webtoons.com${href}`,
         source: "Webtoons",
-        author: "Unknown",
-        artist: "Unknown",
+        author: author || "Unknown",
+        artist: author || "Unknown",
       });
-    });
+    };
 
+    // ── Primary catalog: /en/genre (full SSR catalog, ~580 titles) ──
+    const genreHtml = await fetchSafeWebtoon("https://www.webtoons.com/en/genre");
+    if (genreHtml) {
+      const $g = cheerio.load(genreHtml);
+      // Cards: <a class="link _genre_title_a" data-title-no data-genre href=".../list?title_no=">
+      $g("a._genre_title_a[href*='list?title_no=']").each((_, el) => {
+        const href = $g(el).attr("href") || "";
+        const title = $g(el).find(".info_text .title").first().text().trim()
+          || $g(el).find(".subj").first().text().trim();
+        const author = $g(el).find(".info_text .author").first().text().trim();
+        const genre = ($g(el).attr("data-genre") || "").trim();
+        const coverUrl = $g(el).find("img").first().attr("src") || "";
+        addCard(href, title, coverUrl, author, genre);
+      });
+    }
+
+    // ── Bonus: /en/ranking/trending (the old source, ~30 popular titles) ──
+    const trendHtml = await fetchSafeWebtoon("https://www.webtoons.com/en/ranking/trending");
+    if (trendHtml) {
+      const $t = cheerio.load(trendHtml);
+      $t("a[href*='/list?title_no=']").each((_, el) => {
+        const href = $t(el).attr("href") || "";
+        const title = $t(el).find(".subj, .info .subj, p.subj").text().trim()
+          || $t(el).attr("title") || "";
+        const coverUrl = $t(el).find("img").first().attr("src") || $t(el).find("img").attr("data-src") || "";
+        addCard(href, title, coverUrl, "Unknown", "");
+      });
+    }
+
+    // ── Bonus: /en/canvas (community comics, adds ~50+ more titles) ──
+    const canvasHtml = await fetchSafeWebtoon("https://www.webtoons.com/en/canvas");
+    if (canvasHtml) {
+      const $c = cheerio.load(canvasHtml);
+      $c("a[href*='/list?title_no=']").each((_, el) => {
+        const href = $c(el).attr("href") || "";
+        const title = $c(el).find(".subj, .info_text .title").first().text().trim()
+          || $c(el).attr("title") || "";
+        const coverUrl = $c(el).find("img").first().attr("src") || $c(el).find("img").attr("data-src") || "";
+        addCard(href, title, coverUrl, "Unknown", "Canvas");
+      });
+    }
+
+    console.log(`[Browse] Webtoons catalog: ${results.length} titles`);
     return results;
-  } catch {
+  } catch (err) {
+    console.error("[Scraper] Webtoons browse error:", err instanceof Error ? err.message : err);
     return [];
   }
 }

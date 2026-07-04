@@ -41,6 +41,7 @@ export async function GET(req: NextRequest) {
     "manganato.gg",
     "atsu.moe",
     "omegascans.org",
+    "manhuatop.org",
   ];
   let isAllowed = false;
   try {
@@ -105,6 +106,8 @@ export async function GET(req: NextRequest) {
       ".reading-manga img",
       ".chapter-content img",
       ".manga-reader img",
+      ".imgholder", // Demonic Scans (mangareadon.org panels)
+      "img.imgholder",
       ".entry-content img",
       "#content img",
       "main img",

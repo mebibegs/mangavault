@@ -5,7 +5,13 @@ import * as cheerio from "cheerio";
 const SCRAPINGANT_KEY = process.env.SCRAPINGANT_KEY || "";
 
 async function smartFetch(url: string, init?: RequestInit): Promise<Response> {
-  const protectedDomains: string[] = []; // Add heavily protected sites here if needed in the future
+  // Domains protected by Cloudflare's "Just a moment..." browser challenge.
+  // Plain fetch always 403s on these; routing through ScrapingAnt (a real
+  // headless browser farm) solves the JS challenge and returns clean HTML.
+  const protectedDomains = [
+    "manhuatop.org",
+    "manhuatop.com",
+  ];
   const isProtected = protectedDomains.some(domain => url.includes(domain));
 
   if (isProtected && SCRAPINGANT_KEY) {
@@ -24,9 +30,108 @@ async function smartFetch(url: string, init?: RequestInit): Promise<Response> {
     signal: init?.signal || AbortSignal.timeout(15000)
   });
 }
+
+/** Fetch HTML via smartFetch (handles Cloudflare-protected sites). Returns text or null. */
+async function smartFetchHtml(url: string): Promise<string | null> {
+  try {
+    const res = await smartFetch(url);
+    if (!res.ok) return null;
+    return await res.text();
+  } catch {
+    return null;
+  }
+}
 // ---------------------------------
 
 import { browseSource1, browseSource2, browseSource3, browseSource4 } from "../scraper";
+import type { ChapterInfo } from "../scraper";
+
+// ════════════════════════════════════════════════════════════════════
+// MANGANATO detail enrichment
+//
+// The catalog pages only carry title + cover + url. The actual chapter list
+// and metadata are JavaScript-rendered, so a plain HTML scrape of the
+// detail page returns NO chapters. Manganato exposes a JSON API for the
+// chapter list, and the detail HTML still carries genres/status, so we
+// fetch both to fully enrich each title during sync.
+// ════════════════════════════════════════════════════════════════════
+
+const MANGANATO_ORIGIN = "https://www.manganato.gg";
+
+/** Fetch the full chapter list for a Manganato title via its JSON API. */
+async function fetchManganatoChapters(slug: string): Promise<ChapterInfo[]> {
+  try {
+    const res = await smartFetch(`${MANGANATO_ORIGIN}/api/manga/${slug}/chapters`, {
+      headers: { Accept: "application/json", "X-Requested-With": "XMLHttpRequest" },
+    });
+    if (!res.ok) return [];
+    const json = (await res.json()) as { data?: { chapters?: Array<{ chapter_name: string; chapter_slug: string; updated_at?: string }> } };
+    const chs = json?.data?.chapters || [];
+    return chs.map((c) => ({
+      title: c.chapter_name,
+      url: `${MANGANATO_ORIGIN}/manga/${slug}/${c.chapter_slug}`,
+      date: c.updated_at ? c.updated_at.slice(0, 10) : "",
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/** Fetch genres / status / alt titles from the detail page HTML. */
+function parseManganatoMeta(html: string): { genres: string[]; status: string; altTitles: string[] } {
+  try {
+    const $ = cheerio.load(html);
+    const genres: string[] = [];
+    $(".genre-list a, .genres-wrap a").each((_, el) => {
+      const g = $(el).text().trim();
+      if (g && g.length > 1 && !genres.includes(g)) genres.push(g);
+    });
+    let status = "Ongoing";
+    const bodyText = $("body").text();
+    const sm = bodyText.match(/Status\s*:?\s*(Ongoing|Completed|Hiatus|Cancelled)/i);
+    if (sm) status = sm[1].charAt(0).toUpperCase() + sm[1].slice(1).toLowerCase();
+    let altTitles: string[] = [];
+    const am = bodyText.match(/Alternative\s*:?\s*([^\n<]+)/i);
+    if (am) altTitles = am[1].split(/[;,]/).map((s) => s.trim()).filter((s) => s && s.length > 1).slice(0, 8);
+    return { genres, status, altTitles };
+  } catch {
+    return { genres: [], status: "Ongoing", altTitles: [] };
+  }
+}
+
+/** Run async tasks with a small concurrency limit (to stay polite + within budget). */
+async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = [];
+  let i = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (i < items.length) {
+      const idx = i++;
+      results[idx] = await fn(items[idx]);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
+/** Enrich Manganato catalog results with chapters + genres via the API/HTML. */
+async function enrichManganato(results: MangaResult[]): Promise<MangaResult[]> {
+  return mapWithConcurrency(results, 5, async (r) => {
+    const slug = (r.url.split("/manga/")[1] || "").replace(/\/$/, "");
+    if (!slug) return r;
+    const [chapters, metaHtml] = await Promise.all([
+      fetchManganatoChapters(slug),
+      smartFetch(r.url).then((res) => (res.ok ? res.text() : null)).catch(() => null),
+    ]);
+    const meta = metaHtml ? parseManganatoMeta(metaHtml) : { genres: [], status: r.status, altTitles: [] };
+    return {
+      ...r,
+      chapters,
+      chapterCount: String(chapters.length || r.chapterCount),
+      genres: meta.genres.length ? meta.genres : r.genres,
+      status: meta.status || r.status,
+    };
+  });
+}
 
 export interface ScrapeResult {
   results: MangaResult[];
@@ -76,33 +181,46 @@ registerScraper("webtoons", async (page: number) => {
   return { results, hasMore: results.length > 0 };
 });
 
+// Manganato full catalog lives at /manga-list/latest-manga?page=N (≈3,492 pages,
+// ~20 titles each = ~70,000 titles). We detect the real last page dynamically
+// from the pagination panel so hasMore stays correct even as the site grows.
+const MANGANATO_BASE = "https://www.manganato.gg/manga-list/latest-manga";
+
+function manganatoMaxPage($: cheerio.CheerioAPI): number {
+  let max = 1;
+  // The "Last(N)" link and any ?page=N links in the pagination panel
+  $("a.page_blue, .panel_page_number a, .group_page a").each((_, el) => {
+    const href = $(el).attr("href") || "";
+    const m = href.match(/[?&]page=(\d+)/);
+    if (m) max = Math.max(max, parseInt(m[1], 10));
+  });
+  return max;
+}
+
 registerScraper("manganato", async (page: number) => {
   try {
-    // manganato.com is dead — the live domain is manganato.gg
-    // The genre-all path 404s, so we browse the homepage updates + carousel.
-    if (page > 1) return { results: [], hasMore: false };
-    const res = await smartFetch("https://www.manganato.gg/");
+    const url = page <= 1 ? MANGANATO_BASE : `${MANGANATO_BASE}?page=${page}`;
+    const res = await smartFetch(url);
     if (!res.ok) return { results: [], hasMore: false };
     const html = await res.text();
     const $ = cheerio.load(html);
+
+    const maxPage = manganatoMaxPage($);
     const results: MangaResult[] = [];
     const seen = new Set<string>();
 
-    // Cards: carousel (.item) + latest updates (.tooltip.cover) both link /manga/{slug}
-    $("a[href*='/manga/']").each((_, el) => {
+    // Catalog cards: <a class="list-story-item bookmark_check cover" href title><img></a>
+    $(".list-story-item").each((_, el) => {
       const href = $(el).attr("href") || "";
       const m = href.match(/manganato\.gg\/manga\/([a-z0-9][a-z0-9-]*)/i);
-      if (!m) return; // skip chapter links etc.
+      if (!m) return; // skip chapter links
       const fullUrl = `https://www.manganato.gg/manga/${m[1]}`;
       if (seen.has(fullUrl)) return;
 
-      // In carousel cards the <img> is a sibling of the link, so look up to the card
-      let img = $(el).find("img").first();
-      if (!img.length) img = $(el).closest(".item, .itemupdate, .slide, .content-comments").find("img").first();
+      const img = $(el).find("img").first();
       const coverUrl = img.attr("src") || img.attr("data-src") || "";
       let title = $(el).attr("title") || "";
       if (!title) title = img.attr("alt") || "";
-      if (!title) title = $(el).find(".itemupdate-title, h3, .slide-caption h3").text().trim();
       if (!title || title.length < 2) return;
 
       seen.add(fullUrl);
@@ -113,7 +231,14 @@ registerScraper("manganato", async (page: number) => {
       });
     });
 
-    return { results, hasMore: false };
+    // Enrich each title with its chapter list (via JSON API) + genres/status
+    // (via the detail HTML). Done within the worker's 60s budget (≈20 titles).
+    const enriched = await enrichManganato(results);
+
+    const hasMore = page < maxPage && enriched.length > 0;
+    const withChapters = enriched.filter((r) => r.chapters.length > 0).length;
+    console.log(`[Scraper] Manganato page ${page}: ${enriched.length} titles, ${withChapters} with chapters (max ${maxPage}), hasMore=${hasMore}`);
+    return { results: enriched, hasMore };
   } catch (err) {
     console.error("[Scraper] Manganato error:", err instanceof Error ? err.message : err);
     return { results: [], hasMore: false };
@@ -137,6 +262,182 @@ registerScraper("omega", async (page: number) => {
     }
     return { results, hasMore: json.meta?.current_page < json.meta?.last_page };
   } catch {
+    return { results: [], hasMore: false };
+  }
+});
+
+// ════════════════════════════════════════════════════════════════════
+// SOURCE: MANHUATOP  (https://manhuatop.org)
+// Madara WordPress theme, fully Cloudflare-protected → routed via smartFetch
+// (which uses ScrapingAnt when SCRAPINGANT_KEY is set). Requires no key to
+// register, but needs SCRAPINGANT_KEY at runtime to actually fetch pages.
+// ════════════════════════════════════════════════════════════════════
+
+const MANHUATOP_BASE = "https://manhuatop.org";
+
+/** Parse a Madara manga detail page (chapters, meta, cover). */
+function parseManhuaTopDetail(html: string, url: string): MangaResult | null {
+  try {
+    const $ = cheerio.load(html);
+    const title = ($('meta[property="og:title"]').attr("content") || "")
+      .replace(/\s*-\s*ManhuaTop.*$/i, "").trim()
+      || $("h1, .post-title h1, .post-title h3").first().text().trim()
+      || $("title").first().text().trim();
+    if (!title) return null;
+
+    const coverUrl = $('meta[property="og:image"]').attr("content")
+      || $(".summary_image img").attr("data-src")
+      || $(".summary_image img").attr("src") || "";
+
+    // Description — Madara variants
+    let description = "";
+    $(".description-summary .summary__content p, .summary__content p, .manga-excerpt p, .content-morejs p").each((_, el) => {
+      const t = $(el).text().trim();
+      if (t.length > 40 && !description) description = t;
+    });
+    if (!description) description = ($('meta[property="og:description"]').attr("content") || "").trim();
+
+    // Rating
+    let rating = "N/A";
+    const rm = $(".post-total-rating .score, .total_votes, .rating").first().text().trim().match(/(\d+\.?\d*)/);
+    if (rm && parseFloat(rm[1]) <= 10) rating = rm[1];
+
+    // Metadata rows (Status / Type / Author / Artist / Alternative)
+    let status = "Ongoing", type = "Manhua", author = "Unknown", artist = "Unknown";
+    const altTitles: string[] = [];
+    $(".post-content_item").each((_, el) => {
+      const label = $(el).find(".summary-heading").text().toLowerCase().trim();
+      const value = $(el).find(".summary-content").text().trim();
+      if (label.includes("status")) status = value || status;
+      else if (label.includes("type")) type = value || type;
+      else if (label.includes("author")) author = value || author;
+      else if (label.includes("artist")) artist = value || artist;
+      else if (label.includes("alternative")) value.split(/[,;]/).forEach((a) => { const x = a.trim(); if (x) altTitles.push(x); });
+    });
+
+    // Genres & tags
+    const genres: string[] = [];
+    $(".genres-content a, .tags-content a, .manga-genres a").each((_, el) => {
+      const g = $(el).text().trim();
+      if (g && g.length > 1 && !genres.includes(g)) genres.push(g);
+    });
+
+    // Chapters — Madara: li.wp-manga-chapter a / .version-chap a
+    const chapters: ChapterInfo[] = [];
+    $("li.wp-manga-chapter a, .version-chap a, .listing-chapters_wol a").each((_, el) => {
+      const u = $(el).attr("href") || "";
+      if (!u || !/chapter/i.test(u)) return;
+      const chTitle = $(el).text().replace(/\s+/g, " ").trim();
+      const date = $(el).closest("li, .wp-manga-chapter").find(".chapter-release-date, .chapter-time, i").text().trim();
+      if (chTitle && u) chapters.push({
+        title: chTitle,
+        url: u.startsWith("http") ? u : `${MANHUATOP_BASE}${u}`,
+        date,
+      });
+    });
+    const uniqueChapters = dedupeChaptersReg(chapters);
+
+    // Status detection fallback
+    const pageText = $("body").text().toLowerCase();
+    if (pageText.includes("completed") && status === "Ongoing") status = "Completed";
+
+    return {
+      title, description: description || "No description available.",
+      rating, status, type, genres, chapters: uniqueChapters,
+      chapterCount: String(uniqueChapters.length || 0),
+      coverUrl, url, source: "ManhuaTop", author, artist,
+    };
+  } catch (err) {
+    console.error("[Scraper] ManhuaTop detail error:", err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
+/** Light-weight Madara listing parser (card → title/cover/url). */
+function parseManhuaTopListing(html: string): MangaResult[] {
+  const results: MangaResult[] = [];
+  const seen = new Set<string>();
+  try {
+    const $ = cheerio.load(html);
+    const push = (fullUrl: string, title: string, coverUrl: string, rating: string) => {
+      if (!title || title.length < 3 || seen.has(fullUrl)) return;
+      seen.add(fullUrl);
+      results.push({
+        title, description: "", rating, status: "Ongoing", type: "Manhua",
+        genres: [], chapters: [], chapterCount: "0", coverUrl, url: fullUrl,
+        source: "ManhuaTop", author: "Unknown", artist: "Unknown",
+      });
+    };
+
+    // Madara cards
+    $(".page-item-detail, .c-tabs-item__content, .row.c-tabs-item").each((_, el) => {
+      const link = $(el).find("a[href*='/manga/']").first();
+      const href = link.attr("href") || "";
+      if (!href.includes("/manga/")) return;
+      const fullUrl = href.startsWith("http") ? href : `${MANHUATOP_BASE}${href}`;
+      const title = $(el).find(".post-title h3, .post-title h4, .tab-summary .post-title a").text().trim()
+        || link.attr("title") || "";
+      const coverUrl = $(el).find("img").attr("data-src") || $(el).find("img").attr("src") || "";
+      const rm = $(el).find(".score, .total_votes").first().text().trim().match(/(\d+\.?\d*)/);
+      const rating = rm && parseFloat(rm[1]) <= 10 ? rm[1] : "N/A";
+      push(fullUrl, title, coverUrl, rating);
+    });
+
+    // Fallback: generic /manga/ links
+    if (results.length === 0) {
+      $("a[href*='/manga/']").each((_, el) => {
+        const href = $(el).attr("href") || "";
+        if (!href.includes("/manga/") || href.includes("/page/") || href.includes("?")) return;
+        const fullUrl = href.startsWith("http") ? href : `${MANHUATOP_BASE}${href}`;
+        const title = $(el).find("h3, h4, .post-title").text().trim() || $(el).attr("title") || "";
+        const coverUrl = $(el).find("img").attr("data-src") || $(el).find("img").attr("src") || "";
+        push(fullUrl, title, coverUrl, "N/A");
+      });
+    }
+  } catch (err) {
+    console.error("[Scraper] ManhuaTop listing error:", err instanceof Error ? err.message : err);
+  }
+  return results;
+}
+
+/** Local chapter dedupe (registry-local, to avoid importing from scraper.ts). */
+function dedupeChaptersReg(chapters: ChapterInfo[]): ChapterInfo[] {
+  const seen = new Set<string>();
+  const out: ChapterInfo[] = [];
+  for (const ch of chapters) {
+    const key = ch.url;
+    if (key && !seen.has(key)) { seen.add(key); out.push(ch); }
+  }
+  return out;
+}
+
+registerScraper("manhuatop", async (page: number) => {
+  try {
+    // Madara archive: /manga/?m_orderby=latest & /page/N/
+    const urls = [
+      `${MANHUATOP_BASE}/manga/?m_orderby=latest`,
+      `${MANHUATOP_BASE}/manga/page/${page}/?m_orderby=latest&column=4`,
+    ];
+    let allResults: MangaResult[] = [];
+    for (const u of urls) {
+      const html = await smartFetchHtml(u);
+      if (html) allResults.push(...parseManhuaTopListing(html));
+      if (allResults.length > 0) break; // first working URL is enough
+    }
+    if (allResults.length === 0) return { results: [], hasMore: false };
+
+    // Enrich first batch with full detail (chapters/desc/genres) — concurrency 5
+    const enriched = await mapWithConcurrency(allResults.slice(0, 20), 5, async (r) => {
+      const html = await smartFetchHtml(r.url);
+      return html ? (parseManhuaTopDetail(html, r.url) || r) : r;
+    });
+
+    // hasMore: page 1 had results and we're under a sane cap
+    const hasMore = page < 3 && enriched.length > 0;
+    console.log(`[Scraper] ManhuaTop page ${page}: ${enriched.length} titles, hasMore=${hasMore}`);
+    return { results: enriched, hasMore };
+  } catch (err) {
+    console.error("[Scraper] ManhuaTop error:", err instanceof Error ? err.message : err);
     return { results: [], hasMore: false };
   }
 });

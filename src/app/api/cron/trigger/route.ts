@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
   const workerUrl = `${protocol}://${host}/api/sync/worker`;
 
   const sources = [
-    "asura", "manganato", "demonic", "scythe", "omega", "webtoons"
+    "asura", "manganato", "demonic", "scythe", "omega", "webtoons", "manhuatop"
   ];
 
   let queued = 0;

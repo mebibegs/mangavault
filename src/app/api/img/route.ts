@@ -6,11 +6,18 @@ const ALLOWED_HOSTS = [
   "webtoons.com",
   "cdnwebtoons.com",
   "2xstorage.com",
+  "imgs-2.2xstorage.com",
   "manganato.gg",
   "atsu.moe",
   "asurascans.com",
+  "cdn.asurascans.com",
   "demonicscans.org",
+  // Demonic Scans chapter-image CDNs
+  "mangareadon.org",
+  "librarydm.com",
+  "demoniclibs.com",
   "scythescans.com",
+  "manhuatop.org",
   "omegascans.org",
   "media.omegascans.org",
   // WordPress Photon (Jetpack) image CDN used by Scythe & others: i0/i1/i2/i3.wp.com
@@ -73,8 +80,12 @@ export async function GET(req: NextRequest) {
     referer = "https://asurascans.com/";
   } else if (hostname.includes("demonicscans.org")) {
     referer = "https://demonicscans.org/";
+  } else if (hostname.includes("mangareadon.org") || hostname.includes("librarydm.com") || hostname.includes("demoniclibs.com")) {
+    referer = "https://demonicscans.org/";
   } else if (hostname.includes("scythescans.com")) {
     referer = "https://scythescans.com/";
+  } else if (hostname.includes("manhuatop.org") || hostname.includes("manhuatop.com")) {
+    referer = "https://manhuatop.org/";
   } else if (hostname.includes("manganato.gg") || hostname.includes("2xstorage.com")) {
     referer = "https://manganato.gg/";
   } else if (hostname.includes("atsu.moe")) {

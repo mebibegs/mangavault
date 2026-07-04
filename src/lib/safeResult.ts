@@ -9,6 +9,8 @@ const SOURCE_NAMES: Record<string, string> = {
   "Source E": "Manganato",
   "Source F": "Atsu",
   "Source G": "Omega Scans",
+  "Source H": "ManhuaTop",
+  "ManhuaTop": "ManhuaTop",
 };
 
 /**
