@@ -13,6 +13,9 @@ const ALLOWED_HOSTS = [
   "scythescans.com",
   "omegascans.org",
   "media.omegascans.org",
+  // WordPress Photon (Jetpack) image CDN used by Scythe & others: i0/i1/i2/i3.wp.com
+  "wp.com",
+  "wp.com.cdn.cloudflare.net",
 ];
 
 /**
@@ -78,6 +81,11 @@ export async function GET(req: NextRequest) {
     referer = "https://atsu.moe/";
   } else if (hostname.includes("omegascans.org")) {
     referer = "https://omegascans.org/";
+  } else if (hostname.includes("wp.com")) {
+    // Photon (Jetpack) form: https://i1.wp.com/{origin-domain}/path
+    // — the underlying origin checks the Referer, so derive it from the path.
+    const seg = parsedUrl.pathname.replace(/^\/+/, "").split("/")[0];
+    if (seg && seg.includes(".")) referer = `https://${seg}/`;
   }
 
   try {

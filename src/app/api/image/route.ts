@@ -8,6 +8,7 @@ const FALLBACK_DOMAINS = [
   "phinf.pstatic.net","webtoons.com","cdn.webtoons.com",
   "img-r2.2xstorage.com","manganato.gg","s1.manganato.gg","s2.manganato.gg",
   "atsu.moe","cdn.atsu.moe","omegascans.org","media.omegascans.org",
+  "wp.com","i0.wp.com","i1.wp.com","i2.wp.com","i3.wp.com",
 ];
 
 const ALLOWED_DOMAINS: ReadonlySet<string> = new Set([

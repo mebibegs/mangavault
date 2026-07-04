@@ -322,21 +322,61 @@ function parseSource1Detail(html: string, url: string, fallbackTitle: string): M
   } catch { return null; }
 }
 
+/** Build a MangaResult from an Asura JSON-API item (fallback when detail HTML fetch fails). */
+function asuraApiToResult(item: Record<string, unknown>): MangaResult {
+  const cap = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+  const title = (item.title as string) || "";
+  const publicUrl = (item.public_url as string) || `/comics/${item.slug}`;
+  const url = publicUrl.startsWith("http") ? publicUrl : `https://asurascans.com${publicUrl}`;
+  const coverUrl = (item.cover as string) || "";
+  const rating = item.rating ? parseFloat(String(item.rating)).toFixed(1) : "N/A";
+  const status = cap((item.status as string) || "Ongoing");
+  const type = cap((item.type as string) || "Manhwa");
+  const author = (item.author as string) || "Unknown";
+  const artist = (item.artist as string) || "Unknown";
+  const genres = ((item.genres as Array<{ name: string }>) || []).map((g) => g.name);
+  let description = (item.description as string) || "";
+  description = description.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  const latest = (item.latest_chapters as Array<{ number: number; published_at?: string }>) || [];
+  const chapters: ChapterInfo[] = latest.map((c) => ({
+    title: `Chapter ${c.number}`,
+    url: `${url}/chapter/${c.number}`,
+    date: c.published_at ? c.published_at.slice(0, 10) : "",
+  }));
+  return {
+    title,
+    description: description || "No description available.",
+    rating, status, type, genres, chapters,
+    chapterCount: String(item.chapter_count || chapters.length),
+    coverUrl, url, source: "Asura Scans", author, artist,
+  };
+}
+
 async function searchSource1(query: string): Promise<MangaResult[]> {
   try {
-    const html = await fetchSafe(`https://asurascans.com/browse?q=${encodeURIComponent(query)}`);
-    if (!html) return [];
-    const $ = cheerio.load(html);
-    const links: {title:string;href:string}[] = [];
-    $("a[href*='/comics/']").each((_,el) => {
-      const href=$(el).attr("href"); const t=$(el).find("h3").text().trim()||$(el).text().trim();
-      if (href&&t&&t.length>0&&!links.find(l=>l.href===href)) links.push({title:t,href:href.startsWith("http")?href:`https://asurascans.com${href}`});
-    });
+    // Asura exposes a clean JSON search API (the /browse?q= page is client-rendered)
+    const apiUrl = `https://api.asurascans.com/api/series?search=${encodeURIComponent(query)}`;
+    const res = await fetchWithTimeout(apiUrl, { headers: { Accept: "application/json" } });
+    if (!res.ok) return [];
+    const json = (await res.json()) as { data?: Array<Record<string, unknown>> };
+    const items = json.data || [];
+    if (!items.length) return [];
+
     const results: MangaResult[] = [];
-    const details = await Promise.all(links.map(async l => { const h = await fetchSafe(l.href); return h ? parseSource1Detail(h,l.href,l.title) : null; }));
+    // Fetch full detail pages for complete chapter lists; fall back to API data
+    const details = await Promise.all(items.slice(0, 8).map(async (item) => {
+      const publicUrl = (item.public_url as string) || `/comics/${item.slug}`;
+      const detailUrl = publicUrl.startsWith("http") ? publicUrl : `https://asurascans.com${publicUrl}`;
+      const title = (item.title as string) || "";
+      const h = await fetchSafe(detailUrl);
+      return h ? parseSource1Detail(h, detailUrl, title) : asuraApiToResult(item);
+    }));
     for (const d of details) if (d) results.push(d);
     return results;
-  } catch { return []; }
+  } catch (err) {
+    console.error("[Scraper] Asura search error:", err instanceof Error ? err.message : err);
+    return [];
+  }
 }
 
 // Browse multiple pages from Source 1 for catalog
@@ -519,64 +559,66 @@ export async function browseSource2(page: number): Promise<MangaResult[]> {
 function parseSource3Detail(html: string, url: string): MangaResult | null {
   try {
     const $ = cheerio.load(html);
-    let title = ($('meta[property="og:title"]').attr("content")||"").replace(/\s*-\s*Scythe\s*Scans.*/i,"").trim();
+    // Title: prefer h1.entry-title (Ts theme), then og:title / <title>
+    let title = $("h1.entry-title").first().text().trim()
+      || ($('meta[property="og:title"]').attr("content")||"").replace(/\s*-\s*Scythe\s*Scans.*/i,"").trim();
     if (!title) title = $("title").text().replace(/\s*-\s*Scythe\s*Scans.*/i,"").trim();
-    if (!title) return null;
+    if (!title || title.toLowerCase().includes("manga archive")) return null;
+
     const coverUrl = $('meta[property="og:image"]').attr("content")||"";
-    let description = $('meta[property="og:description"]').attr("content")||"";
-    if (description.includes("Read your favorite manga")||description.includes("Scythe Scans")) {
-      description = $('meta[name="description"]').attr("content")||"";
+
+    // Description: Ts theme uses .entry-content.entry-content-single (itemprop=description)
+    let description = "";
+    $(".entry-content.entry-content-single p, .entry-content-single p, .info-desc p").each((_,el) => { const t=$(el).text().trim(); if(t.length>40&&!description) description=t; });
+    if (!description) {
+      description = $('meta[property="og:description"]').attr("content")||"";
       if (description.includes("Read your favorite manga")||description.includes("Scythe Scans")) description = "";
     }
-    if (!description) $(".summary__content p, .description-summary p, .manga-excerpt p").each((_,el) => { const t=$(el).text().trim(); if(t.length>50&&!description) description=t; });
-    let rating="N/A"; const re=$(".post-total-rating .score, .total_votes, .rating-count"); if(re.length){const rm=re.text().trim().match(/(\d+\.?\d*)/); if(rm&&parseFloat(rm[1])<=10)rating=rm[1];}
+
+    // Rating (Ts theme .rating / .vote)
+    let rating="N/A"; const re=$(".rating .num, .vote, .post-total-rating .score, .total_votes, .rating-count"); if(re.length){const rm=re.first().text().trim().match(/(\d+\.?\d*)/); if(rm&&parseFloat(rm[1])<=10)rating=rm[1];}
+
+    // Metadata rows: <div class="imptdt">Status <i>Ongoing</i></div>
     let status="Ongoing",type="Manhwa",author="Unknown",artist="Unknown"; const genres:string[]=[];
-    $(".post-content_item").each((_,el)=>{const l=$(el).find(".summary-heading h5, .summary-heading").text().toLowerCase().trim();const v=$(el).find(".summary-content, .artist-content").text().trim();if(l.includes("status"))status=v||status;if(l.includes("type"))type=v||type;if(l.includes("author"))author=v||author;if(l.includes("artist"))artist=v||artist;});
-    $(".genres-content a, .tags-content a").each((_,el)=>{const g=$(el).text().trim();if(g&&!genres.includes(g))genres.push(g);});
+    $(".imptdt").each((_,el)=>{
+      const label = $(el).clone().children().remove().end().text().toLowerCase().trim();
+      const value = $(el).find("a, i").first().text().trim();
+      if (label.includes("status")) status = value || status;
+      else if (label.includes("type")) type = value || type;
+      else if (label.includes("author")) author = value || author;
+      else if (label.includes("artist")) artist = value || artist;
+    });
+    $(".seriestugenre a, .mgen a, .genres-content a, .wdt-content a").each((_,el)=>{const g=$(el).text().trim();if(g&&g.length>1&&!genres.includes(g))genres.push(g);});
+
+    // Chapters: .eplister .eph-num > a  (Ts/Mangastream chapter list)
     const chapters:ChapterInfo[]=[];
-    $("li.wp-manga-chapter a, .version-chap a").each((_,el)=>{
-      const raw = $(el).text();
-      const split = splitChapterTitleAndDate(raw);
-      const t = split.title;
+    $("#chapterlist .eph-num a, .eplister .eph-num a").each((_,el)=>{
       const u = $(el).attr("href") || "";
-      const d = $(el).closest("li").find(".chapter-release-date, span.chapter-time, i").text().trim() || split.date;
-      if (t && u) chapters.push({ title: t, url: u.startsWith("http") ? u : `https://scythescans.com${u}`, date: d });
+      if (!u || !/chapter/i.test(u)) return;
+      const chTitle = $(el).find(".chapternum").first().text().replace(/\s+/g," ").trim()
+        || $(el).text().replace(/\s+/g," ").trim();
+      const d = $(el).find(".chapterdate").first().text().trim();
+      if (chTitle && u) {
+        const { title: t } = splitChapterTitleAndDate(chTitle);
+        chapters.push({ title: t || chTitle, url: u.startsWith("http") ? u : `https://scythescans.com${u}`, date: d });
+      }
     });
     const uniqueChapters = dedupeChapters(chapters);
     return { title, description:description||"No description available.", rating, status, type, genres, chapters: uniqueChapters, chapterCount:String(uniqueChapters.length), coverUrl, url, source:"Scythe Scans", author, artist };
-  } catch { return null; }
+  } catch (err) {
+    console.error("[Scraper] Scythe detail error:", err instanceof Error ? err.message : err);
+    return null;
+  }
 }
 
-// Light parse listing from Scythe main/archive pages
+// Light parse listing from Scythe main/archive pages (Ts / Mangastream theme)
 function parseSource3ListingPage(html: string): MangaResult[] {
   try {
     const $ = cheerio.load(html);
     const results: MangaResult[] = [];
-
-    // Madara theme manga items
-    $(".page-item-detail, .manga, article").each((_, el) => {
-      const link = $(el).find("a[href*='/manga/']").first();
-      const href = link.attr("href");
-      if (!href || !href.includes("/manga/")) return;
-
-      const fullUrl = href.startsWith("http") ? href : `https://scythescans.com${href}`;
-      let title = $(el).find(".post-title h3 a, .post-title h5 a, h3 a, h5 a").text().trim();
-      if (!title) title = link.attr("title") || link.text().trim();
-      const coverUrl = $(el).find("img").attr("data-src") || $(el).find("img").attr("src") || "";
-
-      const ratingEl = $(el).find(".score, .total_votes, .rating");
-      let rating = "N/A";
-      if (ratingEl.length) {
-        const rm = ratingEl.text().trim().match(/(\d+\.?\d*)/);
-        if (rm && parseFloat(rm[1]) <= 10) rating = rm[1];
-      }
-
-      const chEl = $(el).find(".chapter, .btn-link, a[href*='chapter']").first();
-      const latestCh = chEl.text().trim();
-
+    const push = (fullUrl: string, title: string, coverUrl: string, rating: string, latestCh: string) => {
       if (!title || title.length < 3) return;
       if (results.find(r => r.url === fullUrl)) return;
-
       results.push({
         title,
         description: "",
@@ -592,25 +634,44 @@ function parseSource3ListingPage(html: string): MangaResult[] {
         author: "Unknown",
         artist: "Unknown",
       });
+    };
+
+    // Ts theme cards: .listupd > .bs > .bsx > a[href][title]
+    $(".listupd .bsx > a, .listupd .bs a[href*='/manga/'], .utao .imgu a, .bsx a[href*='/manga/']").each((_, el) => {
+      const href = $(el).attr("href") || "";
+      if (!href.includes("/manga/") || href.includes("?")) return;
+      const fullUrl = href.startsWith("http") ? href : `https://scythescans.com${href}`;
+      let title = $(el).attr("title") || "";
+      if (!title) title = $(el).find("h3, h4, .tt, .ttl").text().trim();
+      const coverUrl = $(el).find("img").attr("src") || $(el).find("img").attr("data-src") || "";
+      const ratingEl = $(el).find(".num, .rating, .novel-score");
+      let rating = "N/A";
+      if (ratingEl.length) {
+        const rm = ratingEl.first().text().trim().match(/(\d+\.?\d*)/);
+        if (rm && parseFloat(rm[1]) <= 10) rating = rm[1];
+      }
+      const latestCh = $(el).find(".epxs, .chapter").first().text().trim();
+      push(fullUrl, title, coverUrl, rating, latestCh);
     });
 
-    // Also scan raw links with images
+    // Fallback: generic manga links
     if (results.length === 0) {
       $("a[href*='/manga/']").each((_, el) => {
         const href = $(el).attr("href");
-        if (!href || href.includes("/manga/page/")) return;
+        if (!href || href.includes("/manga/page/") || href.includes("?")) return;
         const fullUrl = href.startsWith("http") ? href : `https://scythescans.com${href}`;
-        let title = $(el).find("h3, h4, h5, .post-title").text().trim() || $(el).attr("title") || "";
+        let title = $(el).attr("title") || $(el).find("h3, h4, .tt").text().trim() || "";
         if (!title) title = $(el).text().trim();
-        const img = $(el).find("img").attr("data-src") || $(el).find("img").attr("src") || "";
-        if (!title || title.length < 3) return;
-        if (results.find(r => r.url === fullUrl)) return;
-        results.push({ title, description:"", rating:"N/A", status:"Ongoing", type:"Manhwa", genres:[], chapters:[], chapterCount:"0", coverUrl:img, url:fullUrl, source:"Scythe Scans", author:"Unknown", artist:"Unknown" });
+        const img = $(el).find("img").attr("src") || $(el).find("img").attr("data-src") || "";
+        push(fullUrl, title, img, "N/A", "");
       });
     }
 
     return results;
-  } catch { return []; }
+  } catch (err) {
+    console.error("[Scraper] Scythe listing error:", err instanceof Error ? err.message : err);
+    return [];
+  }
 }
 
 async function searchSource3(query: string): Promise<MangaResult[]> {
@@ -846,25 +907,34 @@ async function parseWebtoonDetailAsync(html: string, url: string, fallbackCover:
 
 export async function browseSource4(_page: number): Promise<MangaResult[]> {
   try {
-    // Webtoons popular page
-    const html = await fetchSafeWebtoon("https://www.webtoons.com/en/top");
+    // Webtoons trending ranking page (old /en/top now redirects here)
+    const html = await fetchSafeWebtoon("https://www.webtoons.com/en/ranking/trending");
     if (!html) return [];
     const $ = cheerio.load(html);
 
     const results: MangaResult[] = [];
     const seen = new Set<string>();
 
+    // Derive a readable title from a /list?title_no= URL slug
+    const titleFromUrl = (href: string): string => {
+      const m = href.match(/\/en\/[^/]+\/([^/]+)\/list/);
+      if (!m) return "";
+      return m[1].split("-").filter(Boolean).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+    };
+
     $("a[href*='/list?title_no=']").each((_, el) => {
       const href = $(el).attr("href") || "";
       if (!href || seen.has(href)) return;
       seen.add(href);
 
+      // Titles are JS-rendered on the ranking page, so fall back to title attr / URL slug
       let title = $(el).find(".subj, .info .subj, p.subj").text().trim();
       if (!title) title = $(el).attr("title") || "";
+      if (!title || title.length < 2) title = titleFromUrl(href);
       if (!title || title.length < 2) return;
 
       const img = $(el).find("img").first();
-      const coverUrl = img.attr("src") || img.attr("data-src") || "";
+      const coverUrl = img.attr("src") || img.attr("data-src") || img.attr("data-src") || "";
 
       const fullUrl = href.startsWith("http") ? href : `https://www.webtoons.com${href}`;
 
@@ -959,24 +1029,35 @@ function isValidEntry(r: MangaResult): boolean {
 // ════════════════════════════════════════════════════════════════════
 
 export async function searchAllSources(query: string): Promise<MangaResult[]> {
-    
-  // Define sources with circuit breaker protection
+
+  // Define sources — each returns [] on failure (graceful degradation)
   const sources = [
-    { name: "SourceA", scrape: searchSource1 },
-    { name: "SourceB", scrape: searchSource2 },
-    { name: "SourceC", scrape: searchSource3 },
-    { name: "SourceD", scrape: searchSource4 },
-    
+    { name: "Asura", scrape: searchSource1 },
+    { name: "Demonic", scrape: searchSource2 },
+    { name: "Scythe", scrape: searchSource3 },
+    { name: "Webtoons", scrape: searchSource4 },
   ];
 
-  // Run with circuit breakers, timeouts, and graceful degradation
-  
-  const results = await Promise.all(sources.map(s => s.scrape(query).catch(()=>[]))).then(res => res.flat());
-  const sourceStats = {};
+  // Run all in parallel, collecting per-source counts for observability
+  const settled = await Promise.all(
+    sources.map(async (s) => {
+      const started = Date.now();
+      try {
+        const r = await s.scrape(query);
+        return { name: s.name, results: r, ms: Date.now() - started, ok: true };
+      } catch (err) {
+        console.error(`[Search] ${s.name} threw:`, err instanceof Error ? err.message : err);
+        return { name: s.name, results: [] as MangaResult[], ms: Date.now() - started, ok: false };
+      }
+    })
+  );
 
+  const sourceStats = Object.fromEntries(
+    settled.map((s) => [s.name, { count: s.results.length, ok: s.ok, ms: s.ms }])
+  );
+  console.log("[Search] source stats:", JSON.stringify(sourceStats));
 
-  // Log source performance for monitoring
-  console.log("[Search] Source stats:", JSON.stringify(sourceStats));
+  const results = settled.flatMap((s) => s.results);
 
   // Filter and deduplicate
   const relevant = results
@@ -1010,10 +1091,16 @@ export async function browseCatalog(page: number): Promise<{ results: MangaResul
   ]);
 
   const results: MangaResult[] = [];
-  if (r1.status === "fulfilled") results.push(...r1.value);
-  if (r2.status === "fulfilled") results.push(...r2.value);
-  if (r3.status === "fulfilled") results.push(...r3.value);
-  if (r4.status === "fulfilled") results.push(...r4.value);
+  const counts: Record<string, number | string> = {};
+  if (r1.status === "fulfilled") { results.push(...r1.value); counts.Asura = r1.value.length; }
+  else counts.Asura = r1.reason ? String(r1.reason).slice(0, 60) : "rejected";
+  if (r2.status === "fulfilled") { results.push(...r2.value); counts.Demonic = r2.value.length; }
+  else counts.Demonic = r2.reason ? String(r2.reason).slice(0, 60) : "rejected";
+  if (r3.status === "fulfilled") { results.push(...r3.value); counts.Scythe = r3.value.length; }
+  else counts.Scythe = r3.reason ? String(r3.reason).slice(0, 60) : "rejected";
+  if (r4.status === "fulfilled") { results.push(...r4.value); counts.Webtoons = r4.value.length; }
+  else counts.Webtoons = r4.reason ? String(r4.reason).slice(0, 60) : "rejected";
+  console.log(`[Browse] page ${page} per-source:`, JSON.stringify(counts));
 
   // Filter valid entries
   const valid = results.filter(isValidEntry);

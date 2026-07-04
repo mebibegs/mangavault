@@ -77,28 +77,47 @@ registerScraper("webtoons", async (page: number) => {
 });
 
 registerScraper("manganato", async (page: number) => {
-  const res = await smartFetch(`https://manganato.com/genre-all/${page}`);
-  if (!res.ok) return { results: [], hasMore: false };
-  const html = await res.text();
-  const $ = cheerio.load(html);
-  const results: MangaResult[] = [];
-  
-  $(".content-genres-item").each((_, el) => {
-    const titleEl = $(el).find(".genres-item-name");
-    const title = titleEl.text().trim();
-    const url = titleEl.attr("href") || "";
-    const imgEl = $(el).find("img");
-    const coverUrl = imgEl.attr("src") || "";
-    
-    if (title && url) {
+  try {
+    // manganato.com is dead — the live domain is manganato.gg
+    // The genre-all path 404s, so we browse the homepage updates + carousel.
+    if (page > 1) return { results: [], hasMore: false };
+    const res = await smartFetch("https://www.manganato.gg/");
+    if (!res.ok) return { results: [], hasMore: false };
+    const html = await res.text();
+    const $ = cheerio.load(html);
+    const results: MangaResult[] = [];
+    const seen = new Set<string>();
+
+    // Cards: carousel (.item) + latest updates (.tooltip.cover) both link /manga/{slug}
+    $("a[href*='/manga/']").each((_, el) => {
+      const href = $(el).attr("href") || "";
+      const m = href.match(/manganato\.gg\/manga\/([a-z0-9][a-z0-9-]*)/i);
+      if (!m) return; // skip chapter links etc.
+      const fullUrl = `https://www.manganato.gg/manga/${m[1]}`;
+      if (seen.has(fullUrl)) return;
+
+      // In carousel cards the <img> is a sibling of the link, so look up to the card
+      let img = $(el).find("img").first();
+      if (!img.length) img = $(el).closest(".item, .itemupdate, .slide, .content-comments").find("img").first();
+      const coverUrl = img.attr("src") || img.attr("data-src") || "";
+      let title = $(el).attr("title") || "";
+      if (!title) title = img.attr("alt") || "";
+      if (!title) title = $(el).find(".itemupdate-title, h3, .slide-caption h3").text().trim();
+      if (!title || title.length < 2) return;
+
+      seen.add(fullUrl);
       results.push({
-        title, description: "", rating: "N/A", status: "Unknown", type: "Manga",
-        genres: [], chapters: [], chapterCount: "0", coverUrl, url,
-        source: "Manganato", author: "Unknown", artist: "Unknown"
+        title, description: "", rating: "N/A", status: "Ongoing", type: "Manga",
+        genres: [], chapters: [], chapterCount: "0", coverUrl, url: fullUrl,
+        source: "Manganato", author: "Unknown", artist: "Unknown",
       });
-    }
-  });
-  return { results, hasMore: results.length > 0 };
+    });
+
+    return { results, hasMore: false };
+  } catch (err) {
+    console.error("[Scraper] Manganato error:", err instanceof Error ? err.message : err);
+    return { results: [], hasMore: false };
+  }
 });
 
 registerScraper("omega", async (page: number) => {
