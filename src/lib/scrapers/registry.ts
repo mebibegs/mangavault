@@ -58,23 +58,57 @@ import type { ChapterInfo } from "../scraper";
 
 const MANGANATO_ORIGIN = "https://www.manganato.gg";
 
-/** Fetch the full chapter list for a Manganato title via its JSON API. */
+/**
+ * Fetch the COMPLETE chapter list for a Manganato title via its JSON API.
+ *
+ * The API is paginated: it returns at most `limit` chapters per request
+ * (default 50) and includes a `pagination` object:
+ *   { total, limit, offset, has_more }
+ * e.g. a manga with 364 chapters needs 8 pages of 50 to fetch them all.
+ * We loop with offset until has_more is false. limit=100 halves the requests.
+ */
 async function fetchManganatoChapters(slug: string): Promise<ChapterInfo[]> {
+  const LIMIT = 100;
+  let offset = 0;
+  const all: ChapterInfo[] = [];
+
   try {
-    const res = await smartFetch(`${MANGANATO_ORIGIN}/api/manga/${slug}/chapters`, {
-      headers: { Accept: "application/json", "X-Requested-With": "XMLHttpRequest" },
-    });
-    if (!res.ok) return [];
-    const json = (await res.json()) as { data?: { chapters?: Array<{ chapter_name: string; chapter_slug: string; updated_at?: string }> } };
-    const chs = json?.data?.chapters || [];
-    return chs.map((c) => ({
-      title: c.chapter_name,
-      url: `${MANGANATO_ORIGIN}/manga/${slug}/${c.chapter_slug}`,
-      date: c.updated_at ? c.updated_at.slice(0, 10) : "",
-    }));
+    while (true) {
+      const res = await smartFetch(
+        `${MANGANATO_ORIGIN}/api/manga/${slug}/chapters?limit=${LIMIT}&offset=${offset}`,
+        { headers: { Accept: "application/json", "X-Requested-With": "XMLHttpRequest" } }
+      );
+      if (!res.ok) break;
+      const json = (await res.json()) as {
+        data?: {
+          chapters?: Array<{ chapter_name: string; chapter_slug: string; updated_at?: string }>;
+          pagination?: { total?: number; limit?: number; has_more?: boolean };
+        };
+      };
+      const data = json?.data;
+      const chs = data?.chapters || [];
+      if (chs.length === 0) break;
+
+      for (const c of chs) {
+        all.push({
+          title: c.chapter_name,
+          url: `${MANGANATO_ORIGIN}/manga/${slug}/${c.chapter_slug}`,
+          date: c.updated_at ? c.updated_at.slice(0, 10) : "",
+        });
+      }
+
+      // Stop if the API says there are no more pages.
+      const hasMore = data?.pagination?.has_more === true;
+      if (!hasMore) break;
+      offset += chs.length;
+
+      // Safety net against runaway loops (e.g. a manga with 10k chapters).
+      if (offset > 12000) break;
+    }
   } catch {
-    return [];
+    // Return whatever we collected so far rather than nothing.
   }
+  return all;
 }
 
 /** Fetch genres / status / alt titles from the detail page HTML. */
