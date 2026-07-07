@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getMongoDb } from "@/lib/mongodb";
+import { getMongoDb, ensureTextIndex } from "@/lib/mongodb";
 import { searchAllSources } from "@/lib/scraper";
 import { upsertResults } from "@/lib/sync";
 import { toSafeResult } from "@/lib/safeResult";
@@ -77,24 +77,44 @@ export async function GET(req: NextRequest) {
       const titles = db.collection("titles");
       const total = await titles.countDocuments();
       if (total > 0) {
-        let results = await titles
-          .find(
-            { $text: { $search: query }, source: { $ne: "Omega Scans" } },
-            { projection: { score: { $meta: "textScore" } } }
-          )
-          .sort({ score: { $meta: "textScore" } })
-          .limit(50)
-          .toArray();
-
-        if (results.length < 3) {
-          const regex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
-          results = await titles
+        // Build the regex fallback once (used when $text is unavailable or
+        // returns too few results). Escape special regex chars.
+        const regex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+        const runRegexFallback = () =>
+          titles
             .find({
               $or: [{ title: regex }, { description: regex }, { genres: regex }],
               source: { $ne: "Omega Scans" },
             })
             .limit(50)
             .toArray();
+
+        // $text search REQUIRES a text index. If the index is missing the
+        // query throws `IndexNotFound (code 27)`. Catch that, kick off an
+        // index creation so future searches are fast, and use the regex
+        // fallback for this request instead of returning a 500.
+        let results: Array<Record<string, unknown>> = [];
+        let usedTextSearch = false;
+        try {
+          results = await titles
+            .find(
+              { $text: { $search: query }, source: { $ne: "Omega Scans" } },
+              { projection: { score: { $meta: "textScore" } } }
+            )
+            .sort({ score: { $meta: "textScore" } })
+            .limit(50)
+            .toArray();
+          usedTextSearch = true;
+        } catch (textErr) {
+          const msg = textErr instanceof Error ? textErr.message : String(textErr);
+          console.warn("[Search] $text query failed, using regex fallback:", msg);
+          // Self-heal: create the text index for next time (best-effort).
+          ensureTextIndex().catch(() => {});
+          results = await runRegexFallback();
+        }
+
+        if (usedTextSearch && results.length < 3) {
+          results = await runRegexFallback();
         }
 
         if (results.length > 0) {
