@@ -84,6 +84,26 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // Domain whitelist
   if (!isAllowedDomain(parsed.hostname)) return new NextResponse("Forbidden", { status: 403 });
 
+  // Determine the correct Referer for the upstream image host.
+  // Many manga CDNs hotlink-protect and return 403 unless the Referer matches
+  // the origin site (not the image hostname itself).
+  const refererFor = (host: string): string => {
+    const h = host.toLowerCase();
+    if (h.includes("2xstorage.com") || h.includes("manganato.gg")) return "https://www.manganato.gg/"; // needs www!
+    if (h.includes("pstatic.net") || h.includes("webtoons.com") || h.includes("cdnwebtoons.com")) return "https://www.webtoons.com/";
+    if (h.includes("asurascans.com")) return "https://asurascans.com/";
+    if (h.includes("mangareadon.org") || h.includes("librarydm.com") || h.includes("demoniclibs.com")) return "https://demonicscans.org/";
+    if (h.includes("scythescans.com")) return "https://scythescans.com/";
+    if (h.includes("manhuatop.org") || h.includes("manhuatop.com")) return "https://manhuatop.org/";
+    if (h.includes("atsu.moe")) return "https://atsu.moe/";
+    if (h.includes("omegascans.org")) return "https://omegascans.org/";
+    if (h.includes("wp.com")) {
+      const seg = parsed.pathname.replace(/^\/+/, "").split("/")[0];
+      if (seg && seg.includes(".")) return `https://${seg}/`;
+    }
+    return `https://${parsed.hostname}/`;
+  };
+
   // Fetch upstream
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
@@ -95,7 +115,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
         Accept: "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
-        Referer: `https://${parsed.hostname}/`,
+        Referer: refererFor(parsed.hostname),
       },
       redirect: "follow",
     });

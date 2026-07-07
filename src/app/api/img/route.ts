@@ -87,7 +87,10 @@ export async function GET(req: NextRequest) {
   } else if (hostname.includes("manhuatop.org") || hostname.includes("manhuatop.com")) {
     referer = "https://manhuatop.org/";
   } else if (hostname.includes("manganato.gg") || hostname.includes("2xstorage.com")) {
-    referer = "https://manganato.gg/";
+    // 2xstorage.com (Manganato's image CDN) REQUIRES the referer to include
+    // the "www" subdomain — "https://manganato.gg/" returns 403, but
+    // "https://www.manganato.gg/" returns 200.
+    referer = "https://www.manganato.gg/";
   } else if (hostname.includes("atsu.moe")) {
     referer = "https://atsu.moe/";
   } else if (hostname.includes("omegascans.org")) {
