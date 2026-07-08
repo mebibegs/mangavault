@@ -250,6 +250,16 @@ async function fetchPage(
   headers: Record<string, string>
 ): Promise<string | null> {
   try {
+    // ManhuaTop is Cloudflare-protected — route through ScrapingAnt (real browser)
+    // which solves the JS challenge. Takes ~40-50s but the result is cached 24h.
+    const SCRAPINGANT_KEY = process.env.SCRAPINGANT_KEY || "";
+    if (SCRAPINGANT_KEY && /manhuatop\.(org|com)/i.test(url)) {
+      const apiUrl = "https://api.scrapingant.com/v2/general?url=" + encodeURIComponent(url) + "&x-api-key=" + SCRAPINGANT_KEY + "&browser=true";
+      const res = await fetch(apiUrl, { signal: AbortSignal.timeout(60000) });
+      if (!res.ok) return null;
+      return await res.text();
+    }
+
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 20000);
     const res = await fetch(url, {

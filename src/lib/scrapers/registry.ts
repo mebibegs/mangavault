@@ -387,45 +387,93 @@ function parseManhuaTopDetail(html: string, url: string): MangaResult | null {
   }
 }
 
-/** Light-weight Madara listing parser (card → title/cover/url). */
+/**
+ * Detect the maximum pagination page from a ManhuaTop archive page.
+ *
+ * The /manhua/ archive exposes pagination links like /manhua/page/727/ and a
+ * "Page X of 727" title. We extract the largest page number from both forms.
+ */
+function manhuaTopMaxPage(html: string): number {
+  let max = 1;
+  // Pagination links: /manhua/page/N/  OR  /manhua-genre/{g}/page/N/
+  for (const m of html.matchAll(/\/(?:manhua|manhua-genre\/[a-z-]+)\/page\/(\d+)/gi)) {
+    max = Math.max(max, parseInt(m[1], 10));
+  }
+  // "Page X of Y" in the archive title
+  const titleMatch = html.match(/Page\s+\d+\s+of\s+(\d+)/i);
+  if (titleMatch) max = Math.max(max, parseInt(titleMatch[1], 10));
+  return max;
+}
+
+/** Detect whether a page is the "Page not found" (404) archive end. */
+function manhuaTopIsNotFound(html: string): boolean {
+  const t = html.toLowerCase();
+  return t.includes("page not found")
+    || t.includes("nothing found")
+    || /<h1[^>]*>.*404/i.test(html);
+}
+
+/**
+ * Parse a ManhuaTop listing/genre page into manga cards.
+ *
+ * IMPORTANT: ManhuaTop's detail-page URLs are at /manhua/{slug}/ (NOT /manga/),
+ * even though the archive index lives at /manga/. The Madara cards use:
+ *   <a href="https://manhuatop.org/manhua/{slug}/" title="Title">
+ */
 function parseManhuaTopListing(html: string): MangaResult[] {
   const results: MangaResult[] = [];
   const seen = new Set<string>();
+  const BAD = new Set(["HOME - Manhwa Manhua Top", "Manhwa Manhua Top", "New Release",
+    "Popular Manga", "Latest Update", "Popular Genres", "Trending Manhwa", "Top Comics",
+    "Top Manhua", "Top Manhwa", "My bookmarks", "Sign in", "Sign up", "Register", "Settings",
+    "Read Manga", "New manga to read weekly", "ManhuaTop", "Spoiler"]);
+
   try {
     const $ = cheerio.load(html);
-    const push = (fullUrl: string, title: string, coverUrl: string, rating: string) => {
-      if (!title || title.length < 3 || seen.has(fullUrl)) return;
+    const push = (fullUrl: string, title: string, coverUrl: string) => {
+      if (!title || title.length < 3 || seen.has(fullUrl) || BAD.has(title)) return;
+      // filter nav/genre labels
+      if (/^(Latest|Popular|Top |New |Trending|All |Best |Manhua |Manhwa |Read )/i.test(title)) return;
       seen.add(fullUrl);
       results.push({
-        title, description: "", rating, status: "Ongoing", type: "Manhua",
+        title, description: "", rating: "N/A", status: "Ongoing", type: "Manhua",
         genres: [], chapters: [], chapterCount: "0", coverUrl, url: fullUrl,
         source: "ManhuaTop", author: "Unknown", artist: "Unknown",
       });
     };
 
-    // Madara cards
-    $(".page-item-detail, .c-tabs-item__content, .row.c-tabs-item").each((_, el) => {
-      const link = $(el).find("a[href*='/manga/']").first();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const extractCard = (link: any) => {
       const href = link.attr("href") || "";
-      if (!href.includes("/manga/")) return;
-      const fullUrl = href.startsWith("http") ? href : `${MANHUATOP_BASE}${href}`;
-      const title = $(el).find(".post-title h3, .post-title h4, .tab-summary .post-title a").text().trim()
-        || link.attr("title") || "";
-      const coverUrl = $(el).find("img").attr("data-src") || $(el).find("img").attr("src") || "";
-      const rm = $(el).find(".score, .total_votes").first().text().trim().match(/(\d+\.?\d*)/);
-      const rating = rm && parseFloat(rm[1]) <= 10 ? rm[1] : "N/A";
-      push(fullUrl, title, coverUrl, rating);
-    });
+      // must be a detail page: /manhua/{slug}/ or /manga/{slug}/, not genre/page
+      const isDetail = /\/(manhua|manga)\/[a-z0-9][a-z0-9-]+\/?$/i.test(href)
+        || /\/(manhua|manga)\/[a-z0-9][a-z0-9-]+$/i.test(href);
+      if (!isDetail || href.includes("/page/") || href.includes("?") || href.includes("-genre/")) return;
 
-    // Fallback: generic /manga/ links
+      const fullUrl = href.startsWith("http") ? href : `${MANHUATOP_BASE}${href}`;
+      // Title: prefer the title= attribute, then inner/parent h3-h5 text, then link text
+      let title = link.attr("title") || "";
+      if (!title) title = link.find("h3, h4, h5, .post-title").text().trim();
+      if (!title) title = link.parent("h3, h4, h5").text().trim(); // <h3><a>Title</a></h3>
+      if (!title) title = link.closest(".post-title").text().trim();
+      if (!title) title = link.text().replace(/\s+/g, " ").trim();
+      // Cover: look in the card, sibling img, or parent container
+      let coverUrl = link.find("img").attr("src") || link.find("img").attr("data-src") || "";
+      if (!coverUrl) {
+        const card = link.closest(".page-item-detail, .c-tabs-item__content, .row, .item, .bsx, .listupd, .tab-thumb, .item-thumb");
+        coverUrl = card.find("img").attr("src") || card.find("img").attr("data-src") || "";
+      }
+      push(fullUrl, title, coverUrl);
+    };
+
+    // Primary: Madara card links with /manhua/{slug}/ (and fallback /manga/)
+    $("a[href*='/manhua/'], a[href*='/manga/']").each((_, el) => extractCard($(el)));
+
+    // Fallback: h3 > a structure (archive listing format)
     if (results.length === 0) {
-      $("a[href*='/manga/']").each((_, el) => {
+      $("h3 a, h4 a").each((_, el) => {
         const href = $(el).attr("href") || "";
-        if (!href.includes("/manga/") || href.includes("/page/") || href.includes("?")) return;
-        const fullUrl = href.startsWith("http") ? href : `${MANHUATOP_BASE}${href}`;
-        const title = $(el).find("h3, h4, .post-title").text().trim() || $(el).attr("title") || "";
-        const coverUrl = $(el).find("img").attr("data-src") || $(el).find("img").attr("src") || "";
-        push(fullUrl, title, coverUrl, "N/A");
+        if (/\/(manhua|manga)\//.test(href)) extractCard($(el));
       });
     }
   } catch (err) {
@@ -445,31 +493,48 @@ function dedupeChaptersReg(chapters: ChapterInfo[]): ChapterInfo[] {
   return out;
 }
 
+/**
+ * ManhuaTop catalog scraper.
+ *
+ * The full public archive lives at /manhua/ with /manhua/page/N/ pagination:
+ *   page 1     → https://manhuatop.org/manhua/
+ *   page 2..N  → https://manhuatop.org/manhua/page/{N}/
+ *
+ * Verified totals: 8,722 titles across 727 pages (12 per page, 10 on the last).
+ * Page 728 returns a 404 "Page not found" → that's our stop signal.
+ *
+ * The site is Cloudflare-protected, so each page load goes through ScrapingAnt
+ * (real headless browser, ~40-50s/call). One listing page per worker call
+ * stays within the 60s budget. ~727 pages × ~12 titles = full 8,722-title
+ * coverage synced over ~727 background worker invocations.
+ */
 registerScraper("manhuatop", async (page: number) => {
   try {
-    // Madara archive: /manga/?m_orderby=latest & /page/N/
-    const urls = [
-      `${MANHUATOP_BASE}/manga/?m_orderby=latest`,
-      `${MANHUATOP_BASE}/manga/page/${page}/?m_orderby=latest&column=4`,
-    ];
-    let allResults: MangaResult[] = [];
-    for (const u of urls) {
-      const html = await smartFetchHtml(u);
-      if (html) allResults.push(...parseManhuaTopListing(html));
-      if (allResults.length > 0) break; // first working URL is enough
+    // Archive pagination: page 1 = /manhua/, page N = /manhua/page/N/
+    const listUrl = page <= 1
+      ? `${MANHUATOP_BASE}/manhua/`
+      : `${MANHUATOP_BASE}/manhua/page/${page}/`;
+
+    // Single ScrapingAnt call (fits within 60s budget).
+    const html = await smartFetchHtml(listUrl);
+    if (!html || html.includes("Just a moment")) {
+      console.warn(`[Scraper] ManhuaTop page ${page}: CF challenge or empty`);
+      return { results: [], hasMore: page < 800 };
     }
-    if (allResults.length === 0) return { results: [], hasMore: false };
 
-    // Enrich first batch with full detail (chapters/desc/genres) — concurrency 5
-    const enriched = await mapWithConcurrency(allResults.slice(0, 20), 5, async (r) => {
-      const html = await smartFetchHtml(r.url);
-      return html ? (parseManhuaTopDetail(html, r.url) || r) : r;
-    });
+    // 404 "Page not found" → we've passed the last archive page (728+).
+    if (manhuaTopIsNotFound(html)) {
+      console.log(`[Scraper] ManhuaTop page ${page}: end of archive (404)`);
+      return { results: [], hasMore: false };
+    }
 
-    // hasMore: page 1 had results and we're under a sane cap
-    const hasMore = page < 3 && enriched.length > 0;
-    console.log(`[Scraper] ManhuaTop page ${page}: ${enriched.length} titles, hasMore=${hasMore}`);
-    return { results: enriched, hasMore };
+    const maxPage = manhuaTopMaxPage(html);
+    const results = parseManhuaTopListing(html);
+
+    // hasMore: current page is under the detected max page and returned titles.
+    const hasMore = results.length > 0 && page < maxPage;
+    console.log(`[Scraper] ManhuaTop page ${page}/${maxPage}: ${results.length} titles, hasMore=${hasMore}`);
+    return { results, hasMore };
   } catch (err) {
     console.error("[Scraper] ManhuaTop error:", err instanceof Error ? err.message : err);
     return { results: [], hasMore: false };
