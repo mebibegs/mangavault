@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { refreshChapters } from "@/lib/sync";
 import { ensureIndexes } from "@/lib/mongodb";
-
-export const maxDuration = 60;
+import { guardCronApi } from "@/lib/cronAuth";
 
 /**
  * Cron endpoint — designed to run every 15 minutes.
@@ -23,12 +22,8 @@ export async function GET(req: NextRequest) {
   const limitParam = req.nextUrl.searchParams.get("limit");
   const limit = Math.min(100, Math.max(5, parseInt(limitParam || "30", 10) || 30));
 
-  const cronSecret = process.env.CRON_SECRET;
-  const authHeader = req.headers.get("authorization");
-
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const guard = guardCronApi(req);
+  if (guard) return guard;
 
   try {
     await ensureIndexes();
@@ -36,7 +31,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      protected: Boolean(cronSecret),
+      protected: true,
       ...stats,
     });
   } catch (err) {

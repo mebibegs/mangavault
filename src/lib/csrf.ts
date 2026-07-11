@@ -1,10 +1,20 @@
 import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 
 const CSRF_TTL = 60 * 60; // 1 hour
+const REQUIRED_SECRET_BYTES = 32;
+const REQUIRED_HEX_LENGTH = REQUIRED_SECRET_BYTES * 2;
 
 function getSecret(): Buffer {
   const hex = process.env.CSRF_SECRET;
-  if (!hex || hex.length < 64) return Buffer.alloc(32, 0);
+
+  if (!hex) {
+    throw new Error("CSRF_SECRET is required");
+  }
+
+  if (hex.length < REQUIRED_HEX_LENGTH || !/^[a-f0-9]+$/i.test(hex)) {
+    throw new Error(`CSRF_SECRET must be at least ${REQUIRED_HEX_LENGTH} hex characters`);
+  }
+
   return Buffer.from(hex, "hex");
 }
 
@@ -32,7 +42,13 @@ export function verifyCsrfToken(token: string): boolean {
   const encoded = token.slice(0, dot);
   const signature = token.slice(dot + 1);
 
-  const expectedSig = createHmac("sha256", getSecret()).update(encoded).digest("base64url");
+  let expectedSig: string;
+  try {
+    expectedSig = createHmac("sha256", getSecret()).update(encoded).digest("base64url");
+  } catch {
+    return false;
+  }
+
   let sigValid = false;
   try {
     sigValid = timingSafeEqual(Buffer.from(expectedSig, "base64url"), Buffer.from(signature, "base64url"));

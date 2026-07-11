@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { ResultCard, type MangaResult } from "./HomeClient";
+import Link from "next/link";
 
 const MAX_GENRE_CARDS = 15;
 const HOMEPAGE_GENRES = ["Action", "Fantasy", "Romance", "Comedy", "Drama", "Sci-Fi"];
@@ -21,14 +22,19 @@ export default function GenreSection({ onCardClick }: { onCardClick: (r: MangaRe
     finally { setGenreLoading(false); }
   }, []);
 
-  useEffect(() => { fetchGenre(activeGenre); }, [activeGenre, fetchGenre]);
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      void fetchGenre(activeGenre);
+    }, 0);
+    return () => window.clearTimeout(timeout);
+  }, [activeGenre, fetchGenre]);
   const scrollGenre = (dir: "left" | "right") => { if (!genreScrollRef.current) return; genreScrollRef.current.scrollBy({ left: dir === "left" ? -genreScrollRef.current.clientWidth * 0.75 : genreScrollRef.current.clientWidth * 0.75, behavior: "smooth" }); };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-12 w-full">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-base sm:text-lg font-bold text-white uppercase tracking-wider">Browse by Genre</h2>
-        <a href="/genres" className="text-xs sm:text-sm text-gray-300 hover:text-white transition-colors flex items-center gap-1">View All <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg></a>
+        <Link href="/genres" className="text-xs sm:text-sm text-gray-300 hover:text-white transition-colors flex items-center gap-1">View All <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg></Link>
       </div>
       <div className="flex gap-2 sm:gap-3 overflow-x-auto scrollbar-hide pb-3">
         {HOMEPAGE_GENRES.map(g => (

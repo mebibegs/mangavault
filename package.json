@@ -1,5 +1,5 @@
 {
-  "name": "nextjs-postgresql-template",
+  "name": "mangavault",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -17,13 +17,11 @@
     "cheerio": "^1.2.0",
     "crypto-js": "^4.2.0",
     "dotenv": "17.3.1",
-    "drizzle-orm": "0.45.2",
     "lru-cache": "^11.5.1",
     "mongodb": "^7.4.0",
     "next": "16.2.6",
     "node-cache": "^5.1.2",
     "opossum": "^9.0.0",
-    "pg": "^8.20.0",
     "react": "19.2.6",
     "react-dom": "19.2.6",
     "sharp": "^0.35.3",
@@ -33,15 +31,16 @@
     "@tailwindcss/postcss": "4.1.17",
     "@types/node": "22.19.15",
     "@types/opossum": "^8.1.9",
-    "@types/pg": "^8.18.0",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
-    "drizzle-kit": "0.31.10",
     "eslint": "9.39.4",
     "eslint-config-next": "16.2.6",
-    "postcss": "8.5.8",
+    "postcss": "^8.5.16",
     "tailwindcss": "4.1.17",
     "tsx": "^4.22.4",
     "typescript": "5.9.3"
+  },
+  "overrides": {
+    "postcss": "$postcss"
   }
 }

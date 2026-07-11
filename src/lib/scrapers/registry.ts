@@ -1,5 +1,6 @@
 import type { MangaResult } from "../scraper";
 import * as cheerio from "cheerio";
+import type { AnyNode } from "domhandler";
 
 // --- CLOUDFLARE BYPASS FETCHER ---
 const SCRAPINGANT_KEY = process.env.SCRAPINGANT_KEY || "";
@@ -442,8 +443,7 @@ function parseManhuaTopListing(html: string): MangaResult[] {
       });
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const extractCard = (link: any) => {
+    const extractCard = (link: cheerio.Cheerio<AnyNode>) => {
       const href = link.attr("href") || "";
       // must be a detail page: /manhua/{slug}/ or /manga/{slug}/, not genre/page
       const isDetail = /\/(manhua|manga)\/[a-z0-9][a-z0-9-]+\/?$/i.test(href)

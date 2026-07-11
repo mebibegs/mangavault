@@ -1,6 +1,8 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element -- Reader panels must stay full-resolution and bypass Next image resizing. */
 import { useState, useEffect, useCallback, useRef } from "react";
+import Link from "next/link";
 
 interface ChapterInfo { title: string; url: string; date: string; }
 interface MangaResult {
@@ -42,11 +44,14 @@ const ADULT_GENRES = [
 export default function AdultPage() {
   const [confirmed, setConfirmed] = useState(false);
 
-  // Check cookie on mount — returning users who already confirmed skip the gate
+  // Check cookie on mount — returning users who already confirmed skip the gate.
   useEffect(() => {
-    if (document.cookie.includes("adult_verified=1")) {
-      setConfirmed(true);
-    }
+    const frame = window.requestAnimationFrame(() => {
+      if (document.cookie.includes("adult_verified=1")) {
+        setConfirmed(true);
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, []);
   const [results, setResults] = useState<MangaResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -93,7 +98,11 @@ export default function AdultPage() {
   }, []);
 
   useEffect(() => {
-    if (confirmed) fetchResults(query, genre, page);
+    if (!confirmed) return;
+    const timeout = window.setTimeout(() => {
+      void fetchResults(query, genre, page);
+    }, 0);
+    return () => window.clearTimeout(timeout);
   }, [confirmed, query, genre, page, fetchResults]);
 
   const handleSearch = (e: React.FormEvent) => {
@@ -141,9 +150,9 @@ export default function AdultPage() {
               >
                 I am 18+ — Enter
               </button>
-              <a href="/" className="w-full py-3 bg-bg-card border border-border-subtle text-text-secondary font-medium rounded-xl hover:bg-bg-hover transition-colors block cursor-pointer">
+              <Link href="/" className="w-full py-3 bg-bg-card border border-border-subtle text-text-secondary font-medium rounded-xl hover:bg-bg-hover transition-colors block cursor-pointer">
                 Go Back
-              </a>
+              </Link>
             </div>
           </div>
 
@@ -272,13 +281,13 @@ export default function AdultPage() {
     <div className="min-h-screen bg-bg-primary">
       <header className="border-b border-border-subtle bg-bg-secondary/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
-          <a href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+          <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
             <div className="w-8 h-8 rounded-lg bg-red-600 flex items-center justify-center flex-shrink-0">
               <span className="text-white font-bold text-xs">18+</span>
             </div>
             <span className="text-lg sm:text-xl font-bold tracking-tight">Manga<span className="text-text-muted">Vault</span> <span className="text-red-400 text-sm font-normal">Adult</span></span>
-          </a>
-          <a href="/" className="text-xs sm:text-sm text-white bg-bg-card border border-border-bright rounded-lg px-3 py-1.5 hover:bg-bg-hover transition-colors">← Home</a>
+          </Link>
+          <Link href="/" className="text-xs sm:text-sm text-white bg-bg-card border border-border-bright rounded-lg px-3 py-1.5 hover:bg-bg-hover transition-colors">← Home</Link>
         </div>
       </header>
 
@@ -355,11 +364,11 @@ export default function AdultPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-text-muted">
           <span>© {new Date().getFullYear()} MangaVault</span>
           <div className="flex flex-wrap gap-4">
-            <a href="/" className="hover:text-white transition-colors">Home</a>
-            <a href="/docs" className="hover:text-white transition-colors">API Docs</a>
-            <a href="/privacy" className="hover:text-white transition-colors">Privacy</a>
-            <a href="/terms" className="hover:text-white transition-colors">Terms</a>
-            <a href="/dmca" className="hover:text-white transition-colors">DMCA</a>
+            <Link href="/" className="hover:text-white transition-colors">Home</Link>
+            <Link href="/docs" className="hover:text-white transition-colors">API Docs</Link>
+            <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
+            <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
+            <Link href="/dmca" className="hover:text-white transition-colors">DMCA</Link>
           </div>
         </div>
       </footer>

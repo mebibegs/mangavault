@@ -2,8 +2,24 @@
 import { useEffect, useRef, useCallback } from "react";
 
 interface Stamp {
-  x: number; y: number; born: number; seed: number; rmax: number;
+  x: number;
+  y: number;
+  born: number;
+  seed: number;
+  rmax: number;
 }
+
+const MASK_COLOR: [number, number, number] = [9, 9, 11];
+const BRUSH_SIZE = 128;
+const LIFETIME_MS = 600;
+const R_START = 10;
+const R_VARY = 0.45;
+const STAMP_STEP = 10;
+const MAX_STAMPS = 200;
+const SEGMENTS = 36;
+const WOBBLE: [number, number, number] = [0.14, 0.08, 0.05];
+const GRADIENT_INNER = 0.2;
+const GRADIENT_STOPS: [number, number, number] = [0.95, 0.88, 0];
 
 export default function InkReveal({ className, style }: { className?: string; style?: React.CSSProperties }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -11,97 +27,155 @@ export default function InkReveal({ className, style }: { className?: string; st
   const runningRef = useRef(false);
   const lastPosRef = useRef<{ x: number; y: number } | null>(null);
   const dimsRef = useRef({ w: 0, h: 0 });
-
-  const mc: [number, number, number] = [9, 9, 11]; // black bg color
-  const brushSize = 128, lifetime = 600, rStart = 10, rVary = 0.45;
-  const stampStep = 10, maxStamps = 200, segments = 36;
-  const wobble: [number, number, number] = [0.14, 0.08, 0.05];
-  const gInner = 0.2, gStops: [number, number, number] = [0.95, 0.88, 0];
+  const loopRef = useRef<() => void>(() => undefined);
 
   const resize = useCallback(() => {
-    const c = canvasRef.current;
-    if (!c?.parentElement) return;
+    const canvas = canvasRef.current;
+    if (!canvas?.parentElement) return;
+
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const r = c.parentElement.getBoundingClientRect();
-    dimsRef.current = { w: r.width, h: r.height };
-    c.width = Math.round(r.width * dpr);
-    c.height = Math.round(r.height * dpr);
-    c.style.width = `${r.width}px`;
-    c.style.height = `${r.height}px`;
-    const ctx = c.getContext("2d");
+    const rect = canvas.parentElement.getBoundingClientRect();
+    dimsRef.current = { w: rect.width, h: rect.height };
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+    canvas.style.width = `${rect.width}px`;
+    canvas.style.height = `${rect.height}px`;
+
+    const ctx = canvas.getContext("2d");
     if (!ctx) return;
+
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.globalCompositeOperation = "source-over";
-    ctx.fillStyle = `rgb(${mc[0]},${mc[1]},${mc[2]})`;
-    ctx.fillRect(0, 0, r.width, r.height);
+    ctx.fillStyle = `rgb(${MASK_COLOR[0]},${MASK_COLOR[1]},${MASK_COLOR[2]})`;
+    ctx.fillRect(0, 0, rect.width, rect.height);
   }, []);
 
   const carve = useCallback((ctx: CanvasRenderingContext2D, x: number, y: number, r: number, seed: number, alpha: number) => {
-    const g = ctx.createRadialGradient(x, y, r * gInner, x, y, r);
-    g.addColorStop(0, `rgba(0,0,0,${gStops[0] * alpha})`);
-    g.addColorStop(0.5, `rgba(0,0,0,${gStops[1] * alpha})`);
-    g.addColorStop(1, `rgba(0,0,0,${gStops[2] * alpha})`);
-    ctx.fillStyle = g;
+    const gradient = ctx.createRadialGradient(x, y, r * GRADIENT_INNER, x, y, r);
+    gradient.addColorStop(0, `rgba(0,0,0,${GRADIENT_STOPS[0] * alpha})`);
+    gradient.addColorStop(0.5, `rgba(0,0,0,${GRADIENT_STOPS[1] * alpha})`);
+    gradient.addColorStop(1, `rgba(0,0,0,${GRADIENT_STOPS[2] * alpha})`);
+    ctx.fillStyle = gradient;
     ctx.beginPath();
-    for (let i = 0; i <= segments; i++) {
-      const a = (i / segments) * Math.PI * 2;
-      const w = 0.78 + wobble[0] * Math.sin(a * 3 + seed) + wobble[1] * Math.sin(a * 5 + seed * 2.1) + wobble[2] * Math.sin(a * 7 + seed * 0.7);
-      const px = x + Math.cos(a) * r * w, py = y + Math.sin(a) * r * w;
-      i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+
+    for (let i = 0; i <= SEGMENTS; i++) {
+      const angle = (i / SEGMENTS) * Math.PI * 2;
+      const wobble = 0.78
+        + WOBBLE[0] * Math.sin(angle * 3 + seed)
+        + WOBBLE[1] * Math.sin(angle * 5 + seed * 2.1)
+        + WOBBLE[2] * Math.sin(angle * 7 + seed * 0.7);
+      const px = x + Math.cos(angle) * r * wobble;
+      const py = y + Math.sin(angle) * r * wobble;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
     }
+
     ctx.closePath();
     ctx.fill();
   }, []);
 
   const addStamp = useCallback((x: number, y: number) => {
-    const s = stampsRef.current;
-    if (s.length >= maxStamps) s.shift();
-    s.push({ x, y, born: performance.now(), seed: Math.random() * Math.PI * 2, rmax: brushSize * (1 - rVary + Math.random() * rVary) });
+    const stamps = stampsRef.current;
+    if (stamps.length >= MAX_STAMPS) stamps.shift();
+    stamps.push({
+      x,
+      y,
+      born: performance.now(),
+      seed: Math.random() * Math.PI * 2,
+      rmax: BRUSH_SIZE * (1 - R_VARY + Math.random() * R_VARY),
+    });
   }, []);
 
   const stampAlong = useCallback((x: number, y: number) => {
     const last = lastPosRef.current;
-    if (!last) { addStamp(x, y); } else {
-      const dx = x - last.x, dy = y - last.y, dist = Math.hypot(dx, dy);
-      const steps = Math.max(1, Math.ceil(dist / stampStep));
-      for (let i = 1; i <= steps; i++) addStamp(last.x + (dx * i) / steps, last.y + (dy * i) / steps);
+    if (!last) {
+      addStamp(x, y);
+    } else {
+      const dx = x - last.x;
+      const dy = y - last.y;
+      const distance = Math.hypot(dx, dy);
+      const steps = Math.max(1, Math.ceil(distance / STAMP_STEP));
+      for (let i = 1; i <= steps; i++) {
+        addStamp(last.x + (dx * i) / steps, last.y + (dy * i) / steps);
+      }
     }
     lastPosRef.current = { x, y };
   }, [addStamp]);
 
   const loop = useCallback(() => {
-    const c = canvasRef.current; if (!c) return;
-    const ctx = c.getContext("2d"); if (!ctx) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
     const { w, h } = dimsRef.current;
-    const now = performance.now(), stamps = stampsRef.current;
+    const now = performance.now();
+    const stamps = stampsRef.current;
+
     ctx.globalCompositeOperation = "source-over";
-    ctx.fillStyle = `rgb(${mc[0]},${mc[1]},${mc[2]})`;
+    ctx.fillStyle = `rgb(${MASK_COLOR[0]},${MASK_COLOR[1]},${MASK_COLOR[2]})`;
     ctx.fillRect(0, 0, w, h);
     ctx.globalCompositeOperation = "destination-out";
+
     for (let i = stamps.length - 1; i >= 0; i--) {
-      const t = (now - stamps[i].born) / lifetime;
-      if (t >= 1) { stamps.splice(i, 1); continue; }
+      const stamp = stamps[i];
+      const t = (now - stamp.born) / LIFETIME_MS;
+      if (t >= 1) {
+        stamps.splice(i, 1);
+        continue;
+      }
+
       const ease = 1 - Math.pow(1 - t, 3);
-      const r = rStart + (stamps[i].rmax - rStart) * ease;
-      carve(ctx, stamps[i].x, stamps[i].y, r, stamps[i].seed, 1 - t * t);
+      const radius = R_START + (stamp.rmax - R_START) * ease;
+      carve(ctx, stamp.x, stamp.y, radius, stamp.seed, 1 - t * t);
     }
-    if (stamps.length) requestAnimationFrame(loop); else runningRef.current = false;
+
+    if (stamps.length) requestAnimationFrame(loopRef.current);
+    else runningRef.current = false;
   }, [carve]);
 
-  const startLoop = useCallback(() => { if (!runningRef.current) { runningRef.current = true; requestAnimationFrame(loop); } }, [loop]);
+  useEffect(() => {
+    loopRef.current = loop;
+  }, [loop]);
 
-  useEffect(() => { resize(); window.addEventListener("resize", resize); return () => window.removeEventListener("resize", resize); }, [resize]);
+  const startLoop = useCallback(() => {
+    if (!runningRef.current) {
+      runningRef.current = true;
+      requestAnimationFrame(loopRef.current);
+    }
+  }, []);
 
-  const getPos = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const r = e.currentTarget.getBoundingClientRect();
-    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  useEffect(() => {
+    resize();
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
+  }, [resize]);
+
+  const getPos = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    return { x: event.clientX - rect.left, y: event.clientY - rect.top };
   };
 
   return (
-    <canvas ref={canvasRef} className={className} style={{ position: "absolute", inset: 0, zIndex: 1, cursor: "crosshair", ...style }}
-      onMouseEnter={(e) => { const p = getPos(e); lastPosRef.current = p; stampAlong(p.x, p.y); startLoop(); }}
-      onMouseMove={(e) => { const p = getPos(e); stampAlong(p.x, p.y); startLoop(); }}
-      onMouseLeave={() => { lastPosRef.current = null; }}
+    <canvas
+      ref={canvasRef}
+      className={className}
+      style={{ position: "absolute", inset: 0, zIndex: 1, cursor: "crosshair", ...style }}
+      onMouseEnter={(event) => {
+        const pos = getPos(event);
+        lastPosRef.current = pos;
+        stampAlong(pos.x, pos.y);
+        startLoop();
+      }}
+      onMouseMove={(event) => {
+        const pos = getPos(event);
+        stampAlong(pos.x, pos.y);
+        startLoop();
+      }}
+      onMouseLeave={() => {
+        lastPosRef.current = null;
+      }}
     />
   );
 }

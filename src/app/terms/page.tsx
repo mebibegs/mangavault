@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 export const dynamic = "force-static";
 
@@ -26,13 +27,13 @@ export default function TermsPage() {
     <div className="min-h-screen bg-bg-primary">
       <header className="border-b border-border-subtle bg-bg-secondary/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
-          <a href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+          <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
             <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center flex-shrink-0">
               <svg viewBox="0 0 24 24" className="w-5 h-5 text-black" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" /></svg>
             </div>
             <span className="text-lg sm:text-xl font-bold tracking-tight">Manga<span className="text-text-muted">Vault</span></span>
-          </a>
-          <a href="/" className="text-xs sm:text-sm text-white bg-bg-card border border-border-bright rounded-lg px-3 py-1.5 hover:bg-bg-hover transition-colors">← Home</a>
+          </Link>
+          <Link href="/" className="text-xs sm:text-sm text-white bg-bg-card border border-border-bright rounded-lg px-3 py-1.5 hover:bg-bg-hover transition-colors">← Home</Link>
         </div>
       </header>
 
@@ -70,7 +71,7 @@ export default function TermsPage() {
 
           <section>
             <h3 className="text-lg font-semibold text-white mb-2">6. Intellectual Property</h3>
-            <p>All manga, manhwa, and webtoon titles, cover art, and chapter images are the property of their respective creators and publishers. MangaVault claims no ownership over third-party content. If you believe your rights are being infringed, see our <a href="/dmca" className="text-white underline hover:text-gray-300">DMCA page</a>.</p>
+            <p>All manga, manhwa, and webtoon titles, cover art, and chapter images are the property of their respective creators and publishers. MangaVault claims no ownership over third-party content. If you believe your rights are being infringed, see our <Link href="/dmca" className="text-white underline hover:text-gray-300">DMCA page</Link>.</p>
           </section>
 
           <section>
@@ -89,9 +90,9 @@ export default function TermsPage() {
         <div className="max-w-3xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-text-muted">
           <span>© {new Date().getFullYear()} MangaVault</span>
           <div className="flex flex-wrap gap-4">
-            <a href="/" className="hover:text-white transition-colors">Home</a>
-            <a href="/privacy" className="hover:text-white transition-colors">Privacy</a>
-            <a href="/dmca" className="hover:text-white transition-colors">DMCA</a>
+            <Link href="/" className="hover:text-white transition-colors">Home</Link>
+            <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
+            <Link href="/dmca" className="hover:text-white transition-colors">DMCA</Link>
           </div>
         </div>
       </footer>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 
 export default function CookieConsent() {
   const [visible, setVisible] = useState(false);
@@ -38,12 +39,12 @@ export default function CookieConsent() {
             We use essential cookies to ensure the site works properly (e.g. age
             verification). No tracking or analytics cookies are set without your
             consent. See our{" "}
-            <a
+            <Link
               href="/privacy"
               className="text-white underline hover:text-gray-300"
             >
               Privacy Policy
-            </a>{" "}
+            </Link>{" "}
             for details.
           </p>
         </div>

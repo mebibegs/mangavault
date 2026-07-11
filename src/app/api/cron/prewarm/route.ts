@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTopQueries, getCachedSearch, setCachedSearch, cleanupExpiredCache } from "@/lib/cache";
 import { searchAllSources } from "@/lib/scraper";
-
-export const maxDuration = 60;
+import { guardCronApi } from "@/lib/cronAuth";
 
 /**
  * Cache pre-warming endpoint.
@@ -13,12 +12,8 @@ export const maxDuration = 60;
  * Designed to run every 10-15 minutes via Vercel Cron.
  */
 export async function GET(req: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET;
-  const authHeader = req.headers.get("authorization");
-
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const guard = guardCronApi(req);
+  if (guard) return guard;
 
   const limitParam = req.nextUrl.searchParams.get("limit");
   const limit = Math.min(50, Math.max(5, parseInt(limitParam || "20", 10) || 20));
@@ -72,7 +67,7 @@ export async function GET(req: NextRequest) {
       warmed,
       skipped,
       cleaned,
-      protected: Boolean(cronSecret),
+      protected: true,
     });
   } catch (err) {
     console.error("Prewarm error:", err);

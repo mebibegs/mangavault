@@ -1,5 +1,6 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element -- Reader panels must stay full-resolution and bypass Next image resizing. */
 import { useState, useRef, useEffect } from "react";
 import type { MangaResult } from "./HomeClient";
 

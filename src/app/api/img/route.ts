@@ -1,29 +1,6 @@
 import { NextRequest } from "next/server";
 import sharp from "sharp";
-
-const ALLOWED_HOSTS = [
-  "pstatic.net",
-  "webtoons.com",
-  "cdnwebtoons.com",
-  "2xstorage.com",
-  "imgs-2.2xstorage.com",
-  "manganato.gg",
-  "atsu.moe",
-  "asurascans.com",
-  "cdn.asurascans.com",
-  "demonicscans.org",
-  // Demonic Scans chapter-image CDNs
-  "mangareadon.org",
-  "librarydm.com",
-  "demoniclibs.com",
-  "scythescans.com",
-  "manhuatop.org",
-  "omegascans.org",
-  "media.omegascans.org",
-  // WordPress Photon (Jetpack) image CDN used by Scythe & others: i0/i1/i2/i3.wp.com
-  "wp.com",
-  "wp.com.cdn.cloudflare.net",
-];
+import { ALLOWED_CONTENT_TYPES, fetchValidatedImage, getImageReferer, parseAndValidateImageUrl } from "@/lib/imageSecurity";
 
 /**
  * Image proxy with on-the-fly resizing and WebP conversion via Sharp.
@@ -41,107 +18,63 @@ const ALLOWED_HOSTS = [
  */
 export async function GET(req: NextRequest) {
   const imageUrl = req.nextUrl.searchParams.get("url");
-  // Cap at 640 for thumbnails — full-resolution is only needed in the reader
-  // (reader uses the proxy without a w= param, so width=0 = passthrough)
   const rawWidth = parseInt(req.nextUrl.searchParams.get("w") || "0", 10);
   const width = rawWidth > 0 ? Math.min(rawWidth, 640) : 0;
   const quality = Math.min(100, Math.max(1, parseInt(req.nextUrl.searchParams.get("q") || "80", 10)));
 
   if (!imageUrl) {
-    return new Response(JSON.stringify({ error: "Missing url parameter" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
+    return Response.json({ error: "Missing url parameter" }, { status: 400 });
   }
 
-  let parsedUrl: URL;
-  try {
-    parsedUrl = new URL(imageUrl);
-  } catch {
-    return new Response(JSON.stringify({ error: "Invalid URL" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
-  if (!ALLOWED_HOSTS.some((h) => parsedUrl.hostname.endsWith(h))) {
-    return new Response(JSON.stringify({ error: "Host not allowed" }), {
-      status: 403,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
-  // --- Determine the correct Referer based on the image host -----------
-  const hostname = parsedUrl.hostname.toLowerCase();
-  let referer = `https://${parsedUrl.hostname}/`;
-  if (hostname.includes("pstatic.net") || hostname.includes("webtoons.com") || hostname.includes("cdnwebtoons.com")) {
-    referer = "https://www.webtoons.com/";
-  } else if (hostname.includes("asurascans.com")) {
-    referer = "https://asurascans.com/";
-  } else if (hostname.includes("demonicscans.org")) {
-    referer = "https://demonicscans.org/";
-  } else if (hostname.includes("mangareadon.org") || hostname.includes("librarydm.com") || hostname.includes("demoniclibs.com")) {
-    referer = "https://demonicscans.org/";
-  } else if (hostname.includes("scythescans.com")) {
-    referer = "https://scythescans.com/";
-  } else if (hostname.includes("manhuatop.org") || hostname.includes("manhuatop.com")) {
-    referer = "https://manhuatop.org/";
-  } else if (hostname.includes("manganato.gg") || hostname.includes("2xstorage.com")) {
-    // 2xstorage.com (Manganato's image CDN) REQUIRES the referer to include
-    // the "www" subdomain — "https://manganato.gg/" returns 403, but
-    // "https://www.manganato.gg/" returns 200.
-    referer = "https://www.manganato.gg/";
-  } else if (hostname.includes("atsu.moe")) {
-    referer = "https://atsu.moe/";
-  } else if (hostname.includes("omegascans.org")) {
-    referer = "https://omegascans.org/";
-  } else if (hostname.includes("wp.com")) {
-    // Photon (Jetpack) form: https://i1.wp.com/{origin-domain}/path
-    // — the underlying origin checks the Referer, so derive it from the path.
-    const seg = parsedUrl.pathname.replace(/^\/+/, "").split("/")[0];
-    if (seg && seg.includes(".")) referer = `https://${seg}/`;
+  const parsedUrl = parseAndValidateImageUrl(imageUrl);
+  if (!parsedUrl) {
+    return Response.json({ error: "URL not allowed" }, { status: 403 });
   }
 
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 20_000);
 
-    const upstream = await fetch(imageUrl, {
+    const upstream = await fetchValidatedImage(parsedUrl, (url) => ({
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
         Accept: "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9",
-        Referer: referer,
+        Referer: getImageReferer(url),
       },
       signal: controller.signal,
-    });
+    }));
     clearTimeout(timeout);
 
     if (!upstream.ok) {
       return new Response(null, { status: upstream.status });
     }
 
-    // ------------------------------------------------------------------
-    // Fast path: no resize requested → stream the original bytes through
-    // ------------------------------------------------------------------
+    const contentType = upstream.headers.get("content-type")?.split(";")[0].trim() || "image/jpeg";
+    if (contentType && !ALLOWED_CONTENT_TYPES.has(contentType)) {
+      return Response.json({ error: "Unsupported content type" }, { status: 403 });
+    }
+
+    const contentLength = parseInt(upstream.headers.get("content-length") ?? "0", 10);
+    if (contentLength > 20 * 1024 * 1024) {
+      return Response.json({ error: "Payload too large" }, { status: 413 });
+    }
+
     if (!width) {
-      const ct = upstream.headers.get("content-type") || "image/jpeg";
-      const cl = upstream.headers.get("content-length") || "";
       const headers: Record<string, string> = {
-        "Content-Type": ct,
+        "Content-Type": contentType,
         "Cache-Control": "public, max-age=31536000, immutable",
         "CDN-Cache-Control": "max-age=31536000",
         "Vercel-CDN-Cache-Control": "max-age=31536000",
         "Access-Control-Allow-Origin": "*",
+        "X-Content-Type-Options": "nosniff",
       };
-      if (cl) headers["Content-Length"] = cl;
+      const upstreamContentLength = upstream.headers.get("content-length");
+      if (upstreamContentLength) headers["Content-Length"] = upstreamContentLength;
       return new Response(upstream.body, { status: 200, headers });
     }
 
-    // ------------------------------------------------------------------
-    // Resize path: buffer → sharp → WebP
-    // ------------------------------------------------------------------
     const buffer = Buffer.from(await upstream.arrayBuffer());
 
     const optimized = await sharp(buffer)
@@ -158,6 +91,7 @@ export async function GET(req: NextRequest) {
         "CDN-Cache-Control": "max-age=31536000",
         "Vercel-CDN-Cache-Control": "max-age=31536000",
         "Access-Control-Allow-Origin": "*",
+        "X-Content-Type-Options": "nosniff",
       },
     });
   } catch {

@@ -3,9 +3,8 @@ import { Client } from "@upstash/qstash";
 import { guardCronApi } from "@/lib/cronAuth";
 
 export async function GET(req: NextRequest) {
-  // Validate cron secret if deployed
   const guard = guardCronApi(req);
-  if (guard && process.env.NODE_ENV === "production") return guard;
+  if (guard) return guard;
 
   if (!process.env.QSTASH_TOKEN) {
     console.warn("QSTASH_TOKEN not found. Make sure to add it to your environment variables.");

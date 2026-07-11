@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 // Force static generation at build time
 export const dynamic = "force-static";
@@ -30,13 +31,13 @@ export default function AboutPage() {
     <div className="min-h-screen bg-bg-primary">
       <header className="border-b border-border-subtle bg-bg-secondary/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
-          <a href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+          <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
             <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center flex-shrink-0">
               <svg viewBox="0 0 24 24" className="w-5 h-5 text-black" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" /></svg>
             </div>
             <span className="text-lg sm:text-xl font-bold tracking-tight">Manga<span className="text-text-muted">Vault</span></span>
-          </a>
-          <a href="/" className="text-xs sm:text-sm text-white bg-bg-card border border-border-bright rounded-lg px-3 py-1.5 hover:bg-bg-hover transition-colors">← Home</a>
+          </Link>
+          <Link href="/" className="text-xs sm:text-sm text-white bg-bg-card border border-border-bright rounded-lg px-3 py-1.5 hover:bg-bg-hover transition-colors">← Home</Link>
         </div>
       </header>
 
@@ -62,7 +63,7 @@ export default function AboutPage() {
 
           <h3 className="text-lg font-semibold text-white pt-4">The API</h3>
           <p>
-            Everything the site itself uses — search, trending, and chapter image extraction — is exposed through a public JSON API. If you want to integrate MangaVault into your own tooling or app, the available endpoints are documented in the <a href="/docs" className="text-white underline hover:text-gray-300">API docs</a>.
+            Everything the site itself uses — search, trending, and chapter image extraction — is exposed through a public JSON API. If you want to integrate MangaVault into your own tooling or app, the available endpoints are documented in the <Link href="/docs" className="text-white underline hover:text-gray-300">API docs</Link>.
           </p>
 
           <h3 className="text-lg font-semibold text-white pt-4">Status</h3>
@@ -75,7 +76,7 @@ export default function AboutPage() {
             MangaVault indexes publicly available metadata — titles, descriptions, chapter counts, ratings, and cover thumbnails — for the purpose of discovery. Search metadata (titles, chapter counts, ratings) may be temporarily cached for performance, but copyrighted chapter images are never stored on MangaVault servers. The built-in reader feature proxies chapter images from their original source CDNs in real time; all content remains on and is served from the original source infrastructure.
           </p>
           <p className="text-text-muted text-sm">
-            MangaVault is not affiliated with, endorsed by, or otherwise connected to any of the sites it indexes. If you are a rights holder and believe your content is being linked to in error, please use our <a href="/dmca" className="text-white underline hover:text-gray-300">DMCA takedown procedure</a> to request removal.
+            MangaVault is not affiliated with, endorsed by, or otherwise connected to any of the sites it indexes. If you are a rights holder and believe your content is being linked to in error, please use our <Link href="/dmca" className="text-white underline hover:text-gray-300">DMCA takedown procedure</Link> to request removal.
           </p>
         </div>
       </main>
@@ -84,11 +85,11 @@ export default function AboutPage() {
         <div className="max-w-3xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-text-muted">
           <span>© {new Date().getFullYear()} MangaVault</span>
           <div className="flex gap-4">
-            <a href="/" className="hover:text-white transition-colors">Home</a>
-            <a href="/docs" className="hover:text-white transition-colors">API Docs</a>
-            <a href="/privacy" className="hover:text-white transition-colors">Privacy</a>
-            <a href="/terms" className="hover:text-white transition-colors">Terms</a>
-            <a href="/dmca" className="hover:text-white transition-colors">DMCA</a>
+            <Link href="/" className="hover:text-white transition-colors">Home</Link>
+            <Link href="/docs" className="hover:text-white transition-colors">API Docs</Link>
+            <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
+            <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
+            <Link href="/dmca" className="hover:text-white transition-colors">DMCA</Link>
             <a href="mailto:hello@mangavault.in" className="hover:text-white transition-colors">Contact</a>
           </div>
         </div>

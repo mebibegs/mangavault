@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect, memo } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
+import Link from "next/link";
 
 // Issue 7/8: Lazy-load heavy components that are not above-the-fold
 const ShaderBackground = dynamic(() => import("@/components/ShaderBackground"), {
@@ -227,9 +228,9 @@ export default function HomeClient({ initialTrending }: { initialTrending: Manga
             <span className="text-lg sm:text-xl font-bold tracking-tight">Manga<span className="text-gray-400">Vault</span></span>
           </div>
           <nav className="flex items-center gap-3 sm:gap-4" aria-label="Main">
-            <a href="/docs" className="text-xs sm:text-sm text-gray-300 hover:text-white transition-colors">Docs</a>
-            <a href="/about" className="text-xs sm:text-sm text-gray-300 hover:text-white transition-colors">About</a>
-            <a href="/adult" className="text-[10px] sm:text-xs text-red-400 hover:text-red-300 transition-colors font-bold border border-red-500/30 rounded-md px-2 py-1 hover:border-red-500/50">18+</a>
+            <Link href="/docs" className="text-xs sm:text-sm text-gray-300 hover:text-white transition-colors">Docs</Link>
+            <Link href="/about" className="text-xs sm:text-sm text-gray-300 hover:text-white transition-colors">About</Link>
+            <Link href="/adult" className="text-[10px] sm:text-xs text-red-400 hover:text-red-300 transition-colors font-bold border border-red-500/30 rounded-md px-2 py-1 hover:border-red-500/50">18+</Link>
           </nav>
         </div>
       </header>
@@ -357,11 +358,11 @@ export default function HomeClient({ initialTrending }: { initialTrending: Manga
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-400">
           <span>© {new Date().getFullYear()} MangaVault</span>
           <div className="flex flex-wrap items-center gap-4">
-            <a href="/docs" className="hover:text-white transition-colors">Docs</a>
-            <a href="/about" className="hover:text-white transition-colors">About</a>
-            <a href="/privacy" className="hover:text-white transition-colors">Privacy</a>
-            <a href="/terms" className="hover:text-white transition-colors">Terms</a>
-            <a href="/dmca" className="hover:text-white transition-colors">DMCA</a>
+            <Link href="/docs" className="hover:text-white transition-colors">Docs</Link>
+            <Link href="/about" className="hover:text-white transition-colors">About</Link>
+            <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
+            <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
+            <Link href="/dmca" className="hover:text-white transition-colors">DMCA</Link>
             <a href="mailto:hello@mangavault.in" className="hover:text-white transition-colors">Contact</a>
           </div>
         </div>
