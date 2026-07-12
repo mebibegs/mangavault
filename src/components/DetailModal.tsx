@@ -129,12 +129,12 @@ export default function DetailModal({ result, showChapters, onToggleChapters, on
                     <span className="min-w-0 flex-1 text-sm text-emerald-400 font-medium truncate">{ch.title}</span>
                     <span className="flex-shrink-0 text-right whitespace-nowrap text-xs font-medium text-rose-400">{ch.date || "—"}</span>
                   </button>
-                )) : Array.from({ length: Math.min(totalChapters, 50) }, (_, i) => (
-                  <button key={i} onClick={() => openReader(result.url)} className="w-full flex items-center px-4 py-3 hover:bg-bg-hover transition-colors cursor-pointer text-left gap-3">
-                    <span className="min-w-0 flex-1 text-sm text-emerald-400 font-medium truncate">Chapter {totalChapters - i}</span>
-                    <span className="flex-shrink-0 text-right whitespace-nowrap text-xs font-medium text-rose-400">—</span>
-                  </button>
-                ))}
+                )) : (
+                  <a href={result.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between px-4 py-3 hover:bg-bg-hover transition-colors text-left gap-3">
+                    <span className="min-w-0 flex-1 text-sm text-emerald-400 font-medium truncate">Chapter list is not available yet</span>
+                    <span className="flex-shrink-0 text-xs font-medium text-rose-400">Visit source ↗</span>
+                  </a>
+                )}
               </div>
             )}
           </div>

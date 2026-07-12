@@ -1,6 +1,7 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { NextFetchEvent, NextRequest, NextResponse } from "next/server";
+import { ADULT_COOKIE_NAME, verifyAdultCookieValue } from "@/lib/adultCookie";
 
 interface RateLimitConfig {
   window: `${number} s` | `${number}s` | `${number} m` | `${number}m`;
@@ -70,8 +71,8 @@ export async function proxy(req: NextRequest, event: NextFetchEvent): Promise<Ne
 
   // Adult gate — server-side cookie check for non-API adult routes.
   if (pathname.startsWith("/adult") && !pathname.startsWith("/api/")) {
-    const verified = req.cookies.get("adult_verified")?.value;
-    if (verified !== "1") {
+    const verified = await verifyAdultCookieValue(req.cookies.get(ADULT_COOKIE_NAME)?.value);
+    if (!verified) {
       const gate = req.nextUrl.clone();
       gate.pathname = "/adult";
       gate.searchParams.set("gate", "1");
@@ -130,5 +131,5 @@ export async function proxy(req: NextRequest, event: NextFetchEvent): Promise<Ne
 }
 
 export const config = {
-  matcher: ["/api/:path*", "/adult/:path*"],
+  matcher: ["/api/:path*", "/adult", "/adult/:path*"],
 };

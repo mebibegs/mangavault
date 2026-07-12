@@ -1,4 +1,4 @@
-import { MongoClient, type Db } from "mongodb";
+import { MongoClient, ObjectId, type Db } from "mongodb";
 
 const MONGODB_URI = process.env.MONGODB_URI || "";
 const MONGODB_DB = process.env.MONGODB_DB || "mangavault";
@@ -33,15 +33,33 @@ export async function getMongoDb(): Promise<Db | null> {
   }
 }
 
+async function dedupeTitleKeys(db: Db): Promise<void> {
+  const titles = db.collection("titles");
+  const duplicates = await titles.aggregate<{ _id: string; ids: ObjectId[]; count: number }>([
+    { $match: { titleKey: { $exists: true, $ne: "" } } },
+    { $sort: { updatedAt: -1, chapterCount: -1 } },
+    { $group: { _id: "$titleKey", ids: { $push: "$_id" }, count: { $sum: 1 } } },
+    { $match: { count: { $gt: 1 } } },
+  ]).toArray();
+
+  for (const duplicate of duplicates) {
+    const [, ...removeIds] = duplicate.ids;
+    if (removeIds.length > 0) {
+      await titles.deleteMany({ _id: { $in: removeIds } });
+    }
+  }
+}
+
 export async function ensureIndexes(): Promise<void> {
   const db = await getMongoDb();
   if (!db) return;
 
   const titles = db.collection("titles");
 
-  // titleKey unique index is created non-unique-tolerant: if duplicate keys
-  // already exist, createIndex({unique:true}) throws, but allSettled swallows
-  // it so the other indexes still get created.
+  await dedupeTitleKeys(db).catch((err) => {
+    console.error("[MongoDB] failed to deduplicate titleKey values before indexing:", err);
+  });
+
   await Promise.allSettled([
     titles.createIndex({ titleKey: 1 }, { unique: true }),
     titles.createIndex({ genres: 1 }),
@@ -51,52 +69,29 @@ export async function ensureIndexes(): Promise<void> {
     titles.createIndex({ type: 1 }),
   ]);
 
-  // Text index is created separately so an IndexOptionsConflict (e.g. an
-  // existing text index with different weights) doesn't block the others,
-  // and so it can be requested on-demand by the search route.
   await ensureTextIndex();
 }
 
-/**
- * Ensure a full-text search index exists on the titles collection.
- *
- * The search API uses `{ $text: { $search } }`, which throws
- * `IndexNotFound (code 27) — text index required for $text query` if no text
- * index is present. This is called lazily from the search route the first time
- * a $text query fails, so search self-heals instead of returning 500s.
- *
- * If a text index already exists with different options, MongoDB rejects the
- * create with `IndexOptionsConflict` — we drop & recreate it so the desired
- * weights are always in effect.
- */
-let textIndexEnsured = false;
 export async function ensureTextIndex(): Promise<boolean> {
-  if (textIndexEnsured) return true;
   const db = await getMongoDb();
   if (!db) return false;
 
   const titles = db.collection("titles");
   try {
     await titles.createIndex(
-      { title: "text", description: "text" },
-      { weights: { title: 10, description: 1 }, name: "text_search" }
+      { title: "text", description: "text", genres: "text" },
+      { weights: { title: 10, genres: 4, description: 1 }, name: "text_search" }
     );
-    textIndexEnsured = true;
-    console.log("[MongoDB] text_search index ensured");
     return true;
   } catch (err) {
-    // IndexOptionsConflict / IndexKeySpecsConflict — a text index exists but
-    // with different specs. Drop it and recreate with our weights.
     const msg = err instanceof Error ? err.message : String(err);
     if (/conflict|already exists with different options|IndexKeySpecsConflict/i.test(msg)) {
       try {
-        await titles.dropIndex("text_search").catch(() => titles.dropIndex("_text_").catch(() => {}));
+        await titles.dropIndex("text_search").catch(() => titles.dropIndex("_text_").catch(() => undefined));
         await titles.createIndex(
-          { title: "text", description: "text" },
-          { weights: { title: 10, description: 1 }, name: "text_search" }
+          { title: "text", description: "text", genres: "text" },
+          { weights: { title: 10, genres: 4, description: 1 }, name: "text_search" }
         );
-        textIndexEnsured = true;
-        console.log("[MongoDB] text_search index recreated");
         return true;
       } catch (err2) {
         console.error("[MongoDB] failed to recreate text index:", err2 instanceof Error ? err2.message : err2);

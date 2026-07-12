@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
       const total = await titles.countDocuments();
       if (total > 0) {
         const results = await titles
-          .find({ source: { $ne: "Omega Scans" } })
+          .find({})
           .sort({ updatedAt: -1 })
           .skip(skip)
           .limit(limit)

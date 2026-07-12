@@ -44,18 +44,23 @@ const ADULT_GENRES = [
 export default function AdultPage() {
   const [confirmed, setConfirmed] = useState(false);
 
-  // Check cookie on mount — returning users who already confirmed skip the gate.
+  // Returning users who already confirmed have an HttpOnly signed cookie.
   useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
-      if (document.cookie.includes("adult_verified=1")) {
-        setConfirmed(true);
-      }
+    const frame = window.requestAnimationFrame(async () => {
+      try {
+        const res = await fetch("/api/adult/verify", { cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.verified) setConfirmed(true);
+        }
+      } catch { /* keep the gate visible */ }
     });
     return () => window.cancelAnimationFrame(frame);
   }, []);
   const [results, setResults] = useState<MangaResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
+  const [submittedQuery, setSubmittedQuery] = useState("");
   const [genre, setGenre] = useState("All");
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
@@ -100,15 +105,15 @@ export default function AdultPage() {
   useEffect(() => {
     if (!confirmed) return;
     const timeout = window.setTimeout(() => {
-      void fetchResults(query, genre, page);
+      void fetchResults(submittedQuery, genre, page);
     }, 0);
     return () => window.clearTimeout(timeout);
-  }, [confirmed, query, genre, page, fetchResults]);
+  }, [confirmed, submittedQuery, genre, page, fetchResults]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setPage(1);
-    fetchResults(query, genre, 1);
+    setSubmittedQuery(query.trim());
   };
 
   const openReader = async (chUrl: string) => {
@@ -141,10 +146,9 @@ export default function AdultPage() {
             </p>
             <div className="flex flex-col gap-3">
               <button
-                onClick={() => {
-                  // Set cookie so middleware allows through on next navigation
-                  document.cookie = "adult_verified=1; path=/; max-age=2592000; SameSite=Lax";
-                  setConfirmed(true);
+                onClick={async () => {
+                  const res = await fetch("/api/adult/verify", { method: "POST" });
+                  if (res.ok) setConfirmed(true);
                 }}
                 className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-colors cursor-pointer"
               >
@@ -310,7 +314,7 @@ export default function AdultPage() {
         </div>
 
         {/* Results count */}
-        <p className="text-text-muted text-xs mb-4">{total} titles{genre !== "All" ? ` in ${genre}` : ""}{query ? ` matching "${query}"` : ""}</p>
+        <p className="text-text-muted text-xs mb-4">{total} titles{genre !== "All" ? ` in ${genre}` : ""}{submittedQuery ? ` matching "${submittedQuery}"` : ""}</p>
 
         {/* Loading */}
         {loading && (

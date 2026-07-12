@@ -13,10 +13,7 @@ export function guardCronApi(req: NextRequest): NextResponse | null {
   const cronSecret = process.env.CRON_SECRET;
 
   if (!cronSecret) {
-    if (process.env.NODE_ENV === "production") {
-      return NextResponse.json({ error: "CRON_SECRET is not configured" }, { status: 500 });
-    }
-    return null;
+    return NextResponse.json({ error: "CRON_SECRET is not configured" }, { status: 500 });
   }
 
   const authHeader = req.headers.get("authorization") ?? "";

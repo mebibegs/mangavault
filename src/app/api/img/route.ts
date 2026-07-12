@@ -67,7 +67,6 @@ export async function GET(req: NextRequest) {
         "Cache-Control": "public, max-age=31536000, immutable",
         "CDN-Cache-Control": "max-age=31536000",
         "Vercel-CDN-Cache-Control": "max-age=31536000",
-        "Access-Control-Allow-Origin": "*",
         "X-Content-Type-Options": "nosniff",
       };
       const upstreamContentLength = upstream.headers.get("content-length");
@@ -90,7 +89,6 @@ export async function GET(req: NextRequest) {
         "Cache-Control": "public, max-age=31536000, immutable",
         "CDN-Cache-Control": "max-age=31536000",
         "Vercel-CDN-Cache-Control": "max-age=31536000",
-        "Access-Control-Allow-Origin": "*",
         "X-Content-Type-Options": "nosniff",
       },
     });

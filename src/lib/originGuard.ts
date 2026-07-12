@@ -35,8 +35,10 @@ export function isFromOwnOrigin(req: NextRequest): boolean {
  * Returns an error Response if rejected, or null if allowed.
  */
 export function guardPrivateApi(req: NextRequest): Response | null {
-  // Skip guard if no CSRF_SECRET configured (dev / build time)
   if (!process.env.CSRF_SECRET || process.env.CSRF_SECRET.length < 64) {
+    if (process.env.NODE_ENV === "production") {
+      return new Response("CSRF is not configured", { status: 500 });
+    }
     return null;
   }
 

@@ -181,6 +181,14 @@ export function registerScraper(source: string, fn: ScraperFunction) {
   scrapers.set(source.toLowerCase(), fn);
 }
 
+export function hasRegisteredScraper(source: string): boolean {
+  return scrapers.has(source.toLowerCase());
+}
+
+export function listRegisteredScrapers(): string[] {
+  return [...scrapers.keys()];
+}
+
 export async function browseSource(source: string, page: number): Promise<ScrapeResult | null> {
   const scraper = scrapers.get(source.toLowerCase());
   if (!scraper) {
@@ -280,6 +288,17 @@ registerScraper("manganato", async (page: number) => {
   }
 });
 
+function omegaChapters(seriesSlug: string, raw: { free_chapters?: Record<string, unknown>[]; paid_chapters?: Record<string, unknown>[] }): ChapterInfo[] {
+  const chapters = [...(raw.free_chapters || []), ...(raw.paid_chapters || [])]
+    .filter((chapter) => typeof chapter.chapter_slug === "string")
+    .map((chapter) => ({
+      title: [chapter.chapter_name, chapter.chapter_title].filter(Boolean).join(" - ") || String(chapter.chapter_slug),
+      url: `https://omegascans.org/series/${seriesSlug}/${chapter.chapter_slug}`,
+      date: typeof chapter.created_at === "string" ? chapter.created_at.slice(0, 10) : "",
+    }));
+  return dedupeChaptersReg(chapters);
+}
+
 registerScraper("omega", async (page: number) => {
   try {
     const res = await smartFetch(`https://api.omegascans.org/query?query_string=&series_status=All&order=desc&orderBy=latest&series_type=Comic&page=${page}&perPage=15`);
@@ -288,10 +307,13 @@ registerScraper("omega", async (page: number) => {
     const results: MangaResult[] = [];
     if (json.data && Array.isArray(json.data)) {
       for (const s of json.data) {
+        const chapters = omegaChapters(s.series_slug, s);
         results.push({
-          title: s.title, description: s.description || "", rating: "N/A", status: s.status || "Unknown", type: "Manhwa",
-          genres: [], chapters: [], chapterCount: "0", coverUrl: s.thumbnail || "", url: `https://omegascans.org/series/${s.series_slug}`,
-          source: "Omega Scans", author: "Unknown", artist: "Unknown"
+          title: s.title, description: s.description || "", rating: s.rating ? String(s.rating) : "N/A", status: s.status || "Unknown", type: "Manhwa",
+          genres: Array.isArray(s.tags) ? s.tags.map((tag: { name?: string } | string) => typeof tag === "string" ? tag : tag.name).filter(Boolean) : [],
+          chapters,
+          chapterCount: String(s.meta?.chapters_count || chapters.length || 0), coverUrl: s.thumbnail || "", url: `https://omegascans.org/series/${s.series_slug}`,
+          source: "Omega Scans", author: s.author || "Unknown", artist: s.artist || "Unknown"
         });
       }
     }

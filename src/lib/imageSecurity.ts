@@ -39,7 +39,6 @@ export const ALLOWED_CONTENT_TYPES = new Set([
   "image/webp",
   "image/gif",
   "image/avif",
-  "image/svg+xml",
 ]);
 
 const ALLOWED_IMAGE_DOMAINS: ReadonlySet<string> = new Set([

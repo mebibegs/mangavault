@@ -62,6 +62,10 @@ export async function GET(req: NextRequest) {
       return await handleWebtoon(chapterUrl);
     }
 
+    if (chapterUrl.includes("omegascans.org")) {
+      return await handleOmega(chapterUrl);
+    }
+
     // ────────────────────────────────────────────
     //  All other sources
     // ────────────────────────────────────────────
@@ -147,6 +151,40 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    return ok(images, chapterUrl);
+  } catch {
+    return NextResponse.json({ error: "Failed to load chapter" }, { status: 500 });
+  }
+}
+
+// ──────────────────────────────────────────────────────────────
+//  OMEGA SCANS handler
+// ──────────────────────────────────────────────────────────────
+
+async function handleOmega(chapterUrl: string) {
+  try {
+    const parsed = new URL(chapterUrl);
+    const parts = parsed.pathname.split("/").filter(Boolean);
+    const seriesIndex = parts.indexOf("series");
+    const seriesSlug = seriesIndex >= 0 ? parts[seriesIndex + 1] : "";
+    const chapterSlug = seriesIndex >= 0 ? parts[seriesIndex + 2] : "";
+    if (!seriesSlug || !chapterSlug) return ok([], chapterUrl);
+
+    const apiUrl = `https://api.omegascans.org/chapter/${encodeURIComponent(seriesSlug)}/${encodeURIComponent(chapterSlug)}`;
+    const res = await fetch(apiUrl, {
+      headers: {
+        ...BASE_HEADERS,
+        Accept: "application/json",
+        Referer: "https://omegascans.org/",
+      },
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (!res.ok) return NextResponse.json({ error: "Failed to fetch chapter" }, { status: 502 });
+
+    const data = await res.json() as { chapter?: { chapter_data?: { images?: string[] } } };
+    const images = (data.chapter?.chapter_data?.images || [])
+      .filter((src) => src && src.startsWith("https://"))
+      .map((src) => proxyUrl(src));
     return ok(images, chapterUrl);
   } catch {
     return NextResponse.json({ error: "Failed to load chapter" }, { status: 500 });

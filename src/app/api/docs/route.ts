@@ -14,9 +14,17 @@ export async function GET() {
         rateLimit: "15 requests per minute per IP",
       },
       "GET /api/trending": {
-        description: "Returns trending titles aggregated across all connected sources, paginated at 30 results per page.",
+        description: "Returns trending titles aggregated across connected sources, paginated at 30 results per page.",
         parameters: {
-          page: { type: "number", required: false, description: "Page number (1–17)", example: 1 },
+          page: { type: "number", required: false, description: "Page number", example: 1 },
+        },
+      },
+      "GET /api/genres": {
+        description: "Returns titles matching a genre from the synced MongoDB titles collection.",
+        parameters: {
+          q: { type: "string", required: true, description: "Genre name", example: "Action" },
+          page: { type: "number", required: false, description: "Page number", example: 1 },
+          limit: { type: "number", required: false, description: "Results per page, max 60", example: 30 },
         },
       },
       "GET /api/reader": {
@@ -26,7 +34,7 @@ export async function GET() {
         },
       },
       "GET /api/health": {
-        description: "Health check. Returns { ok: true } when the service is running.",
+        description: "Health check. Returns { ok: true, database: 'mongodb' } when MongoDB responds. Returns { ok: false, database: 'not_configured' } with 503 when MongoDB is not configured.",
       },
     },
   };

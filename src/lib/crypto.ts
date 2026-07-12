@@ -10,10 +10,8 @@ import {
 
 function loadKey(envVar: string, label: string): Buffer {
   const hex = process.env[envVar];
-  if (!hex || hex.length !== 64) {
-    // Return a deterministic fallback for build-time / missing env
-    // At runtime these will be set via Vercel env vars
-    return Buffer.alloc(32, 0);
+  if (!hex || hex.length !== 64 || !/^[a-f0-9]{64}$/i.test(hex)) {
+    throw new Error(`${label} must be exactly 64 hex characters`);
   }
   return Buffer.from(hex, "hex");
 }

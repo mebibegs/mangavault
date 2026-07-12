@@ -166,6 +166,7 @@ export default function HomeClient({ initialTrending }: { initialTrending: Manga
   const [statusText, setStatusText] = useState("");
   const [shaderEnabled, setShaderEnabled] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const searchFormRef = useRef<HTMLFormElement>(null);
 
   // Issue 7: Delay shader loading to prioritize content rendering
   useEffect(() => {
@@ -209,7 +210,10 @@ export default function HomeClient({ initialTrending }: { initialTrending: Manga
     }
   }, [query]);
 
-  const searchSample = (s: string) => { setQuery(s); setTimeout(() => document.querySelector("form")?.requestSubmit(), 50); };
+  const searchSample = (s: string) => {
+    setQuery(s);
+    setTimeout(() => searchFormRef.current?.requestSubmit(), 50);
+  };
   const clearSearch = () => { setQuery(""); setResults([]); setPhase("idle"); setSelectedResult(null); setError(""); };
 
   const showHero = results.length === 0 && phase !== "done";
@@ -268,7 +272,7 @@ export default function HomeClient({ initialTrending }: { initialTrending: Manga
             </div>
 
             {/* Search Bar */}
-            <form onSubmit={handleSearch} className="relative" role="search" aria-label="Search manga and manhwa">
+            <form ref={searchFormRef} onSubmit={handleSearch} className="relative" role="search" aria-label="Search manga and manhwa">
               <div className="relative z-10 w-full bg-[#0a0a0e] rounded-2xl flex items-center border border-purple-500/20 focus-within:border-purple-500/50 transition-colors shadow-lg shadow-purple-500/5">
                 <label htmlFor="search-input" className="pl-4 sm:pl-5 pr-2 sm:pr-3 text-gray-500">
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" viewBox="0 0 24 24" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" height="20" fill="none" stroke="currentColor">

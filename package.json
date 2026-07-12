@@ -6,7 +6,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "migrate:mongo": "tsx scripts/migrate-mongodb.ts"
   },
   "dependencies": {
     "@types/crypto-js": "^4.2.2",
@@ -20,7 +21,6 @@
     "lru-cache": "^11.5.1",
     "mongodb": "^7.4.0",
     "next": "16.2.6",
-    "node-cache": "^5.1.2",
     "opossum": "^9.0.0",
     "react": "19.2.6",
     "react-dom": "19.2.6",

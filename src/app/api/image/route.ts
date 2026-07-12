@@ -11,7 +11,6 @@ const SECURITY_HEADERS = {
   "CDN-Cache-Control": "max-age=31536000",
   "Vercel-CDN-Cache-Control": "max-age=31536000",
   "X-Robots-Tag": "noindex",
-  "Access-Control-Allow-Origin": "*",
 };
 
 export async function GET(req: NextRequest): Promise<NextResponse> {

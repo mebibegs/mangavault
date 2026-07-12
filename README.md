@@ -26,6 +26,7 @@ Populate `.env.local` with the values listed in `.env.example` before testing da
 npm run lint       # ESLint
 npm run typecheck  # TypeScript no-emit check
 npm run build      # Production build
+npm run migrate:mongo # One-time MongoDB dedupe/index migration
 ```
 
 ## Required production secrets

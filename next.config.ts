@@ -39,7 +39,7 @@ const nextConfig: NextConfig = {
             value: [
               "default-src 'self'",
               // Cloudflare Insights script + cdn-cgi scripts
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com https://*.mangavault.in/cdn-cgi/scripts/ https://challenges.cloudflare.com",
+              "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com https://*.mangavault.in/cdn-cgi/scripts/ https://challenges.cloudflare.com",
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https: http:",
               "font-src 'self' data:",

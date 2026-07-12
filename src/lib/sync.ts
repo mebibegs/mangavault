@@ -1,9 +1,29 @@
 import { getMongoDb } from "./mongodb";
-import { browseCatalog, searchAllSources } from "./scraper";
+import { browseCatalog, fetchMangaByUrl, searchAllSources } from "./scraper";
 import type { MangaResult } from "./scraper";
 
 function normalizeTitleKey(title: string): string {
   return title.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function chapterKey(chapter: { title?: string; url?: string }): string {
+  const title = chapter.title || "";
+  const number = title.match(/(?:chapter|ch\.?|episode|ep\.?)\s*([\d.]+)/i)?.[1]
+    || chapter.url?.match(/(?:chapter|episode)[-_/]([\d.]+)/i)?.[1];
+  if (number) return `n:${number}`;
+  return `u:${chapter.url || title.toLowerCase().replace(/\s+/g, " ").trim()}`;
+}
+
+function dedupeChapterList<T extends { title?: string; url?: string }>(chapters: T[]): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const chapter of chapters) {
+    const key = chapterKey(chapter);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(chapter);
+  }
+  return out;
 }
 
 export interface SyncStats {
@@ -78,7 +98,7 @@ export async function upsertResults(results: MangaResult[]): Promise<{ inserted:
           url: r.url,
           source: r.source,
           chapterCount: r.chapterCount,
-          chapters: r.chapters.map((ch) => ({ title: ch.title, url: ch.url, date: ch.date })),
+          chapters: dedupeChapterList(r.chapters).map((ch) => ({ title: ch.title, url: ch.url, date: ch.date })),
           sources: [{ name: r.source, url: r.url, lastSeen: new Date() }],
           createdAt: new Date(),
           updatedAt: new Date(),
@@ -128,8 +148,8 @@ export async function upsertResults(results: MangaResult[]): Promise<{ inserted:
         }
         setFields.sources = existingSources;
 
-        const existingUrls = new Set(((existing.chapters as { url: string }[]) || []).map((c) => c.url));
-        const newChapters = r.chapters.filter((ch) => !existingUrls.has(ch.url));
+        const existingChapterKeys = new Set(((existing.chapters as { title?: string; url?: string }[]) || []).map(chapterKey));
+        const newChapters = dedupeChapterList(r.chapters).filter((ch) => !existingChapterKeys.has(chapterKey(ch)));
 
         const update: Record<string, unknown> = { $set: setFields };
         if (newChapters.length > 0) {
@@ -188,12 +208,12 @@ export async function refreshChapters(limit = 50): Promise<{ refreshed: number; 
       batch.map(async (doc) => {
         const url = doc.url as string;
         try {
+          const byUrl = await fetchMangaByUrl(url, doc.title as string);
+          if (byUrl) return byUrl;
+
           const res = await searchAllSources(doc.title as string);
-          // Find the result that best matches this doc
           const key = normalizeTitleKey(doc.title as string);
-          const match = res.find(
-            (r) => normalizeTitleKey(r.title) === key
-          );
+          const match = res.find((r) => normalizeTitleKey(r.title) === key);
           return match || null;
         } catch {
           return null;
@@ -207,10 +227,10 @@ export async function refreshChapters(limit = 50): Promise<{ refreshed: number; 
 
       const r = result.value;
       const doc = batch[j];
-      const existingUrls = new Set(
-        ((doc.chapters as { url: string }[]) || []).map((c) => c.url)
+      const existingChapterKeys = new Set(
+        ((doc.chapters as { title?: string; url?: string }[]) || []).map(chapterKey)
       );
-      const freshChapters = r.chapters.filter((ch) => !existingUrls.has(ch.url));
+      const freshChapters = dedupeChapterList(r.chapters).filter((ch) => !existingChapterKeys.has(chapterKey(ch)));
 
       const setFields: Record<string, unknown> = { updatedAt: new Date() };
 

@@ -18,7 +18,10 @@ function getClientIp(req: NextRequest): string {
 
 function sanitizeQuery(q: string): string {
   return q
+    .normalize("NFC")
+    .replace(/\0/g, "")
     .replace(/[<>"'`;{}()[\]\\/]/g, "")
+    .replace(/[\u0001-\u001F\u007F]/g, "")
     .trim()
     .substring(0, 100);
 }
@@ -27,7 +30,7 @@ export async function GET(req: NextRequest) {
   const ip = getClientIp(req);
 
   try {
-    const rateCheck = checkRateLimit(ip);
+    const rateCheck = await checkRateLimit(ip);
     if (rateCheck.blocked || rateCheck.limited) {
       return NextResponse.json(
         { error: "Too many requests", retryAfter: rateCheck.retryAfter },
@@ -84,7 +87,6 @@ export async function GET(req: NextRequest) {
           titles
             .find({
               $or: [{ title: regex }, { description: regex }, { genres: regex }],
-              source: { $ne: "Omega Scans" },
             })
             .limit(50)
             .toArray();
@@ -98,7 +100,7 @@ export async function GET(req: NextRequest) {
         try {
           results = await titles
             .find(
-              { $text: { $search: query }, source: { $ne: "Omega Scans" } },
+              { $text: { $search: query } },
               { projection: { score: { $meta: "textScore" } } }
             )
             .sort({ score: { $meta: "textScore" } })

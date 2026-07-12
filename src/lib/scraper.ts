@@ -419,6 +419,11 @@ function parseSource2Detail(html: string, url: string): MangaResult | null {
     if (!description) description=$('meta[property="og:description"]').attr("content")||"";
     let type="Manhwa"; const pt=$("body").text().toLowerCase();
     if(pt.includes("manhua")) type="Manhua"; else if(pt.includes("manga series")) type="Manga";
+    let status = "Ongoing";
+    const statusMatch = bodyText.match(/Status\s*[:\-]?\s*(Completed|Ongoing|Hiatus|Dropped|Cancelled)/i);
+    if (statusMatch) status = statusMatch[1];
+    else if (pt.includes("completed")) status = "Completed";
+    else if (pt.includes("hiatus")) status = "Hiatus";
     const chapters: ChapterInfo[] = [];
     $("a[href*='chaptered.php'], a[href*='/chapter']").each((_,el) => {
       const raw = $(el).text();
@@ -433,7 +438,7 @@ function parseSource2Detail(html: string, url: string): MangaResult | null {
       }
     });
     const uniqueChapters = dedupeChapters(chapters);
-    return { title, description:description||"No description available.", rating, status:"Ongoing", type, genres:[], chapters: uniqueChapters, chapterCount:String(uniqueChapters.length), coverUrl, url, source:"Demonic Scans", author:"Unknown", artist:"Unknown" };
+    return { title, description:description||"No description available.", rating, status, type, genres:[], chapters: uniqueChapters, chapterCount:String(uniqueChapters.length), coverUrl, url, source:"Demonic Scans", author:"Unknown", artist:"Unknown" };
   } catch { return null; }
 }
 
@@ -482,22 +487,17 @@ function parseSource2ListingPage(html: string): MangaResult[] {
 
 async function searchSource2(query: string): Promise<MangaResult[]> {
   try {
-    const html = await fetchSafe("https://demonicscans.org/");
-    if (!html) return [];
-    const $ = cheerio.load(html);
-    const links: {title:string;href:string}[] = [];
-    const ql = query.toLowerCase();
-    $("a[href*='/manga/']").each((_,el) => {
-      const href=$(el).attr("href"); const t=$(el).text().trim();
-      if(href&&t&&t.length>2&&!href.includes("/manga/page/")&&t.toLowerCase().includes(ql)&&!links.find(l=>l.href===href))
-        links.push({title:t,href:href.startsWith("http")?href:`https://demonicscans.org${href}`});
-    });
-    const slug=query.trim().split(" ").map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join("-");
-    if(!links.find(l=>l.href.includes(slug))) links.push({title:query,href:`https://demonicscans.org/manga/${slug}`});
-    const results: MangaResult[] = [];
-    const details = await Promise.all(links.map(async l => { const h = await fetchSafe(l.href); return h ? parseSource2Detail(h,l.href) : null; }));
-    for (const d of details) if (d) results.push(d);
-    return results;
+    const baseSlug = query.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    const titleSlug = query.trim().split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join("-");
+    const urls = [...new Set([
+      `https://demonicscans.org/manga/${baseSlug}`,
+      `https://demonicscans.org/manga/${titleSlug}`,
+    ])];
+    const details = await Promise.all(urls.map(async (url) => {
+      const html = await fetchSafe(url);
+      return html ? parseSource2Detail(html, url) : null;
+    }));
+    return details.filter((result): result is MangaResult => Boolean(result));
   } catch { return []; }
 }
 
@@ -1049,6 +1049,8 @@ function isRelevant(result: MangaResult, query: string): boolean {
   const BAD = ["manga lists","latest updates","popular","home","search","scythe scans","demonic scans"];
   if (BAD.some(s => titleLower === s || titleLower.includes(s))) return false;
 
+  if (titleLower === q || titleLower.includes(q)) return true;
+
   const titleWordMatches = qWords.filter(w => titleLower.includes(w)).length;
   const anyWordMatches = qWords.filter(w => titleLower.includes(w) || descLower.includes(w)).length;
 
@@ -1067,6 +1069,123 @@ function isValidEntry(r: MangaResult): boolean {
   return !BAD.some(s => r.title.toLowerCase().includes(s));
 }
 
+
+async function searchOmega(query: string): Promise<MangaResult[]> {
+  try {
+    const apiUrl = `https://api.omegascans.org/query?query_string=${encodeURIComponent(query)}&series_status=All&order=desc&orderBy=latest&series_type=Comic&page=1&perPage=10`;
+    const res = await fetchWithTimeout(apiUrl, {
+      headers: { Accept: "application/json", Referer: "https://omegascans.org/" },
+    });
+    if (!res.ok) return [];
+    const json = await res.json() as { data?: Array<Record<string, unknown>> };
+    return (json.data || []).map(omegaSeriesToResult);
+  } catch {
+    return [];
+  }
+}
+
+function omegaSeriesToResult(series: Record<string, unknown>): MangaResult {
+  const slug = String(series.series_slug || "");
+  const free = Array.isArray(series.free_chapters) ? series.free_chapters as Record<string, unknown>[] : [];
+  const paid = Array.isArray(series.paid_chapters) ? series.paid_chapters as Record<string, unknown>[] : [];
+  const chapters = [...free, ...paid]
+    .filter((chapter) => typeof chapter.chapter_slug === "string")
+    .map((chapter) => ({
+      title: [chapter.chapter_name, chapter.chapter_title].filter(Boolean).join(" - ") || String(chapter.chapter_slug),
+      url: `https://omegascans.org/series/${slug}/${chapter.chapter_slug}`,
+      date: typeof chapter.created_at === "string" ? chapter.created_at.slice(0, 10) : "",
+    }));
+
+  return {
+    title: String(series.title || ""),
+    description: String(series.description || ""),
+    rating: series.rating ? String(series.rating) : "N/A",
+    status: String(series.status || "Unknown"),
+    type: "Manhwa",
+    genres: Array.isArray(series.tags) ? (series.tags as Array<{ name?: string } | string>).map((tag) => typeof tag === "string" ? tag : tag.name || "").filter(Boolean) : [],
+    chapters: dedupeChapters(chapters),
+    chapterCount: String((series.meta as { chapters_count?: number } | undefined)?.chapters_count || chapters.length || 0),
+    coverUrl: String(series.thumbnail || ""),
+    url: `https://omegascans.org/series/${slug}`,
+    source: "Omega Scans",
+    author: String(series.author || "Unknown"),
+    artist: String(series.artist || "Unknown"),
+  };
+}
+
+async function searchManganato(query: string): Promise<MangaResult[]> {
+  try {
+    const slug = query.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+    const html = await fetchSafe(`https://www.manganato.gg/search/story/${slug}`);
+    if (!html) return [];
+    const $ = cheerio.load(html);
+    const results: MangaResult[] = [];
+    $("a[href*='/manga/']").each((_, el) => {
+      const href = $(el).attr("href") || "";
+      const title = $(el).attr("title") || $(el).find("img").attr("alt") || $(el).text().trim();
+      if (!href || !title || results.some((r) => r.url === href)) return;
+      const coverUrl = $(el).find("img").attr("src") || $(el).find("img").attr("data-src") || "";
+      results.push({ title, description: "", rating: "N/A", status: "Ongoing", type: "Manga", genres: [], chapters: [], chapterCount: "0", coverUrl, url: href, source: "Manganato", author: "Unknown", artist: "Unknown" });
+    });
+    return results.slice(0, 10);
+  } catch {
+    return [];
+  }
+}
+
+async function searchManhuaTop(query: string): Promise<MangaResult[]> {
+  try {
+    const key = process.env.SCRAPINGANT_KEY || "";
+    if (!key) return [];
+    const url = `https://manhuatop.org/?s=${encodeURIComponent(query)}&post_type=wp-manga`;
+    const res = await fetchWithTimeout(`https://api.scrapingant.com/v2/general?url=${encodeURIComponent(url)}&x-api-key=${key}&browser=true`);
+    if (!res.ok) return [];
+    const html = await res.text();
+    const $ = cheerio.load(html);
+    const results: MangaResult[] = [];
+    $("a[href*='/manhua/'], a[href*='/manga/']").each((_, el) => {
+      const href = $(el).attr("href") || "";
+      const title = $(el).attr("title") || $(el).find("h3,h4,h5").text().trim() || $(el).text().trim();
+      if (!href || !title || !/\/(manhua|manga)\/[a-z0-9-]+\/?$/i.test(href) || results.some((r) => r.url === href)) return;
+      const coverUrl = $(el).find("img").attr("src") || $(el).find("img").attr("data-src") || "";
+      results.push({ title, description: "", rating: "N/A", status: "Ongoing", type: "Manhua", genres: [], chapters: [], chapterCount: "0", coverUrl, url: href, source: "ManhuaTop", author: "Unknown", artist: "Unknown" });
+    });
+    return results.slice(0, 10);
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchMangaByUrl(url: string, fallbackTitle = ""): Promise<MangaResult | null> {
+  try {
+    if (url.includes("asurascans.com")) {
+      const html = await fetchSafe(url);
+      return html ? parseSource1Detail(html, url, fallbackTitle) : null;
+    }
+    if (url.includes("demonicscans.org")) {
+      const html = await fetchSafe(url);
+      return html ? parseSource2Detail(html, url) : null;
+    }
+    if (url.includes("scythescans.com")) {
+      const html = await fetchSafe(url);
+      return html ? parseSource3Detail(html, url) : null;
+    }
+    if (url.includes("webtoons.com")) {
+      const html = await fetchSafeWebtoon(url);
+      return html ? parseWebtoonDetailAsync(html, url, "") : null;
+    }
+    if (url.includes("omegascans.org")) {
+      const slug = new URL(url).pathname.split("/").filter(Boolean).at(-1) || "";
+      const res = await fetchWithTimeout(`https://api.omegascans.org/series/${encodeURIComponent(slug)}`, { headers: { Accept: "application/json", Referer: "https://omegascans.org/" } });
+      if (!res.ok) return null;
+      return omegaSeriesToResult(await res.json() as Record<string, unknown>);
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 // ════════════════════════════════════════════════════════════════════
 // MAIN SEARCH (PARALLEL) — with circuit breakers and timeouts
 // ════════════════════════════════════════════════════════════════════
@@ -1079,21 +1198,30 @@ export async function searchAllSources(query: string): Promise<MangaResult[]> {
     { name: "Demonic", scrape: searchSource2 },
     { name: "Scythe", scrape: searchSource3 },
     { name: "Webtoons", scrape: searchSource4 },
+    { name: "Manganato", scrape: searchManganato },
+    { name: "Omega", scrape: searchOmega },
+    { name: "ManhuaTop", scrape: searchManhuaTop },
   ];
 
-  // Run all in parallel, collecting per-source counts for observability
-  const settled = await Promise.all(
-    sources.map(async (s) => {
-      const started = Date.now();
-      try {
-        const r = await s.scrape(query);
-        return { name: s.name, results: r, ms: Date.now() - started, ok: true };
-      } catch (err) {
-        console.error(`[Search] ${s.name} threw:`, err instanceof Error ? err.message : err);
-        return { name: s.name, results: [] as MangaResult[], ms: Date.now() - started, ok: false };
-      }
-    })
-  );
+  const concurrency = Math.max(1, parseInt(process.env.SEARCH_SOURCE_CONCURRENCY || "4", 10) || 4);
+  const settled: Array<{ name: string; results: MangaResult[]; ms: number; ok: boolean }> = [];
+
+  for (let i = 0; i < sources.length; i += concurrency) {
+    const batch = sources.slice(i, i + concurrency);
+    const batchResults = await Promise.all(
+      batch.map(async (s) => {
+        const started = Date.now();
+        try {
+          const r = await s.scrape(query);
+          return { name: s.name, results: r, ms: Date.now() - started, ok: true };
+        } catch (err) {
+          console.error(`[Search] ${s.name} threw:`, err instanceof Error ? err.message : err);
+          return { name: s.name, results: [] as MangaResult[], ms: Date.now() - started, ok: false };
+        }
+      })
+    );
+    settled.push(...batchResults);
+  }
 
   const sourceStats = Object.fromEntries(
     settled.map((s) => [s.name, { count: s.results.length, ok: s.ok, ms: s.ms }])
@@ -1159,9 +1287,10 @@ export async function browseCatalog(page: number): Promise<{ results: MangaResul
     }
   }
 
+  const maxTrendingPages = Math.max(1, parseInt(process.env.MAX_TRENDING_PAGES || "17", 10) || 17);
   return {
     results: unique.slice(0, 30),
-    hasMore: unique.length > 0 && page < 17, // ~500 items across 17 pages
+    hasMore: unique.length > 0 && page < maxTrendingPages,
   };
 }
 

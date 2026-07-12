@@ -75,6 +75,7 @@ export async function POST(req: Request) {
 
     const MAX_PAGES = parseInt(process.env.MAX_SYNC_PAGES || "3600", 10);
     const shouldQueueNext = hasMore && results.length > 0 && page < MAX_PAGES;
+    let queuedNext = false;
 
     if (shouldQueueNext && process.env.QSTASH_TOKEN) {
       const qstash = new Client({ token: process.env.QSTASH_TOKEN });
@@ -87,6 +88,7 @@ export async function POST(req: Request) {
         body: { source, page: page + 1 },
         delay: "2s",
       });
+      queuedNext = true;
     }
 
     return NextResponse.json({
@@ -96,7 +98,8 @@ export async function POST(req: Request) {
       itemsFound: results?.length || 0,
       inserted,
       updated,
-      queuedNext: shouldQueueNext,
+      queuedNext,
+      canQueueNext: shouldQueueNext,
     });
   } catch (error) {
     console.error("[Worker Error]", error);

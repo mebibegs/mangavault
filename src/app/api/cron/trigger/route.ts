@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Client } from "@upstash/qstash";
 import { guardCronApi } from "@/lib/cronAuth";
+import { hasRegisteredScraper } from "@/lib/scrapers/registry";
 
 export async function GET(req: NextRequest) {
   const guard = guardCronApi(req);
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
 
   const sources = [
     "asura", "manganato", "demonic", "scythe", "omega", "webtoons", "manhuatop"
-  ];
+  ].filter(hasRegisteredScraper);
 
   let queued = 0;
 

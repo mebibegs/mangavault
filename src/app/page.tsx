@@ -3,6 +3,8 @@ import { browseCatalog } from "@/lib/scraper";
 import { toSafeResult } from "@/lib/safeResult";
 import HomeClient from "@/components/HomeClient";
 
+export const revalidate = 900;
+
 /**
  * Server Component — fetches trending data at request time so the first
  * card images are present in the initial HTML.  The browser's preload

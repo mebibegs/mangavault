@@ -1,15 +1,10 @@
 import { Suspense } from "react";
-import { searchAllSources } from "@/lib/scraper";
+import { getMongoDb } from "@/lib/mongodb";
 import { toSafeResult } from "@/lib/safeResult";
 import GenresClient from "./GenresClient";
 
-// Default genre to pre-render
 const DEFAULT_GENRE = "Action";
 
-/**
- * Server Component — SSR-fetches initial genre data so the page is never blank.
- * The client component takes over after hydration for interactive genre switching.
- */
 export default async function GenresPage({
   searchParams,
 }: {
@@ -20,17 +15,14 @@ export default async function GenresPage({
   let initialResults: ReturnType<typeof toSafeResult>[] = [];
 
   try {
-    const results = await searchAllSources(genre);
-    initialResults = results
-      .filter((r) => r.genres.some((g) => g.toLowerCase().includes(genre.toLowerCase())))
-      .slice(0, 30)
-      .map((r) => toSafeResult(r as unknown as Record<string, unknown>));
-
-    // If genre filter yields too little, fall back to all results
-    if (initialResults.length < 5) {
-      initialResults = results
-        .slice(0, 30)
-        .map((r) => toSafeResult(r as unknown as Record<string, unknown>));
+    const db = await getMongoDb();
+    if (db) {
+      const docs = await db.collection("titles")
+        .find({ genres: { $regex: new RegExp(`^${genre.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") } })
+        .sort({ rating: -1, updatedAt: -1 })
+        .limit(30)
+        .toArray();
+      initialResults = docs.map((doc) => toSafeResult(doc as Record<string, unknown>));
     }
   } catch {
     // Client will fetch on its own

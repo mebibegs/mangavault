@@ -32,9 +32,13 @@
       "maxDuration": 60,
       "memory": 512
     },
-    "src/app/api/cron/prewarm/route.ts": {
-      "maxDuration": 60,
-      "memory": 512
+    "src/app/api/adult/chapters/route.ts": {
+      "maxDuration": 10,
+      "memory": 256
+    },
+    "src/app/api/adult/verify/route.ts": {
+      "maxDuration": 10,
+      "memory": 128
     }
   }
 }
