@@ -56,7 +56,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               "@type": "WebSite",
               name: "MangaVault",
               url: PROD_URL,
-              potentialAction: { "@type": "SearchAction", target: `${PROD_URL}/?q={search_term_string}`, "query-input": "required name=search_term_string" },
+              potentialAction: { "@type": "SearchAction", target: `${PROD_URL}/browse?q={search_term_string}`, "query-input": "required name=search_term_string" },
             }),
           }}
         />

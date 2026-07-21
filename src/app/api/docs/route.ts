@@ -33,8 +33,23 @@ export async function GET() {
           url: { type: "string", required: true, description: "Chapter URL from a supported source" },
         },
       },
+      "GET /api/adult": {
+        description: "Returns adult-classified titles from the synced MongoDB titles collection with search, genre filtering, and pagination.",
+        parameters: {
+          q: { type: "string", required: false, description: "Optional title/description/genre/author/artist search query", example: "office" },
+          genre: { type: "string", required: false, description: "Optional exact genre filter", example: "Mature" },
+          page: { type: "number", required: false, description: "Page number", example: 1 },
+          limit: { type: "number", required: false, description: "Results per page, max 60", example: 40 },
+        },
+      },
+      "GET /api/adult/chapters": {
+        description: "Fetches chapter metadata for an Omega Scans adult title by source slug.",
+        parameters: {
+          slug: { type: "string", required: true, description: "Omega Scans series slug", example: "example-series" },
+        },
+      },
       "GET /api/health": {
-        description: "Health check. Returns { ok: true, database: 'mongodb' } when MongoDB responds. Returns { ok: false, database: 'not_configured' } with 503 when MongoDB is not configured.",
+        description: "Health check. Returns { ok: true, database: 'mongodb' } when MongoDB responds, { ok: false, database: 'not_configured' } with 503 when MongoDB is not configured, or { ok: false, database: 'mongodb' } with 500 when ping fails.",
       },
     },
   };

@@ -54,12 +54,24 @@ export async function upsertResults(results: MangaResult[]): Promise<{ inserted:
       batchMap.set(key, r);
     } else {
       const existing = batchMap.get(key)!;
+      const existingChapterCount = existing.chapters.length;
+      const incomingChapterCount = r.chapters.length;
+
       for (const g of r.genres) {
         if (!existing.genres.includes(g)) existing.genres.push(g);
       }
-      if (r.chapters.length > existing.chapters.length) {
-        const mergedGenres = [...existing.genres];
-        batchMap.set(key, { ...r, genres: mergedGenres });
+
+      if (incomingChapterCount > 0) {
+        const mergedChapters = dedupeChapterList([...existing.chapters, ...r.chapters]);
+        existing.chapters = mergedChapters;
+      }
+
+      if (incomingChapterCount > existingChapterCount) {
+        batchMap.set(key, {
+          ...r,
+          genres: [...new Set([...existing.genres, ...r.genres])],
+          chapters: dedupeChapterList([...existing.chapters, ...r.chapters]),
+        });
       }
     }
   }

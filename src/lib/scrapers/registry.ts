@@ -42,6 +42,32 @@ async function smartFetchHtml(url: string): Promise<string | null> {
     return null;
   }
 }
+
+/**
+ * Fetch HTML with retries + exponential backoff. 429/5xx responses and network
+ * errors are retried; other statuses fail fast. Backoff is capped so the
+ * worker stays inside its 60s budget.
+ */
+async function fetchHtmlWithRetry(url: string, retries = 3): Promise<string | null> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await smartFetch(url);
+      if (res.ok) return await res.text();
+      if (res.status === 429 || res.status >= 500) {
+        if (attempt < retries) {
+          await new Promise((r) => setTimeout(r, Math.min(8000, 1500 * Math.pow(2, attempt)) + Math.random() * 500));
+          continue;
+        }
+      }
+      return null;
+    } catch {
+      if (attempt < retries) {
+        await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+      }
+    }
+  }
+  return null;
+}
 // ---------------------------------
 
 import { browseSource1, browseSource2, browseSource3, browseSource4 } from "../scraper";
@@ -112,8 +138,27 @@ async function fetchManganatoChapters(slug: string): Promise<ChapterInfo[]> {
   return all;
 }
 
-/** Fetch genres / status / alt titles from the detail page HTML. */
-function parseManganatoMeta(html: string): { genres: string[]; status: string; altTitles: string[] } {
+/**
+ * Strip the "<Title> summary:" / "Overview:" / "About ...:" label that Manganato
+ * prefixes to the description block, in any of its wordings. The title itself
+ * may contain colons, so match up to the LAST label word near the start.
+ */
+function stripDescriptionLabel(text: string): string {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  return normalized
+    .replace(/^.{0,150}?\b(summary|overview|about|description|synopsis)\s*:\s*/i, "")
+    .trim();
+}
+
+/** True for site-chrome/boilerplate blocks that are not a real description. */
+function isBoilerplateDescription(text: string): boolean {
+  return !text
+    || text.length < 30
+    || /new feature|reading history|manganato automatically|read .{0,80} online for free/i.test(text);
+}
+
+/** Fetch description / genres / status / alt titles from the detail page HTML. */
+function parseManganatoMeta(html: string): { description: string; genres: string[]; status: string; altTitles: string[] } {
   try {
     const $ = cheerio.load(html);
     const genres: string[] = [];
@@ -121,6 +166,31 @@ function parseManganatoMeta(html: string): { genres: string[]; status: string; a
       const g = $(el).text().trim();
       if (g && g.length > 1 && !genres.includes(g)) genres.push(g);
     });
+
+    // Description: the site renders it as a div whose heading text is
+    // "<Title> summary:" — but the label varies (summary / overview / about /
+    // description / synopsis). Find the heading, take its container's text.
+    let description = "";
+    $("h1, h2, h3, h4").each((_, el) => {
+      if (description) return;
+      const heading = $(el).text().trim();
+      if (!/\b(summary|overview|about|description|synopsis)\s*:?\s*$/i.test(heading)) return;
+      const container = $(el).parent();
+      const candidate = stripDescriptionLabel(container.text());
+      if (!isBoilerplateDescription(candidate)) description = candidate.slice(0, 2000);
+    });
+    // Fallback: known description containers, then og:description
+    if (!description) {
+      for (const sel of ["#panel-story-info-description", ".panel-story-info-description", ".story-info-description", ".dsct"]) {
+        const candidate = stripDescriptionLabel($(sel).first().text());
+        if (!isBoilerplateDescription(candidate)) { description = candidate.slice(0, 2000); break; }
+      }
+    }
+    if (!description) {
+      const og = ($('meta[property="og:description"]').attr("content") || "").trim();
+      if (!isBoilerplateDescription(og)) description = og.slice(0, 2000);
+    }
+
     let status = "Ongoing";
     const bodyText = $("body").text();
     const sm = bodyText.match(/Status\s*:?\s*(Ongoing|Completed|Hiatus|Cancelled)/i);
@@ -128,9 +198,9 @@ function parseManganatoMeta(html: string): { genres: string[]; status: string; a
     let altTitles: string[] = [];
     const am = bodyText.match(/Alternative\s*:?\s*([^\n<]+)/i);
     if (am) altTitles = am[1].split(/[;,]/).map((s) => s.trim()).filter((s) => s && s.length > 1).slice(0, 8);
-    return { genres, status, altTitles };
+    return { description, genres, status, altTitles };
   } catch {
-    return { genres: [], status: "Ongoing", altTitles: [] };
+    return { description: "", genres: [], status: "Ongoing", altTitles: [] };
   }
 }
 
@@ -148,20 +218,23 @@ async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T)
   return results;
 }
 
-/** Enrich Manganato catalog results with chapters + genres via the API/HTML. */
+/** Enrich Manganato catalog results with chapters + description/genres via the API/HTML. */
 async function enrichManganato(results: MangaResult[]): Promise<MangaResult[]> {
   return mapWithConcurrency(results, 5, async (r) => {
     const slug = (r.url.split("/manga/")[1] || "").replace(/\/$/, "");
     if (!slug) return r;
     const [chapters, metaHtml] = await Promise.all([
       fetchManganatoChapters(slug),
-      smartFetch(r.url).then((res) => (res.ok ? res.text() : null)).catch(() => null),
+      fetchHtmlWithRetry(r.url, 2),
     ]);
-    const meta = metaHtml ? parseManganatoMeta(metaHtml) : { genres: [], status: r.status, altTitles: [] };
+    const meta = metaHtml
+      ? parseManganatoMeta(metaHtml)
+      : { description: "", genres: [], status: r.status, altTitles: [] };
     return {
       ...r,
       chapters,
       chapterCount: String(chapters.length || r.chapterCount),
+      description: meta.description || r.description,
       genres: meta.genres.length ? meta.genres : r.genres,
       status: meta.status || r.status,
     };
@@ -200,28 +273,36 @@ export async function browseSource(source: string, page: number): Promise<Scrape
     return await scraper(page);
   } catch (err) {
     console.error(`Error in scraper ${source} page ${page}:`, err);
-    return { results: [], hasMore: false };
+    // A thrown error is transient by definition — keep the chain alive and
+    // let the worker's empty-streak limit stop genuinely dead sources.
+    return { results: [], hasMore: true };
   }
 }
 
+// For paginated HTML sources an empty page can mean either "end of catalog"
+// or "transient fetch failure" — the two are indistinguishable from []. We
+// report hasMore=true and let the worker's empty-streak limit (5 consecutive
+// dead pages) terminate the chain, so one bad page can't kill a full sync.
 registerScraper("asura", async (page: number) => {
   const results = await browseSource1(page);
-  return { results, hasMore: results.length > 0 };
+  return { results, hasMore: true };
 });
 
 registerScraper("demonic", async (page: number) => {
   const results = await browseSource2(page);
-  return { results, hasMore: results.length > 0 };
+  return { results, hasMore: true };
 });
 
 registerScraper("scythe", async (page: number) => {
   const results = await browseSource3(page);
-  return { results, hasMore: results.length > 0 };
+  return { results, hasMore: true };
 });
 
+// Webtoons is a single-page catalog (see browseSource4) — page 2+ is a real
+// end signal, not a failure, so hasMore stays false.
 registerScraper("webtoons", async (page: number) => {
   const results = await browseSource4(page);
-  return { results, hasMore: results.length > 0 };
+  return { results, hasMore: false };
 });
 
 // Manganato full catalog lives at /manga-list/latest-manga?page=N (≈3,492 pages,
@@ -243,27 +324,31 @@ function manganatoMaxPage($: cheerio.CheerioAPI): number {
 registerScraper("manganato", async (page: number) => {
   try {
     const url = page <= 1 ? MANGANATO_BASE : `${MANGANATO_BASE}?page=${page}`;
-    const res = await smartFetch(url);
-    if (!res.ok) return { results: [], hasMore: false };
-    const html = await res.text();
+    const html = await fetchHtmlWithRetry(url, 3);
+    // Distinguish "fetch failed" from "past the last page": on failure keep
+    // hasMore=true so QStash re-queues the next page instead of killing the
+    // whole chain mid-catalog.
+    if (!html) {
+      console.warn(`[Scraper] Manganato page ${page}: fetch failed after retries`);
+      return { results: [], hasMore: true };
+    }
     const $ = cheerio.load(html);
 
     const maxPage = manganatoMaxPage($);
     const results: MangaResult[] = [];
     const seen = new Set<string>();
 
-    // Catalog cards: <a class="list-story-item bookmark_check cover" href title><img></a>
-    $(".list-story-item").each((_, el) => {
-      const href = $(el).attr("href") || "";
-      const m = href.match(/manganato\.gg\/manga\/([a-z0-9][a-z0-9-]*)/i);
-      if (!m) return; // skip chapter links
+    const addCard = (href: string, el: AnyNode) => {
+      const m = href.match(/manga\/([a-z0-9][a-z0-9-]*)/i);
+      if (!m) return;
       const fullUrl = `https://www.manganato.gg/manga/${m[1]}`;
       if (seen.has(fullUrl)) return;
 
-      const img = $(el).find("img").first();
+      const link = $(el);
+      const img = link.find("img").first();
       const coverUrl = img.attr("src") || img.attr("data-src") || "";
-      let title = $(el).attr("title") || "";
-      if (!title) title = img.attr("alt") || "";
+      let title = link.attr("title") || img.attr("alt") || "";
+      if (!title || title.length < 2) title = link.text().replace(/\s+/g, " ").trim();
       if (!title || title.length < 2) return;
 
       seen.add(fullUrl);
@@ -272,10 +357,23 @@ registerScraper("manganato", async (page: number) => {
         genres: [], chapters: [], chapterCount: "0", coverUrl, url: fullUrl,
         source: "Manganato", author: "Unknown", artist: "Unknown",
       });
-    });
+    };
 
-    // Enrich each title with its chapter list (via JSON API) + genres/status
-    // (via the detail HTML). Done within the worker's 60s budget (≈20 titles).
+    // Catalog cards: <a class="list-story-item bookmark_check cover" href title><img></a>
+    $(".list-story-item").each((_, el) => addCard($(el).attr("href") || "", el));
+
+    // Fallback if the card class changes: any /manga/{slug} link on the page
+    if (results.length === 0) {
+      $("a[href*='/manga/']").each((_, el) => {
+        const href = $(el).attr("href") || "";
+        if (href.includes("/manga/page") || href.includes("?")) return;
+        addCard(href, el);
+      });
+    }
+
+    // Enrich each title with its chapter list (via JSON API) + description/
+    // genres/status (via the detail HTML). Done within the worker's 60s
+    // budget (≈20 titles).
     const enriched = await enrichManganato(results);
 
     const hasMore = page < maxPage && enriched.length > 0;
@@ -284,7 +382,8 @@ registerScraper("manganato", async (page: number) => {
     return { results: enriched, hasMore };
   } catch (err) {
     console.error("[Scraper] Manganato error:", err instanceof Error ? err.message : err);
-    return { results: [], hasMore: false };
+    // Transient failure — keep the chain alive; worker empty-streak stops dead sources.
+    return { results: [], hasMore: true };
   }
 });
 
@@ -301,25 +400,34 @@ function omegaChapters(seriesSlug: string, raw: { free_chapters?: Record<string,
 
 registerScraper("omega", async (page: number) => {
   try {
-    const res = await smartFetch(`https://api.omegascans.org/query?query_string=&series_status=All&order=desc&orderBy=latest&series_type=Comic&page=${page}&perPage=15`);
-    if (!res.ok) return { results: [], hasMore: false };
-    const json = await res.json();
+    const url = `https://api.omegascans.org/query?query_string=&series_status=All&order=desc&orderBy=latest&series_type=Comic&page=${page}&perPage=15`;
+    let json: { data?: Array<Record<string, unknown>>; meta?: { current_page?: number; last_page?: number } } | null = null;
+    for (let attempt = 0; attempt <= 2 && !json; attempt++) {
+      try {
+        const res = await smartFetch(url);
+        if (res.ok) { json = await res.json(); break; }
+        if (res.status !== 429 && res.status < 500) break;
+      } catch { /* retry */ }
+      if (attempt < 2) await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+    }
+    // Transient failure: keep the chain alive, let the worker's empty-streak stop it.
+    if (!json) return { results: [], hasMore: true };
     const results: MangaResult[] = [];
     if (json.data && Array.isArray(json.data)) {
       for (const s of json.data) {
-        const chapters = omegaChapters(s.series_slug, s);
+        const chapters = omegaChapters(s.series_slug as string, s);
         results.push({
-          title: s.title, description: s.description || "", rating: s.rating ? String(s.rating) : "N/A", status: s.status || "Unknown", type: "Manhwa",
-          genres: Array.isArray(s.tags) ? s.tags.map((tag: { name?: string } | string) => typeof tag === "string" ? tag : tag.name).filter(Boolean) : [],
+          title: s.title as string, description: (s.description as string) || "", rating: s.rating ? String(s.rating) : "N/A", status: (s.status as string) || "Unknown", type: "Manhwa",
+          genres: Array.isArray(s.tags) ? (s.tags as Array<{ name?: string } | string>).map((tag) => typeof tag === "string" ? tag : tag.name).filter(Boolean) as string[] : [],
           chapters,
-          chapterCount: String(s.meta?.chapters_count || chapters.length || 0), coverUrl: s.thumbnail || "", url: `https://omegascans.org/series/${s.series_slug}`,
-          source: "Omega Scans", author: s.author || "Unknown", artist: s.artist || "Unknown"
+          chapterCount: String((s.meta as { chapters_count?: number } | undefined)?.chapters_count || chapters.length || 0), coverUrl: (s.thumbnail as string) || "", url: `https://omegascans.org/series/${s.series_slug}`,
+          source: "Omega Scans", author: (s.author as string) || "Unknown", artist: (s.artist as string) || "Unknown"
         });
       }
     }
-    return { results, hasMore: json.meta?.current_page < json.meta?.last_page };
+    return { results, hasMore: (json.meta?.current_page ?? 0) < (json.meta?.last_page ?? 0) };
   } catch {
-    return { results: [], hasMore: false };
+    return { results: [], hasMore: true };
   }
 });
 
@@ -537,7 +645,8 @@ registerScraper("manhuatop", async (page: number) => {
       ? `${MANHUATOP_BASE}/manhua/`
       : `${MANHUATOP_BASE}/manhua/page/${page}/`;
 
-    // Single ScrapingAnt call (fits within 60s budget).
+    // Single ScrapingAnt call (fits within 60s budget — no in-process retry;
+    // failures keep hasMore=true so the chain retries via QStash backoff).
     const html = await smartFetchHtml(listUrl);
     if (!html || html.includes("Just a moment")) {
       console.warn(`[Scraper] ManhuaTop page ${page}: CF challenge or empty`);
@@ -559,6 +668,7 @@ registerScraper("manhuatop", async (page: number) => {
     return { results, hasMore };
   } catch (err) {
     console.error("[Scraper] ManhuaTop error:", err instanceof Error ? err.message : err);
-    return { results: [], hasMore: false };
+    // Transient failure — keep the chain alive; worker empty-streak stops dead sources.
+    return { results: [], hasMore: page < 800 };
   }
 });

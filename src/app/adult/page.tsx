@@ -3,42 +3,18 @@
 /* eslint-disable @next/next/no-img-element -- Reader panels must stay full-resolution and bypass Next image resizing. */
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
+import { apiFetch } from "@/lib/apiClient";
+import VaultFX, { vaultFlash } from "@/components/vault/VaultFX";
+import SectionHead from "@/components/vault/SectionHead";
+import MangaCard, { type MangaResult } from "@/components/vault/MangaCard";
 
 interface ChapterInfo { title: string; url: string; date: string; }
-interface MangaResult {
-  title: string; description: string; rating: string; status: string;
-  type: string; genres: string[]; chapters: ChapterInfo[];
-  chapterCount: string; coverUrl: string; url: string;
-  source: string; author: string; artist: string;
-  omegaSlug?: string;
-}
 
 const ADULT_GENRES = [
-  "All",
-  "Action",
-  "Adult",
-  "Boys Love",
-  "Comedy",
-  "Doujinshi",
-  "Drama",
-  "Ecchi",
-  "Erotica",
-  "Fantasy",
-  "Full Color",
-  "Harem",
-  "Hentai",
-  "Isekai",
-  "Mature",
-  "Netorare",
-  "Office Workers",
-  "Pornographic",
-  "Romance",
-  "Slice of Life",
-  "SM BDSM",
-  "Smut",
-  "Supernatural",
-  "Yaoi",
-  "Yuri",
+  "All", "Action", "Adult", "Boys Love", "Comedy", "Doujinshi", "Drama",
+  "Ecchi", "Erotica", "Fantasy", "Full Color", "Girls Love", "Harem",
+  "Hentai", "Isekai", "Mature", "Netorare", "Office Workers", "Pornographic",
+  "Romance", "Slice of Life", "SM BDSM", "Smut", "Supernatural", "Yaoi", "Yuri",
 ];
 
 export default function AdultPage() {
@@ -57,6 +33,7 @@ export default function AdultPage() {
     });
     return () => window.cancelAnimationFrame(frame);
   }, []);
+
   const [results, setResults] = useState<MangaResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
@@ -66,7 +43,6 @@ export default function AdultPage() {
   const [hasMore, setHasMore] = useState(false);
   const [total, setTotal] = useState(0);
   const [selectedResult, setSelectedResult] = useState<MangaResult | null>(null);
-  const [showChapters, setShowChapters] = useState(false);
   const [loadedChapters, setLoadedChapters] = useState<ChapterInfo[]>([]);
   const [chaptersLoading, setChaptersLoading] = useState(false);
   const [readerUrl, setReaderUrl] = useState<string | null>(null);
@@ -112,11 +88,29 @@ export default function AdultPage() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
+    vaultFlash();
     setPage(1);
     setSubmittedQuery(query.trim());
   };
 
+  const openDetail = async (r: MangaResult) => {
+    setSelectedResult(r);
+    setLoadedChapters([]);
+    const slug = r.omegaSlug || r.sourceSlug || "";
+    if (!slug) return;
+    setChaptersLoading(true);
+    try {
+      const res = await fetch(`/api/adult/chapters?slug=${encodeURIComponent(slug)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setLoadedChapters(data.chapters || []);
+      }
+    } catch { /* */ }
+    finally { setChaptersLoading(false); }
+  };
+
   const openReader = async (chUrl: string) => {
+    vaultFlash();
     setReaderUrl(chUrl); setReaderLoading(true); setReaderError(""); setReaderImages([]); setShowNav(false);
     if (readerScrollRef.current) readerScrollRef.current.scrollTop = 0;
     try {
@@ -129,253 +123,221 @@ export default function AdultPage() {
     finally { setReaderLoading(false); }
   };
 
-  // ─── Age Gate ───
+  /* ─── Age Gate ─── */
   if (!confirmed) {
     return (
-      <div className="min-h-screen bg-bg-primary flex items-center justify-center px-4 overflow-hidden">
-        {/* Wrapper — popup + girl positioned together */}
-        <div className="relative">
-          {/* Main popup card */}
-          <div className="glass-card rounded-2xl p-8 sm:p-10 max-w-md w-full text-center space-y-6 border border-red-500/20 relative z-10">
-            <div className="w-16 h-16 mx-auto rounded-full bg-red-500/10 flex items-center justify-center">
-              <span className="text-3xl">🔞</span>
-            </div>
-            <h2 className="text-xl sm:text-2xl font-bold text-white">Age Verification Required</h2>
-            <p className="text-text-secondary text-sm leading-relaxed">
-              This section contains adult content intended for mature audiences only (18+). By proceeding, you confirm that you are of legal age in your jurisdiction.
+      <>
+        <VaultFX />
+        <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, position: "relative", zIndex: 10 }}>
+          <div className="agegate">
+            <p className="m-kicker" style={{ color: "#ff0000" }}>RESTRICTED SECTION — 18+</p>
+            <h2 style={{ fontWeight: 900, fontStyle: "italic", fontSize: "clamp(28px,5vw,44px)", lineHeight: .95, textTransform: "uppercase", margin: "0 0 18px" }}>
+              AGE<br />VERIFICATION
+            </h2>
+            <p style={{ color: "#aaa", fontSize: 13, lineHeight: 1.7, margin: "0 0 26px" }}>
+              This section contains adult content intended for mature audiences only (18+).
+              By proceeding, you confirm that you are of legal age in your jurisdiction.
             </p>
-            <div className="flex flex-col gap-3">
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <button
+                className="btn"
                 onClick={async () => {
-                  const res = await fetch("/api/adult/verify", { method: "POST" });
-                  if (res.ok) setConfirmed(true);
+                  await apiFetch("/api/adult/verify", { method: "POST" });
+                  vaultFlash();
+                  setConfirmed(true);
                 }}
-                className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-colors cursor-pointer"
               >
-                I am 18+ — Enter
+                I AM 18+ — ENTER THE VAULT
               </button>
-              <Link href="/" className="w-full py-3 bg-bg-card border border-border-subtle text-text-secondary font-medium rounded-xl hover:bg-bg-hover transition-colors block cursor-pointer">
-                Go Back
-              </Link>
+              <Link href="/" className="btn ghost">← GO BACK</Link>
             </div>
-          </div>
-
-          {/* Anime girl — flush against right edge of popup, bottom-aligned */}
-          <div
-            className="absolute z-20 pointer-events-none select-none hidden sm:block"
-            style={{
-              right: "-100px",
-              bottom: "-8px",
-            }}
-          >
             <img
               src="/images/anime-girl-chibi.png"
               alt=""
-              className="agegate-girl w-[150px] md:w-[180px] h-auto drop-shadow-[0_0_20px_rgba(239,68,68,0.3)]"
-              draggable={false}
               aria-hidden="true"
-            />
-          </div>
-
-          {/* Mobile: girl below the card, centered */}
-          <div className="sm:hidden flex justify-end -mt-4 mr-2 pointer-events-none select-none relative z-20">
-            <img
-              src="/images/anime-girl-chibi.png"
-              alt=""
-              className="agegate-girl w-[110px] h-auto drop-shadow-[0_0_20px_rgba(239,68,68,0.3)]"
               draggable={false}
-              aria-hidden="true"
+              style={{ position: "absolute", right: -80, bottom: -8, width: 150, filter: "grayscale(1) drop-shadow(6px 8px 0 rgba(0,0,0,.9))", pointerEvents: "none", userSelect: "none" }}
+              className="hidden sm:block"
             />
           </div>
         </div>
-      </div>
+      </>
     );
   }
 
-  // ─── Reader ───
+  /* ─── Reader ─── */
   if (readerUrl) {
     return (
-      <div className="fixed inset-0 z-50 bg-black flex flex-col">
-        <div className="flex items-center justify-between px-3 sm:px-5 py-2.5 bg-bg-secondary border-b border-border-subtle flex-shrink-0">
-          <button onClick={() => { setReaderUrl(null); setReaderImages([]); setReaderError(""); }} className="text-xs sm:text-sm text-text-secondary hover:text-white cursor-pointer rounded-lg px-3 py-1.5 bg-bg-card border border-border-subtle">← Back</button>
-          <button onClick={() => { setReaderUrl(null); setSelectedResult(null); }} className="text-text-muted hover:text-white p-1.5 cursor-pointer"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
+      <div className="reader">
+        <div className="reader-bar">
+          <button className="btn ghost sm" onClick={() => { setReaderUrl(null); setReaderImages([]); setReaderError(""); }}>← BACK</button>
+          <h3 className="reader-t">{selectedResult?.title}</h3>
+          <button className="m-close" style={{ position: "static" }} onClick={() => { setReaderUrl(null); setSelectedResult(null); }} aria-label="Close reader">✕</button>
         </div>
-        {readerLoading && <div className="flex-1 flex items-center justify-center"><p className="text-text-muted text-xs">Loading...</p></div>}
-        {readerError && <div className="flex-1 flex items-center justify-center"><p className="text-red-400 text-sm">{readerError}</p></div>}
+        {readerLoading && <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}><p style={{ color: "#888", fontSize: 11, letterSpacing: ".24em" }}>EXTRACTING PANELS…</p></div>}
+        {readerError && (
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 18 }}>
+            <p style={{ color: "#fff", fontSize: 13 }}>{readerError}</p>
+            <button className="btn" onClick={() => { setReaderUrl(null); setReaderError(""); }}>BACK</button>
+          </div>
+        )}
         {!readerLoading && !readerError && readerImages.length > 0 && (
-          <div ref={readerScrollRef} className="flex-1 overflow-y-auto">
-            <div className="max-w-3xl mx-auto flex flex-col items-center">
-              {readerImages.map((src, i) => (<img key={i} src={src} alt={`Page ${i + 1}`} className="w-full h-auto select-none" loading={i < 3 ? "eager" : "lazy"} referrerPolicy="no-referrer" draggable={false} />))}
-              <div className="py-8 text-center"><p className="text-text-muted text-xs mb-4">End of chapter</p>
-                <button onClick={() => { setReaderUrl(null); setReaderImages([]); }} className="neu-button">Back to chapters</button>
+          <div ref={readerScrollRef} style={{ flex: 1, overflowY: "auto", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" }}>
+            <div style={{ maxWidth: 768, margin: "0 auto", display: "flex", flexDirection: "column", alignItems: "center" }}>
+              {readerImages.map((src, i) => (
+                <img key={i} src={src} alt={`Page ${i + 1}`} style={{ width: "100%", height: "auto", userSelect: "none" }} loading={i < 3 ? "eager" : "lazy"} referrerPolicy="no-referrer" draggable={false} />
+              ))}
+              <div style={{ padding: "40px 0 60px", textAlign: "center" }}>
+                <p style={{ color: "#888", fontSize: 10, letterSpacing: ".24em", marginBottom: 18 }}>END OF CHAPTER</p>
+                <button className="btn" onClick={() => { setReaderUrl(null); setReaderImages([]); }}>BACK TO CHAPTERS</button>
               </div>
             </div>
+          </div>
+        )}
+        {showNav && !readerLoading && (
+          <div className="reader-nav" style={{ right: 20 }}>
+            <button className="btn ghost sm" onClick={() => { setReaderUrl(null); setReaderImages([]); }}>CHAPTERS ↑</button>
           </div>
         )}
       </div>
     );
   }
 
-  // ─── Detail Modal ───
+  /* ─── Detail Modal ─── */
   const detailModal = selectedResult && (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in" onClick={e => { if (e.target === e.currentTarget) { setSelectedResult(null); setShowChapters(false); setLoadedChapters([]); } }}>
-      <div className="w-full sm:max-w-2xl max-h-[90vh] bg-bg-secondary border border-border-subtle rounded-t-2xl sm:rounded-2xl overflow-hidden animate-slide-up flex flex-col">
-        <div className="flex items-start justify-between p-5 sm:p-6 border-b border-border-subtle">
-          <div className="flex gap-4 flex-1 min-w-0">
-            {selectedResult.coverUrl ? <div className="w-20 h-28 sm:w-24 sm:h-32 rounded-lg overflow-hidden flex-shrink-0 bg-bg-hover"><img src={selectedResult.coverUrl} alt="" className="w-full h-full object-cover" /></div> : <div className="w-20 h-28 sm:w-24 sm:h-32 rounded-lg bg-bg-card flex-shrink-0" />}
-            <div className="flex-1 min-w-0">
-              <h2 className="text-lg sm:text-xl font-bold text-white leading-snug">{selectedResult.title}</h2>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {selectedResult.rating !== "N/A" && <span className="text-xs bg-white/10 px-2 py-1 rounded-md">⭐ {selectedResult.rating}</span>}
-                <span className={`text-xs px-2 py-1 rounded-md ${selectedResult.status === "Completed" ? "bg-green-500/10 text-green-400" : "bg-blue-500/10 text-blue-400"}`}>{selectedResult.status}</span>
-              </div>
-            </div>
+    <div className="vmodal" role="dialog" aria-modal="true" aria-label={selectedResult.title}>
+      <div className="m-bg" onClick={() => { setSelectedResult(null); setLoadedChapters([]); }} />
+      <div className="m-panel">
+        <button className="m-close" onClick={() => { setSelectedResult(null); setLoadedChapters([]); }} aria-label="Close">✕</button>
+        <div className="m-grid">
+          <div className="m-cover">
+            {selectedResult.coverUrl
+              ? <img src={selectedResult.coverUrl} alt="" referrerPolicy="no-referrer" />
+              : <span className="cover-fallback">18+</span>}
           </div>
-          <button onClick={() => { setSelectedResult(null); setShowChapters(false); setLoadedChapters([]); }} className="ml-3 p-2 rounded-lg hover:bg-bg-hover text-text-muted hover:text-white cursor-pointer"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
-        </div>
-        <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5">
-          {selectedResult.genres.length > 0 && <div className="flex flex-wrap gap-1.5">{selectedResult.genres.map(g => <span key={g} className="text-xs px-2.5 py-1 rounded-full bg-white/5 text-text-secondary border border-border-subtle">{g}</span>)}</div>}
-          <p className="text-sm text-text-secondary leading-relaxed">{selectedResult.description}</p>
-          <div>
-            <button onClick={async () => {
-              const newState = !showChapters;
-              setShowChapters(newState);
-              // Fetch chapters on first expand if not loaded yet
-              if (newState && loadedChapters.length === 0) {
-                const slug = selectedResult.omegaSlug || "";
-                if (!slug) return;
-                setChaptersLoading(true);
-                try {
-                  const res = await fetch(`/api/adult/chapters?slug=${encodeURIComponent(slug)}`);
-                  if (res.ok) {
-                    const data = await res.json();
-                    setLoadedChapters(data.chapters || []);
-                  }
-                } catch { /* */ }
-                finally { setChaptersLoading(false); }
-              }
-            }} className="w-full flex items-center justify-between py-3 px-4 rounded-xl bg-bg-card border border-border-subtle hover:border-border-bright transition-all cursor-pointer">
-              <span className="text-sm font-medium text-white">Chapters ({selectedResult.chapterCount})</span>
-              <svg className={`w-4 h-4 text-text-muted transition-transform ${showChapters ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-            </button>
-            {showChapters && (
-              <div className="mt-2 overflow-y-auto rounded-xl border border-border-subtle divide-y divide-border-subtle" style={{ maxHeight: "50vh" }}>
-                {chaptersLoading && (
-                  <div className="py-6 text-center"><p className="text-text-muted text-xs animate-pulse">Loading chapters...</p></div>
-                )}
-                {!chaptersLoading && loadedChapters.length > 0 && loadedChapters.map((ch, i) => (
-                  <button key={i} onClick={() => openReader(ch.url)} className="w-full flex items-center px-4 py-3 hover:bg-bg-hover transition-colors cursor-pointer text-left gap-3">
-                    <span className="flex-1 text-sm text-green-400 font-medium truncate">{ch.title}</span>
-                    <span className="text-xs text-red-400">{ch.date || "—"}</span>
-                  </button>
-                ))}
-                {!chaptersLoading && loadedChapters.length === 0 && (
-                  <div className="py-6 text-center"><p className="text-text-muted text-xs">No chapters available</p></div>
-                )}
+          <div className="m-body">
+            <p className="m-kicker" style={{ color: "#ff0000" }}>{selectedResult.type} · 18+ · {selectedResult.source}</p>
+            <h3 className="m-title">{selectedResult.title}</h3>
+            <div className="m-stats">
+              {selectedResult.rating !== "N/A" && <span>RATING <b>★ {selectedResult.rating}</b></span>}
+              <span>CHAPTERS <b>{selectedResult.chapterCount || "—"}</b></span>
+              <span>STATUS <b>{selectedResult.status}</b></span>
+            </div>
+            {selectedResult.genres.length > 0 && (
+              <div className="tags" style={{ marginTop: 12 }}>
+                {selectedResult.genres.map(g => <span key={g} className="tag">{g}</span>)}
               </div>
             )}
+            <p className="m-syn">{selectedResult.description}</p>
+            <p className="m-ch-h">CHAPTERS ({selectedResult.chapterCount})</p>
+            <ul className="m-ch">
+              {chaptersLoading && <li><span style={{ color: "#888" }}>LOADING CHAPTERS…</span></li>}
+              {!chaptersLoading && loadedChapters.length > 0 && loadedChapters.map((ch, i) => (
+                <li key={i} style={{ padding: 0, border: 0 }}>
+                  <button onClick={() => openReader(ch.url)}>
+                    <span>{ch.title}</span>
+                    <span className="ch-date">{ch.date || "—"}</span>
+                  </button>
+                </li>
+              ))}
+              {!chaptersLoading && loadedChapters.length === 0 && (
+                <li><span style={{ color: "#888" }}>NO CHAPTERS AVAILABLE</span></li>
+              )}
+            </ul>
           </div>
         </div>
       </div>
     </div>
   );
 
-  // ─── Main Page ───
+  /* ─── Main Page ─── */
   return (
-    <div className="min-h-screen bg-bg-primary">
-      <header className="border-b border-border-subtle bg-bg-secondary/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-            <div className="w-8 h-8 rounded-lg bg-red-600 flex items-center justify-center flex-shrink-0">
-              <span className="text-white font-bold text-xs">18+</span>
-            </div>
-            <span className="text-lg sm:text-xl font-bold tracking-tight">Manga<span className="text-text-muted">Vault</span> <span className="text-red-400 text-sm font-normal">Adult</span></span>
-          </Link>
-          <Link href="/" className="text-xs sm:text-sm text-white bg-bg-card border border-border-bright rounded-lg px-3 py-1.5 hover:bg-bg-hover transition-colors">← Home</Link>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        {/* Search */}
-        <form onSubmit={handleSearch} className="mb-6">
-          <div className="flex gap-2">
-            <input type="text" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search adult titles..." className="flex-1 bg-bg-card border border-border-subtle rounded-xl px-4 py-3 text-sm text-white placeholder-text-muted outline-none focus:border-border-bright transition-colors" />
-            <button type="submit" className="px-5 py-3 bg-red-600 hover:bg-red-700 text-white font-medium text-sm rounded-xl transition-colors cursor-pointer">Search</button>
+    <>
+      <VaultFX />
+      {/* standalone 18+ header — separate chrome from the main vault */}
+      <header id="topbar">
+        <Link className="logo" href="/adult">MANGAVAULT<span className="logo-dot" style={{ color: "#ff0000" }}>18+</span></Link>
+        <form id="search" role="search" style={{ marginLeft: "auto" }} onSubmit={handleSearch}>
+          <div className="searchbox">
+            <span className="s-ic" aria-hidden="true">⌖</span>
+            <input
+              id="q"
+              type="text"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="SEARCH ADULT TITLES…"
+              autoComplete="off"
+              aria-label="Search adult titles"
+            />
+            <button type="submit" className="s-go">GO</button>
           </div>
         </form>
+        <Link href="/" className="btn ghost sm" style={{ flexShrink: 0 }}>← HOME</Link>
+      </header>
 
-        {/* Genre filter */}
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-4 mb-4">
-          {ADULT_GENRES.map(g => (
-            <button key={g} onClick={() => { setGenre(g); setPage(1); }} className={`cursor-pointer flex items-center px-5 py-2.5 rounded-3xl transition font-bold shadow-md text-xs flex-shrink-0 uppercase tracking-wide ${g === genre ? "bg-red-600 text-white" : "bg-black/80 text-white hover:bg-black/60 border border-white/10"}`}>
-              {g}
-            </button>
-          ))}
-        </div>
+      <div className="vault-content">
+        <main className="wrap">
+          <SectionHead
+            idx="SEC.18+"
+            as="h1"
+            title={<>THE RED<br />VAULT</>}
+            right={loading ? "SCANNING…" : `${total} TITLES${genre !== "All" ? ` · ${genre.toUpperCase()}` : ""}`}
+          />
 
-        {/* Results count */}
-        <p className="text-text-muted text-xs mb-4">{total} titles{genre !== "All" ? ` in ${genre}` : ""}{submittedQuery ? ` matching "${submittedQuery}"` : ""}</p>
+          <div className="mq" aria-hidden="true" style={{ marginTop: 0, marginBottom: 30 }}>
+            <div className="mq-in">{"RESTRICTED SECTION ✦ 18+ ONLY ✦ MATURE CONTENT ✦ ".repeat(4)}</div>
+          </div>
 
-        {/* Loading */}
-        {loading && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
-            {[...Array(8)].map((_, i) => (
-              <div key={i} className="glass-card rounded-xl overflow-hidden animate-pulse"><div className="aspect-[3/4] bg-bg-hover" /><div className="p-3 space-y-2"><div className="h-4 bg-bg-hover rounded w-3/4" /><div className="h-3 bg-bg-hover rounded w-1/2" /></div></div>
+          {/* Genre chips */}
+          <div className="chips">
+            {ADULT_GENRES.map(g => (
+              <button key={g} className={`chip${g === genre ? " on" : ""}`} onClick={() => { vaultFlash(); setGenre(g); setPage(1); }}>
+                {g}
+              </button>
             ))}
           </div>
-        )}
 
-        {/* Results grid */}
-        {!loading && results.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
-            {results.map((r, i) => {
-              const statusColor = r.status.toLowerCase() === "completed" ? "bg-red-500/90 text-white" : r.status.toLowerCase() === "ongoing" ? "bg-green-500/90 text-white" : "bg-yellow-500/90 text-black";
-              return (
-                <button key={`${r.title}-${i}`} onClick={() => { setSelectedResult(r); setShowChapters(false); setLoadedChapters([]); }} className="glass-card rounded-xl overflow-hidden text-left transition-all duration-200 hover:translate-y-[-4px] hover:shadow-lg group cursor-pointer flex flex-col w-full focus:outline-none">
-                  <div className="relative aspect-[3/4] bg-bg-hover overflow-hidden">
-                    {r.coverUrl ? <img src={r.coverUrl} alt={r.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} /> : <div className="w-full h-full flex items-center justify-center bg-bg-card"><span className="text-3xl">🔞</span></div>}
-                    <span className={`absolute top-2 left-2 text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-md shadow-md ${statusColor}`}>{r.status}</span>
-                    <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
-                  </div>
-                  <div className="p-3 sm:p-3.5 flex flex-col gap-2 flex-1">
-                    <h3 className="font-bold text-sm sm:text-base text-white line-clamp-2 leading-snug">{r.title}</h3>
-                    <div className="flex items-center justify-between gap-2 mt-auto">
-                      <span className="text-xs sm:text-sm font-semibold text-text-secondary truncate">{r.genres[0] || r.type}</span>
-                      {r.rating !== "N/A" && <span className="text-xs sm:text-sm font-bold text-text-primary">⭐ {r.rating}</span>}
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
+          {/* Results */}
+          {loading ? (
+            <div className="empty">SCANNING THE RED VAULT…</div>
+          ) : results.length === 0 ? (
+            <div className="empty">NO RESULTS FOUND.</div>
+          ) : (
+            <div className="comic-grid">
+              {results.map((r, i) => (
+                <MangaCard key={`${r.title}-${i}`} result={r} onClick={() => openDetail(r)} index={i} priority={i < 4} />
+              ))}
+            </div>
+          )}
+
+          {/* Pagination */}
+          {(hasMore || page > 1) && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 18, marginTop: 40 }}>
+              <button className="btn ghost sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}>← PREV</button>
+              <span style={{ color: "#888", fontSize: 11, letterSpacing: ".2em" }}>PAGE {String(page).padStart(2, "0")}</span>
+              <button className="btn ghost sm" onClick={() => setPage(p => p + 1)} disabled={!hasMore}>NEXT →</button>
+            </div>
+          )}
+        </main>
+
+        {detailModal}
+
+        <footer className="vfooter wrap">
+          <span className="f-word outline">RED VAULT</span>
+          <div className="f-grid">
+            <div>RESTRICTED SECTION<br />18+ ONLY</div>
+            <div>
+              <Link href="/">HOME</Link><br />
+              <Link href="/docs">API DOCS</Link><br />
+              <Link href="/privacy">PRIVACY</Link>
+            </div>
+            <div>
+              <Link href="/terms">TERMS</Link><br />
+              <Link href="/dmca">DMCA</Link>
+            </div>
           </div>
-        )}
-
-        {!loading && results.length === 0 && <div className="text-center py-16"><p className="text-text-secondary text-sm">No results found</p></div>}
-
-        {/* Pagination */}
-        {(hasMore || page > 1) && (
-          <div className="flex items-center justify-center gap-3 mt-8">
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1} className="px-4 py-2.5 rounded-xl border border-border-subtle bg-bg-card text-text-secondary text-sm disabled:opacity-30 cursor-pointer hover:bg-bg-hover">← Prev</button>
-            <span className="text-text-muted text-sm">Page {page}</span>
-            <button onClick={() => setPage(p => p + 1)} disabled={!hasMore} className="px-4 py-2.5 rounded-xl border border-border-subtle bg-bg-card text-text-secondary text-sm disabled:opacity-30 cursor-pointer hover:bg-bg-hover">Next →</button>
-          </div>
-        )}
-      </main>
-
-      {detailModal}
-
-      <footer className="border-t border-border-subtle py-6 mt-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-text-muted">
-          <span>© {new Date().getFullYear()} MangaVault</span>
-          <div className="flex flex-wrap gap-4">
-            <Link href="/" className="hover:text-white transition-colors">Home</Link>
-            <Link href="/docs" className="hover:text-white transition-colors">API Docs</Link>
-            <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
-            <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
-            <Link href="/dmca" className="hover:text-white transition-colors">DMCA</Link>
-          </div>
-        </div>
-      </footer>
-    </div>
+        </footer>
+      </div>
+    </>
   );
 }

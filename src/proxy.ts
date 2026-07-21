@@ -9,7 +9,6 @@ interface RateLimitConfig {
 }
 
 const RATE_LIMITS: Record<string, RateLimitConfig> = {
-  "/api/image": { window: "60 s", max: 200 },
   "/api/img": { window: "60 s", max: 200 },
   "/api/reader": { window: "60 s", max: 15 },
   "/api/search": { window: "60 s", max: 30 },

@@ -7,30 +7,26 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "migrate:mongo": "tsx scripts/migrate-mongodb.ts"
+    "migrate:mongo": "tsx scripts/migrate-mongodb.ts",
+    "sync:all": "tsx scripts/sync-all-sources.ts",
+    "qstash:schedule": "tsx scripts/setup-qstash-schedule.ts"
   },
   "dependencies": {
-    "@types/crypto-js": "^4.2.2",
-    "@types/uuid": "^10.0.0",
     "@upstash/qstash": "^2.11.1",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.0",
     "cheerio": "^1.2.0",
-    "crypto-js": "^4.2.0",
     "dotenv": "17.3.1",
     "lru-cache": "^11.5.1",
     "mongodb": "^7.4.0",
     "next": "16.2.6",
-    "opossum": "^9.0.0",
     "react": "19.2.6",
     "react-dom": "19.2.6",
-    "sharp": "^0.35.3",
-    "uuid": "^14.0.1"
+    "sharp": "^0.35.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.1.17",
     "@types/node": "22.19.15",
-    "@types/opossum": "^8.1.9",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "eslint": "9.39.4",

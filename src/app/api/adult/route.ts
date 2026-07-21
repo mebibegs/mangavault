@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getMongoDb } from "@/lib/mongodb";
 import { toSafeResult } from "@/lib/safeResult";
 
+// Genre names that mark a title as 18+. Matching is case-insensitive and
+// tolerant of separator variants ("Boys Love" / "Boys_Love" / "boys-love")
+// because sources disagree on formatting.
 const ADULT_GENRES = [
   "Adult",
   "Mature",
@@ -14,6 +17,7 @@ const ADULT_GENRES = [
   "Yaoi",
   "Yuri",
   "Boys Love",
+  "Girls Love",
   "Netorare",
   "SM BDSM",
 ];
@@ -21,6 +25,17 @@ const ADULT_GENRES = [
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
+
+/** Case-insensitive, separator-tolerant exact-match regex for a genre name. */
+function genreRegex(name: string): RegExp {
+  const pattern = name
+    .split(/\s+/)
+    .map(escapeRegex)
+    .join("[\\s_-]+");
+  return new RegExp(`^${pattern}$`, "i");
+}
+
+const ADULT_GENRE_REGEXES = ADULT_GENRES.map(genreRegex);
 
 function getSourceSlug(url: string): string {
   try {
@@ -50,7 +65,7 @@ export async function GET(req: NextRequest) {
 
     const adultFilter = {
       $or: [
-        { genres: { $in: ADULT_GENRES } },
+        { genres: { $in: ADULT_GENRE_REGEXES } },
         { source: { $regex: /demonic|omega/i } },
       ],
     };
@@ -58,7 +73,7 @@ export async function GET(req: NextRequest) {
     const filters: Record<string, unknown>[] = [adultFilter];
 
     if (genre && genre !== "All") {
-      filters.push({ genres: { $regex: new RegExp(`^${escapeRegex(genre)}$`, "i") } });
+      filters.push({ genres: genreRegex(genre) });
     }
 
     if (query) {

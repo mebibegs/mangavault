@@ -29,3 +29,7 @@ pnpm-debug.log*
 .cache/
 .eslintcache
 *.tsbuildinfo
+
+# scraper runtime state
+scripts/.resync-gaps-state.json
+scripts/*.log

@@ -24,10 +24,6 @@
       "maxDuration": 10,
       "memory": 256
     },
-    "src/app/api/image/route.ts": {
-      "maxDuration": 10,
-      "memory": 256
-    },
     "src/app/api/cron/route.ts": {
       "maxDuration": 60,
       "memory": 512

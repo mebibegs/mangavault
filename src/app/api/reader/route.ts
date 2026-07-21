@@ -287,6 +287,9 @@ async function fetchPage(
   url: string,
   headers: Record<string, string>
 ): Promise<string | null> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20000);
+
   try {
     // ManhuaTop is Cloudflare-protected — route through ScrapingAnt (real browser)
     // which solves the JS challenge. Takes ~40-50s but the result is cached 24h.
@@ -298,18 +301,17 @@ async function fetchPage(
       return await res.text();
     }
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 20000);
     const res = await fetch(url, {
       headers,
       signal: controller.signal,
       redirect: "follow",
     });
-    clearTimeout(timeout);
     if (!res.ok) return null;
     return await res.text();
   } catch {
     return null;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 

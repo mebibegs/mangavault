@@ -58,6 +58,30 @@ async function fetchSafe(url: string): Promise<string | null> {
 }
 
 /**
+ * Listing-page fetch with retries + backoff on 429/5xx/network errors.
+ * Used by the browse/catalog paths (sync worker, 60s budget) — search paths
+ * keep the single-attempt fetchSafe to stay inside their 10s budget.
+ */
+async function fetchSafeRetry(url: string, retries = 2): Promise<string | null> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetchWithTimeout(url);
+      if (res.ok) return await res.text();
+      if ((res.status === 429 || res.status >= 500) && attempt < retries) {
+        await new Promise((r) => setTimeout(r, Math.min(4000, 1000 * Math.pow(2, attempt)) + Math.random() * 500));
+        continue;
+      }
+      return null;
+    } catch {
+      if (attempt < retries) {
+        await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+      }
+    }
+  }
+  return null;
+}
+
+/**
  * Webtoons-specific fetch that includes cookies to bypass the mature content
  * age gate dialog ("This series contains adult themes...").  Without these
  * cookies the server may return a page that only shows the age-gate popup,
@@ -383,7 +407,7 @@ async function searchSource1(query: string): Promise<MangaResult[]> {
 export async function browseSource1(page: number): Promise<MangaResult[]> {
   try {
     // Asura browse page (they use client-side rendering, but the browse page has items)
-    const html = await fetchSafe(`https://asurascans.com/browse?page=${page}&sort=update`);
+    const html = await fetchSafeRetry(`https://asurascans.com/browse?page=${page}&sort=update`);
     if (!html) return [];
     const $ = cheerio.load(html);
     const links: {title:string;href:string}[] = [];
@@ -503,13 +527,15 @@ async function searchSource2(query: string): Promise<MangaResult[]> {
 
 export async function browseSource2(page: number): Promise<MangaResult[]> {
   try {
-    // Demonic scans listing pages
+    // Demonic scans listing pages. The homepage always returns results, so it
+    // is only included on page 1 — otherwise every page of the chain would be
+    // non-empty and the sync would run to MAX_PAGES re-scraping the same cards.
     const urls = [
-      `https://demonicscans.org/index.php`,
       `https://demonicscans.org/manga-list.php?page=${page}`,
       `https://demonicscans.org/latest.php?page=${page}`,
     ];
-    const htmls = await Promise.all(urls.map(u => fetchSafe(u)));
+    if (page <= 1) urls.unshift(`https://demonicscans.org/index.php`);
+    const htmls = await Promise.all(urls.map(u => fetchSafeRetry(u)));
     const allResults: MangaResult[] = [];
 
     for (const html of htmls) {
@@ -695,7 +721,7 @@ export async function browseSource3(page: number): Promise<MangaResult[]> {
       `https://scythescans.com/page/${page}/`,
       `https://scythescans.com/manga/page/${page}/`,
     ];
-    const htmls = await Promise.all(urls.map(u => fetchSafe(u)));
+    const htmls = await Promise.all(urls.map(u => fetchSafeRetry(u)));
     const allResults: MangaResult[] = [];
 
     for (const html of htmls) {
@@ -1123,9 +1149,10 @@ async function searchManganato(query: string): Promise<MangaResult[]> {
     $("a[href*='/manga/']").each((_, el) => {
       const href = $(el).attr("href") || "";
       const title = $(el).attr("title") || $(el).find("img").attr("alt") || $(el).text().trim();
-      if (!href || !title || results.some((r) => r.url === href)) return;
+      const url = href.startsWith("http") ? href : `https://www.manganato.gg${href.startsWith("/") ? "" : "/"}${href}`;
+      if (!href || !title || results.some((r) => r.url === url)) return;
       const coverUrl = $(el).find("img").attr("src") || $(el).find("img").attr("data-src") || "";
-      results.push({ title, description: "", rating: "N/A", status: "Ongoing", type: "Manga", genres: [], chapters: [], chapterCount: "0", coverUrl, url: href, source: "Manganato", author: "Unknown", artist: "Unknown" });
+      results.push({ title, description: "", rating: "N/A", status: "Ongoing", type: "Manga", genres: [], chapters: [], chapterCount: "0", coverUrl, url, source: "Manganato", author: "Unknown", artist: "Unknown" });
     });
     return results.slice(0, 10);
   } catch {
@@ -1146,9 +1173,10 @@ async function searchManhuaTop(query: string): Promise<MangaResult[]> {
     $("a[href*='/manhua/'], a[href*='/manga/']").each((_, el) => {
       const href = $(el).attr("href") || "";
       const title = $(el).attr("title") || $(el).find("h3,h4,h5").text().trim() || $(el).text().trim();
-      if (!href || !title || !/\/(manhua|manga)\/[a-z0-9-]+\/?$/i.test(href) || results.some((r) => r.url === href)) return;
+      const url = href.startsWith("http") ? href : `https://manhuatop.org${href.startsWith("/") ? "" : "/"}${href}`;
+      if (!href || !title || !/\/(manhua|manga)\/[a-z0-9-]+\/?$/i.test(href) || results.some((r) => r.url === url)) return;
       const coverUrl = $(el).find("img").attr("src") || $(el).find("img").attr("data-src") || "";
-      results.push({ title, description: "", rating: "N/A", status: "Ongoing", type: "Manhua", genres: [], chapters: [], chapterCount: "0", coverUrl, url: href, source: "ManhuaTop", author: "Unknown", artist: "Unknown" });
+      results.push({ title, description: "", rating: "N/A", status: "Ongoing", type: "Manhua", genres: [], chapters: [], chapterCount: "0", coverUrl, url, source: "ManhuaTop", author: "Unknown", artist: "Unknown" });
     });
     return results.slice(0, 10);
   } catch {

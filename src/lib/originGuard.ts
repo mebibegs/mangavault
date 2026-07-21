@@ -1,14 +1,19 @@
 import { NextRequest } from "next/server";
 import { verifyCsrfToken } from "./csrf";
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "";
+function normalizeOrigin(value: string): string {
+  try {
+    return new URL(value).origin;
+  } catch {
+    return value.trim().replace(/\/$/, "");
+  }
+}
+
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ? normalizeOrigin(process.env.NEXT_PUBLIC_BASE_URL) : "";
 
 function getAllowedOrigins(): Set<string> {
   const origins = new Set<string>();
   if (BASE_URL) origins.add(BASE_URL);
-  // Allow localhost during development
-  origins.add("http://localhost:3000");
-  origins.add("http://127.0.0.1:3000");
   return origins;
 }
 
@@ -17,10 +22,24 @@ export function isFromOwnOrigin(req: NextRequest): boolean {
   const origin = req.headers.get("origin");
   const referer = req.headers.get("referer");
 
-  if (origin) return allowed.has(origin);
+  const isAllowedOrigin = (value: string): boolean => {
+    const normalized = normalizeOrigin(value);
+    if (allowed.has(normalized)) return true;
+
+    try {
+      const parsed = new URL(normalized);
+      if (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") return true;
+    } catch {
+      // ignore invalid origins
+    }
+
+    return false;
+  };
+
+  if (origin) return isAllowedOrigin(origin);
   if (referer) {
     try {
-      return allowed.has(new URL(referer).origin);
+      return isAllowedOrigin(new URL(referer).origin);
     } catch {
       return false;
     }
