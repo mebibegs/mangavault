@@ -87,12 +87,12 @@ export async function proxy(req: NextRequest, event: NextFetchEvent): Promise<Ne
 
   const limiter = getLimiter(rateLimit.routeKey, rateLimit.config);
   if (!limiter) {
-    if (process.env.NODE_ENV === "production") {
-      return NextResponse.json({ error: "Rate limiter is not configured" }, { status: 503 });
-    }
-
+    // No Redis credentials visible to the deployment. Fail OPEN so a missing
+    // integration degrades to "no throttling" instead of a full API outage —
+    // but log every request loudly so it shows up in Vercel logs.
+    console.error(`[RateLimit] No Redis configured — ${pathname} allowed without rate limiting. Set UPSTASH_REDIS_REST_URL/TOKEN or attach Vercel KV.`);
     const res = NextResponse.next();
-    res.headers.set("X-RateLimit-Remaining", String(rateLimit.config.max));
+    res.headers.set("X-RateLimit-Mode", "disabled");
     return applySecurityHeaders(res);
   }
 
