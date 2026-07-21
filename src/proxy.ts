@@ -1,7 +1,7 @@
 import { Ratelimit } from "@upstash/ratelimit";
-import { Redis } from "@upstash/redis";
 import { NextFetchEvent, NextRequest, NextResponse } from "next/server";
 import { ADULT_COOKIE_NAME, verifyAdultCookieValue } from "@/lib/adultCookie";
+import { getRedis } from "@/lib/redisEnv";
 
 interface RateLimitConfig {
   window: `${number} s` | `${number}s` | `${number} m` | `${number}m`;
@@ -17,8 +17,7 @@ const RATE_LIMITS: Record<string, RateLimitConfig> = {
   "/api/csrf": { window: "60 s", max: 10 },
 };
 
-const hasRedisConfig = Boolean(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN);
-const redis = hasRedisConfig ? Redis.fromEnv() : null;
+const redis = getRedis();
 
 const limiters = new Map<string, Ratelimit>();
 

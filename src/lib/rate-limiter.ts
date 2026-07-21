@@ -1,5 +1,5 @@
 import { Ratelimit } from "@upstash/ratelimit";
-import { Redis } from "@upstash/redis";
+import { getRedis } from "./redisEnv";
 
 const RATE_LIMIT = 15;
 
@@ -13,9 +13,7 @@ export interface RateLimitResult {
   reason?: string;
 }
 
-const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
-  ? Redis.fromEnv()
-  : null;
+const redis = getRedis();
 
 const limiter = redis
   ? new Ratelimit({

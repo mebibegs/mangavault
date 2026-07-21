@@ -1,6 +1,6 @@
 import { LRUCache } from "lru-cache";
-import { Redis } from "@upstash/redis";
 import type { MangaResult } from "./scraper";
+import { getRedis } from "./redisEnv";
 
 const SEARCH_TTL_SECONDS = 60 * 15;
 const TRENDING_TTL_SECONDS = 60 * 15;
@@ -10,9 +10,7 @@ const memoryCache = new LRUCache<string, MangaResult[] | { results: MangaResult[
   ttl: SEARCH_TTL_SECONDS * 1000,
 });
 
-const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
-  ? Redis.fromEnv()
-  : null;
+const redis = getRedis();
 
 function searchKey(query: string): string {
   return `mangavault:cache:search:${query.toLowerCase().trim()}`;
