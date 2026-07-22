@@ -227,10 +227,11 @@ body.no-gl { background: radial-gradient(120% 90% at 50% 10%, #161616 0%, #000 6
 }
 .hero-r .card { height: auto; }
 .hero-r .cover-wrap { min-height: clamp(380px, 44vh, 540px); }
-.cover-wrap { position: relative; flex: 1; min-height: 120px; border-bottom: 4px solid #fff; background: #000; }
+/* cover-wrap uses a 3:4 portrait aspect ratio so the full cover is always visible */
+.cover-wrap { position: relative; width: 100%; aspect-ratio: 3/4; border-bottom: 4px solid #fff; background: #000; flex-shrink: 0; }
 .cover-clip { position: absolute; inset: 0; overflow: hidden; background: #000; }
 .cover-clip img {
-  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top center;
   filter: contrast(1.02); transition: filter .15s;
 }
 .card:hover .cover-clip img { filter: contrast(1.06) brightness(1.03); }
@@ -263,7 +264,12 @@ body.no-gl { background: radial-gradient(120% 90% at 50% 10%, #161616 0%, #000 6
 .row1 { display: flex; align-items: center; gap: 8px; font-size: 11px; letter-spacing: .1em; color: #ddd; flex-wrap: wrap; }
 .row1 .rate { font-weight: 900; color: #fff; }
 .row1 .dot { color: #888; }
-.row1 .st { margin-left: auto; color: #888; font-size: 9px; letter-spacing: .18em; border: 1px solid #333; padding: 2px 6px; text-transform: uppercase; }
+.row1 .st { margin-left: auto; font-size: 9px; letter-spacing: .18em; border: 1px solid; padding: 2px 6px; text-transform: uppercase; }
+.st-ongoing { color: #4ade80; border-color: #4ade80; }
+.st-completed { color: #60a5fa; border-color: #60a5fa; }
+.st-dropped { color: #f87171; border-color: #f87171; }
+.st-hiatus { color: #facc15; border-color: #facc15; }
+.st-default { color: #888; border-color: #333; }
 .tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .tag { border: 1px solid #fff; color: #ddd; font-size: 9px; letter-spacing: .16em; padding: 4px 8px; text-transform: uppercase; }
 

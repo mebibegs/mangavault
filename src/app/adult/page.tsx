@@ -216,7 +216,7 @@ export default function AdultPage() {
               : <span className="cover-fallback">18+</span>}
           </div>
           <div className="m-body">
-            <p className="m-kicker" style={{ color: "#ff0000" }}>{selectedResult.type} · 18+ · {selectedResult.source}</p>
+            <p className="m-kicker" style={{ color: "#ff0000" }}>{selectedResult.type} · 18+</p>
             <h3 className="m-title">{selectedResult.title}</h3>
             <div className="m-stats">
               {selectedResult.rating !== "N/A" && <span>RATING <b>★ {selectedResult.rating}</b></span>}

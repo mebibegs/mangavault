@@ -150,7 +150,7 @@ export default function DetailModal({ result, onClose }: { result: MangaResult; 
               : <span className="cover-fallback">{result.title.slice(0, 1).toUpperCase()}</span>}
           </div>
           <div className="m-body">
-            <p className="m-kicker">{result.type} · {result.source}</p>
+            <p className="m-kicker">{result.type}</p>
             <h3 className="m-title">{result.title}</h3>
             <div className="m-stats">
               {result.rating !== "N/A" && <span>RATING <b>★ {result.rating}</b></span>}

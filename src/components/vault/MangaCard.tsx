@@ -63,6 +63,15 @@ const MangaCard = memo(function MangaCard({
 }) {
   const ref = useReveal<HTMLButtonElement>(index);
 
+  const statusClass = (() => {
+    const s = result.status.toLowerCase();
+    if (s === "ongoing") return "st-ongoing";
+    if (s === "completed" || s === "finished") return "st-completed";
+    if (s === "dropped" || s === "cancelled" || s === "canceled") return "st-dropped";
+    if (s === "hiatus" || s === "on hiatus") return "st-hiatus";
+    return "st-default";
+  })();
+
   const onMove = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
     const el = ref.current; if (!el) return;
     const r = el.getBoundingClientRect();
@@ -123,7 +132,6 @@ const MangaCard = memo(function MangaCard({
             )}
           </span>
           <span className="speed" />
-          {result.source && <span className="src-badge">{result.source}</span>}
           {rank != null && <span className="rankwrap"><span className="rank">{rank}</span></span>}
           {pop && <PopArt />}
         </span>
@@ -133,7 +141,7 @@ const MangaCard = memo(function MangaCard({
           <span className="row1">
             {result.rating !== "N/A" && <><span className="rate">★ {result.rating}</span><span className="dot">•</span></>}
             <span>CH. {result.chapterCount !== "0" ? result.chapterCount : "—"}</span>
-            <span className="st">{result.status}</span>
+            <span className={`st ${statusClass}`}>{result.status}</span>
           </span>
           {result.genres.length > 0 && (
             <>

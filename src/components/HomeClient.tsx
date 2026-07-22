@@ -12,7 +12,7 @@ export type { MangaResult };
 
 const DetailModal = dynamic(() => import("@/components/DetailModal"), { ssr: false });
 
-const MARQUEE = "NOW INDEXING ✦ ASURA SCANS ✦ MANGANATO ✦ WEBTOONS ✦ OMEGA SCANS ✦ DEMONIC SCANS ✦ SCYTHE SCANS ✦ MANHUATOP ✦ ";
+const MARQUEE = "NOW INDEXING ✦ MANGA ✦ MANHWA ✦ MANHUA ✦ WEBTOONS ✦ COMICS ✦ DONGHUA ✦ ";
 
 export default function HomeClient({ initialTrending }: { initialTrending: MangaResult[] }) {
   const [trending, setTrending] = useState<MangaResult[]>(initialTrending);
@@ -132,7 +132,6 @@ function LatestRow({ result, index, onClick }: { result: MangaResult; index: num
         <span className="li-m">
           <b>{latestCh.toUpperCase().slice(0, 14)}</b>
           {result.chapters[0]?.date && <span>{result.chapters[0].date.toUpperCase()}</span>}
-          <span>{result.source.toUpperCase()}</span>
         </span>
       </span>
       <span className="arr">→</span>
