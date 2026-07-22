@@ -206,7 +206,7 @@ export default function VaultFX() {
           const d = document.createElement("div"); d.className = "shard";
           const clip = "polygon(" + poly.map(pt => { const p = pt.split(","); return p[0] + "px " + p[1] + "px"; }).join(",") + ")";
           d.style.cssText = `left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${rect.height}px;`
-            + `background-image:url("${src}");background-size:${rect.width}px ${rect.height}px;clip-path:${clip};filter:grayscale(1)`;
+            + `background-image:url("${src}");background-size:${rect.width}px ${rect.height}px;clip-path:${clip}`;
           frag.appendChild(d);
           const dx = (xm - rect.width / 2) * 0.5 + (Math.random() - 0.5) * 140,
             dy = 180 + Math.random() * 340 + (ym - rect.height / 2) * 0.4,
