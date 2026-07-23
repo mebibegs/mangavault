@@ -3,7 +3,6 @@
 /* eslint-disable @next/next/no-img-element -- Reader panels must stay full-resolution and bypass Next image resizing. */
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { apiFetch } from "@/lib/apiClient";
 import VaultFX, { vaultFlash } from "@/components/vault/VaultFX";
 import SectionHead from "@/components/vault/SectionHead";
 import MangaCard, { type MangaResult } from "@/components/vault/MangaCard";
@@ -19,20 +18,6 @@ const ADULT_GENRES = [
 
 export default function AdultPage() {
   const [confirmed, setConfirmed] = useState(false);
-
-  // Returning users who already confirmed have an HttpOnly signed cookie.
-  useEffect(() => {
-    const frame = window.requestAnimationFrame(async () => {
-      try {
-        const res = await fetch("/api/adult/verify", { cache: "no-store" });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.verified) setConfirmed(true);
-        }
-      } catch { /* keep the gate visible */ }
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, []);
 
   const [results, setResults] = useState<MangaResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -141,8 +126,7 @@ export default function AdultPage() {
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <button
                 className="btn"
-                onClick={async () => {
-                  await apiFetch("/api/adult/verify", { method: "POST" });
+                onClick={() => {
                   vaultFlash();
                   setConfirmed(true);
                 }}
