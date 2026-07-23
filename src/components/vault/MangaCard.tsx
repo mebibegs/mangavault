@@ -139,7 +139,8 @@ const MangaCard = memo(function MangaCard({
           <span className="ttl">{result.title}</span>
           <hr className="sep" />
           <span className="row1">
-            {result.rating !== "N/A" && <><span className="rate">★ {result.rating}</span><span className="dot">•</span></>}
+            <span className="rate">★ {result.rating !== "N/A" ? result.rating : "N/A"}</span>
+            <span className="dot">•</span>
             <span>CH. {result.chapterCount !== "0" ? result.chapterCount : "—"}</span>
             <span className={`st ${statusClass}`}>{result.status}</span>
           </span>

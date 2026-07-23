@@ -2,8 +2,33 @@ import { getMongoDb } from "./mongodb";
 import { browseCatalog, fetchMangaByUrl, searchAllSources } from "./scraper";
 import type { MangaResult } from "./scraper";
 
+/**
+ * Normalize title for comparison - remove special chars, lower case
+ */
 function normalizeTitleKey(title: string): string {
   return title.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+/**
+ * Better fuzzy matching for similar titles
+ * Handles cases like "Inja gang" vs "Inja gang (I am Unbeatable)"
+ */
+function fuzzyTitleMatch(a: string, b: string): boolean {
+  const normA = normalizeTitleKey(a);
+  const normB = normalizeTitleKey(b);
+  
+  if (normA === normB) return true;
+  
+  // Check if one is contained in the other (with reasonable length)
+  if (normA.length > 5 && normB.length > 5) {
+    if (normA.includes(normB) || normB.includes(normA)) {
+      // Additional check: the shorter one should be at least 70% of the longer
+      const ratio = Math.min(normA.length, normB.length) / Math.max(normA.length, normB.length);
+      return ratio >= 0.7;
+    }
+  }
+  
+  return false;
 }
 
 function chapterKey(chapter: { title?: string; url?: string }): string {
@@ -45,15 +70,25 @@ export async function upsertResults(results: MangaResult[]): Promise<{ inserted:
   let inserted = 0;
   let updated = 0;
 
-  // Deduplicate within this batch
+  // Deduplicate within this batch using fuzzy matching
   const batchMap = new Map<string, MangaResult>();
   for (const r of results) {
     const key = normalizeTitleKey(r.title);
     if (key.length < 3) continue;
-    if (!batchMap.has(key)) {
+    
+    // Check for fuzzy matches in existing batch
+    let existingKey: string | null = null;
+    for (const [k] of batchMap) {
+      if (fuzzyTitleMatch(k, key)) {
+        existingKey = k;
+        break;
+      }
+    }
+    
+    if (!existingKey) {
       batchMap.set(key, r);
     } else {
-      const existing = batchMap.get(key)!;
+      const existing = batchMap.get(existingKey)!;
       const existingChapterCount = existing.chapters.length;
       const incomingChapterCount = r.chapters.length;
 
@@ -67,7 +102,7 @@ export async function upsertResults(results: MangaResult[]): Promise<{ inserted:
       }
 
       if (incomingChapterCount > existingChapterCount) {
-        batchMap.set(key, {
+        batchMap.set(existingKey, {
           ...r,
           genres: [...new Set([...existing.genres, ...r.genres])],
           chapters: dedupeChapterList([...existing.chapters, ...r.chapters]),

@@ -12,6 +12,14 @@ const nextConfig: NextConfig = {
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
   },
 
+  // Friendly aliases so nav-label-shaped URLs (/api, /18+) never 404.
+  async redirects() {
+    return [
+      { source: "/api", destination: "/docs", permanent: false },
+      { source: "/18%2B", destination: "/adult", permanent: false },
+    ];
+  },
+
   async headers() {
     return [
       // Issue 5: Short cache for HTML pages

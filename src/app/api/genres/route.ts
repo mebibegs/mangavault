@@ -6,6 +6,22 @@ function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function getSort(sortParam: string): Record<string, 1 | -1> {
+  switch (sortParam) {
+    case "popular":
+      return { rating: -1, chapterCount: -1, updatedAt: -1 };
+    case "title":
+      return { title: 1 };
+    case "rating":
+      return { rating: -1, updatedAt: -1 };
+    case "chapters":
+      return { chapterCount: -1, updatedAt: -1 };
+    case "updated":
+    default:
+      return { updatedAt: -1 };
+  }
+}
+
 export async function GET(req: NextRequest) {
   try {
     const genre = req.nextUrl.searchParams.get("q")?.trim();
@@ -13,6 +29,7 @@ export async function GET(req: NextRequest) {
 
     const page = Math.max(1, parseInt(req.nextUrl.searchParams.get("page") || "1", 10) || 1);
     const limit = Math.min(60, Math.max(1, parseInt(req.nextUrl.searchParams.get("limit") || "30", 10) || 30));
+    const sortParam = req.nextUrl.searchParams.get("sort") || "updated";
 
     const db = await getMongoDb();
     if (!db) return NextResponse.json({ success: true, genre, results: [], total: 0, page, hasMore: false });
@@ -20,9 +37,10 @@ export async function GET(req: NextRequest) {
     const titles = db.collection("titles");
     const filter = { genres: { $regex: new RegExp(`^${escapeRegex(genre)}$`, "i") } };
     const total = await titles.countDocuments(filter);
+    const sort = getSort(sortParam);
     const docs = await titles
       .find(filter)
-      .sort({ rating: -1, updatedAt: -1 })
+      .sort(sort)
       .skip((page - 1) * limit)
       .limit(limit)
       .toArray();

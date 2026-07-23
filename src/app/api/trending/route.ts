@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
   const page = Math.max(1, Math.min(50, parseInt(pageParam || "1", 10) || 1));
   const limit = 30;
   const skip = (page - 1) * limit;
+  const sortParam = req.nextUrl.searchParams.get("sort") || "latest"; // "latest" | "popular"
 
   try {
     // ──────────────────────────────────────────────────────────────────
@@ -54,9 +55,14 @@ export async function GET(req: NextRequest) {
       const titles = db.collection("titles");
       const total = await titles.countDocuments();
       if (total > 0) {
+        let sort: Record<string, 1 | -1> = { updatedAt: -1 };
+        if (sortParam === "popular") {
+          sort = { rating: -1, chapterCount: -1, updatedAt: -1 };
+        }
+
         const results = await titles
           .find({})
-          .sort({ updatedAt: -1 })
+          .sort(sort)
           .skip(skip)
           .limit(limit)
           .toArray();
@@ -76,6 +82,7 @@ export async function GET(req: NextRequest) {
             success: true,
             results: mapped,
             count: results.length,
+            total,
             page,
             hasMore: data.hasMore,
             source: "mongodb",

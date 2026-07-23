@@ -7,17 +7,9 @@ import VaultShell from "@/components/vault/VaultShell";
 import SectionHead from "@/components/vault/SectionHead";
 import MangaCard, { useReveal, type MangaResult } from "@/components/vault/MangaCard";
 import { vaultFlash } from "@/components/vault/VaultFX";
+import { ALL_GENRES } from "@/lib/genres";
 
 const DetailModal = dynamic(() => import("@/components/DetailModal"), { ssr: false });
-
-const ALL_GENRES = [
-  "Action", "Adaptation", "Adventure", "Comedy", "Demons", "Drama", "Fantasy",
-  "Harem", "Historical", "Isekai", "Josei", "Magic", "Manhua", "Manhwa",
-  "Martial Arts", "Mecha", "Mystery", "Psychological", "Reincarnation",
-  "Romance", "School Life", "Sci-Fi", "Seinen", "Shoujo", "Shounen",
-  "Slice of Life", "Supernatural", "Survival", "Thriller", "Time Travel",
-  "Tragedy", "Webtoons",
-];
 
 interface GenresClientProps {
   initialGenre: string;

@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { browseCatalog } from "@/lib/scraper";
 import { toSafeResult } from "@/lib/safeResult";
+import { getMongoDb } from "@/lib/mongodb";
 import HomeClient from "@/components/HomeClient";
 
 export const revalidate = 900;
@@ -14,6 +15,7 @@ export const revalidate = 900;
  */
 export default async function HomePage() {
   let initialTrending: ReturnType<typeof toSafeResult>[] = [];
+  let totalTitles = 0;
 
   try {
     const { results } = await browseCatalog(1);
@@ -24,9 +26,18 @@ export default async function HomePage() {
     // Graceful fallback — client will fetch via /api/trending
   }
 
+  try {
+    const db = await getMongoDb();
+    if (db) {
+      totalTitles = await db.collection("titles").countDocuments();
+    }
+  } catch {
+    // Ignore count errors
+  }
+
   return (
     <Suspense>
-      <HomeClient initialTrending={initialTrending} />
+      <HomeClient initialTrending={initialTrending} totalTitles={totalTitles} />
     </Suspense>
   );
 }

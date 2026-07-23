@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import VaultShell from "@/components/vault/VaultShell";
 import SectionHead from "@/components/vault/SectionHead";
@@ -12,11 +13,22 @@ export type { MangaResult };
 
 const DetailModal = dynamic(() => import("@/components/DetailModal"), { ssr: false });
 
-const MARQUEE = "NOW INDEXING ✦ MANGA ✦ MANHWA ✦ MANHUA ✦ WEBTOONS ✦ COMICS ✦ DONGHUA ✦ ";
+const MARQUEE = "NOW INDEXING ✦ MANGA ✦ MANHWA ✦ MANHUA ✦ WEBTOON ✦ ";
 
-export default function HomeClient({ initialTrending }: { initialTrending: MangaResult[] }) {
+export default function HomeClient({ initialTrending, totalTitles }: { initialTrending: MangaResult[]; totalTitles?: number }) {
+  const router = useRouter();
   const [trending, setTrending] = useState<MangaResult[]>(initialTrending);
+  const [latest, setLatest] = useState<MangaResult[]>([]);
   const [selected, setSelected] = useState<MangaResult | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim().length >= 2) {
+      vaultFlash();
+      router.push(`/browse?q=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  };
 
   // If SSR returned nothing, fall back to the client API
   useEffect(() => {
@@ -32,10 +44,32 @@ export default function HomeClient({ initialTrending }: { initialTrending: Manga
     })();
   }, [initialTrending.length]);
 
+  // Fetch latest drops (sorted by updatedAt desc)
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/trending?page=1&sort=latest");
+        if (res.ok) {
+          const d = await res.json();
+          setLatest((d.results || []).slice(0, 8));
+        }
+      } catch { /* */ }
+    })();
+  }, []);
+
   const open = (r: MangaResult) => setSelected(r);
-  const featured = trending[0];
-  const strip = trending.slice(0, 8);
-  const latest = trending.slice(0, 8);
+  // Trending = popularity proxy (rating desc, then chapter count)
+  const strip = [...trending]
+    .sort((a, b) => {
+      const ra = a.rating === "N/A" ? -1 : parseFloat(a.rating) || -1;
+      const rb = b.rating === "N/A" ? -1 : parseFloat(b.rating) || -1;
+      if (rb !== ra) return rb - ra;
+      return (parseInt(b.chapterCount) || 0) - (parseInt(a.chapterCount) || 0);
+    })
+    .slice(0, 8);
+  const featured = strip[0] || trending[0];
+  // Latest drops = already sorted by updatedAt desc from API
+  const latestDrops = latest.length > 0 ? latest : trending.slice(0, 8);
 
   return (
     <VaultShell>
@@ -50,8 +84,24 @@ export default function HomeClient({ initialTrending }: { initialTrending: Manga
               then merges the results into a single ranked, deduplicated list with covers,
               ratings, and chapter counts. Ink on paper. Nothing else.
             </p>
+            <form onSubmit={handleSearch} style={{ marginTop: 24, marginBottom: 16 }}>
+              <div className="searchbox" style={{ maxWidth: 520, margin: "0 auto 16px" }}>
+                <span className="s-ic" aria-hidden="true">⌖</span>
+                <input
+                  id="hero-search"
+                  type="text"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="SEARCH THE VAULT…  (e.g. Solo Leveling, One Piece, Chainsaw Man)"
+                  autoComplete="off"
+                  aria-label="Search manga"
+                  style={{ width: "100%", padding: "16px 16px 16px 48px", fontSize: 14, letterSpacing: ".1em" }}
+                />
+                <button type="submit" className="s-go" style={{ padding: "0 24px", fontSize: 13 }}>GO</button>
+              </div>
+            </form>
             <div className="h-cta">
-              <Link href="/browse" className="btn" onClick={() => vaultFlash()}>START READING</Link>
+              <Link href="/browse" className="btn" onClick={() => vaultFlash()}>BROWSE VAULT</Link>
               <Link href="/genres" className="btn ghost">BROWSE GENRES</Link>
             </div>
           </div>
@@ -93,7 +143,7 @@ export default function HomeClient({ initialTrending }: { initialTrending: Manga
         <div className="wrap">
           <SectionHead idx="SEC.02" title={<>LATEST<br />DROPS</>} right="UPDATED HOURLY" />
           <div className="lgrid">
-            {latest.map((r, i) => (
+            {latestDrops.map((r, i) => (
               <LatestRow key={`${r.title}-l-${i}`} result={r} index={i} onClick={() => open(r)} />
             ))}
           </div>
@@ -105,7 +155,9 @@ export default function HomeClient({ initialTrending }: { initialTrending: Manga
             <div>
               <p className="kicker" style={{ margin: "0 0 8px" }}>SEC.03 — FULL CATALOG</p>
               <p style={{ margin: 0, fontWeight: 900, fontStyle: "italic", fontSize: "clamp(22px,3vw,34px)", textTransform: "uppercase", lineHeight: 0.95 }}>
-                85,000+ TITLES IN THE VAULT
+                {totalTitles && totalTitles > 0
+                  ? `${totalTitles.toLocaleString("en-US")}+ TITLES IN THE VAULT`
+                  : "85,000+ TITLES IN THE VAULT"}
               </p>
             </div>
             <Link href="/browse" className="btn" onClick={() => vaultFlash()}>OPEN THE VAULT</Link>
