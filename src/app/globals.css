@@ -314,16 +314,16 @@ li:nth-child(4n) .rank { animation-duration: .27s; }
 }
 .comic-grid .card.feat { grid-column: span 2; }
 @media (min-width: 820px) {
-  .comic-grid { grid-template-columns: repeat(4, 1fr); }
-  .comic-grid .card { grid-column: span 2; }
+  .comic-grid { grid-template-columns: repeat(3, 1fr); }
+  .comic-grid .card { grid-column: span 1; }
 }
 @media (min-width: 1200px) {
-  .comic-grid { grid-template-columns: repeat(6, 1fr); }
-  .comic-grid .card { grid-column: span 2; }
+  .comic-grid { grid-template-columns: repeat(5, 1fr); }
+  .comic-grid .card { grid-column: span 1; }
 }
 .comic-grid:has(.card:hover) { gap: 34px; }
 .comic-grid:has(.card:hover) .card:not(:hover) { filter: brightness(.86); }
-.comic-grid .card:nth-child(4n) .cover-wrap { transform: rotate(-2.2deg); margin: 6px; }
+.comic-grid .card:nth-child(5n) .cover-wrap { transform: rotate(-2.2deg); margin: 6px; }
 
 /* ================= INK-BLEED REVEAL ================= */
 @keyframes ink {
