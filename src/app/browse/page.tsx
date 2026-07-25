@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import BrowseClient from "./BrowseClient";
+import { Loader } from "@/components/vault/Loader";
 
 export const metadata: Metadata = {
   title: "Browse the Vault — MangaVault",
@@ -10,7 +11,7 @@ export const metadata: Metadata = {
 
 export default function BrowsePage() {
   return (
-    <Suspense fallback={<div className="empty wrap" style={{ marginTop: 140 }}>OPENING THE VAULT…</div>}>
+    <Suspense fallback={<div className="empty wrap" style={{ marginTop: 140, display: "flex", alignItems: "center", justifyContent: "center" }}><Loader size={48} /></div>}>
       <BrowseClient />
     </Suspense>
   );

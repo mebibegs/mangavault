@@ -38,7 +38,7 @@ export default function ContactPage() {
           <div className="vpanel">
             <h2 style={{ margin: "0 0 6px", fontWeight: 900, fontStyle: "italic", fontSize: 18, textTransform: "uppercase" }}>General inquiries</h2>
             <p style={{ margin: "0 0 12px", color: "#aaa", fontSize: 13, lineHeight: 1.7 }}>
-              Questions about MangaVault, the API, or suggestions for improvement.
+              Questions about MangaVault, or suggestions for improvement.
             </p>
             <a href="mailto:hello@mangavault.in" className="btn ghost sm">✉ HELLO@MANGAVAULT.IN</a>
           </div>

@@ -7,6 +7,7 @@ import VaultShell from "@/components/vault/VaultShell";
 import SectionHead from "@/components/vault/SectionHead";
 import MangaCard, { type MangaResult } from "@/components/vault/MangaCard";
 import { vaultFlash } from "@/components/vault/VaultFX";
+import { Loader } from "@/components/vault/Loader";
 import { ALL_GENRES } from "@/lib/genres";
 
 const DetailModal = dynamic(() => import("@/components/DetailModal"), { ssr: false });
@@ -76,7 +77,12 @@ export default function BrowseClient() {
 
   const heading = q ? <>SEARCH<br />RESULTS</> : genre ? <>{genre.toUpperCase()}<br />SHELF</> : <>BROWSE<br />THE VAULT</>;
   const rightTag = loading
-    ? "SCANNING…"
+    ? (
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <Loader size={16} strokeWidth={2} />
+        <span>LOADING</span>
+      </div>
+    )
     : total > results.length
       ? `${total.toLocaleString("en-US")} TITLES`
       : `${results.length}${hasMore ? "+" : ""} TITLES`;
@@ -111,7 +117,10 @@ export default function BrowseClient() {
         )}
 
         {loading ? (
-          <div className="empty">SCANNING THE VAULT…</div>
+          <div className="empty" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
+            <Loader size={48} />
+            <span>LOADING</span>
+          </div>
         ) : results.length === 0 ? (
           <div className="empty">NO RESULTS FOUND — THE VAULT IS EMPTY FOR THIS QUERY.</div>
         ) : (
@@ -153,7 +162,14 @@ export default function BrowseClient() {
                   );
                 })}
                 <button className="btn ghost sm" onClick={() => { if (!loadingMore && hasMore) fetchPage(page + 1, true); }} disabled={!hasMore || loadingMore}>
-                  {loadingMore ? "LOADING…" : "NEXT →"}
+                  {loadingMore ? (
+                    <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <Loader size={14} strokeWidth={2} />
+                      <span>LOADING</span>
+                    </span>
+                  ) : (
+                    "NEXT →"
+                  )}
                 </button>
               </div>
             )}

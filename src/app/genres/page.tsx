@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { getMongoDb } from "@/lib/mongodb";
 import { toSafeResult } from "@/lib/safeResult";
 import GenresClient from "./GenresClient";
+import { Loader } from "@/components/vault/Loader";
 
 export default async function GenresPage({
   searchParams,
@@ -31,7 +32,7 @@ export default async function GenresPage({
 
   return (
     <Suspense
-      fallback={<div className="empty wrap" style={{ marginTop: 140 }}>OPENING THE SHELVES…</div>}
+      fallback={<div className="empty wrap" style={{ marginTop: 140, display: "flex", alignItems: "center", justifyContent: "center" }}><Loader size={48} /></div>}
     >
       <GenresClient
         initialGenre={genre}

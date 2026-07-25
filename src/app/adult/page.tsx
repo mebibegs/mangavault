@@ -6,6 +6,7 @@ import Link from "next/link";
 import VaultFX, { vaultFlash } from "@/components/vault/VaultFX";
 import SectionHead from "@/components/vault/SectionHead";
 import MangaCard, { type MangaResult } from "@/components/vault/MangaCard";
+import { Loader } from "@/components/vault/Loader";
 
 interface ChapterInfo { title: string; url: string; date: string; }
 
@@ -158,7 +159,7 @@ export default function AdultPage() {
           <h3 className="reader-t">{selectedResult?.title}</h3>
           <button className="m-close" style={{ position: "static" }} onClick={() => { setReaderUrl(null); setSelectedResult(null); }} aria-label="Close reader">✕</button>
         </div>
-        {readerLoading && <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}><p style={{ color: "#888", fontSize: 11, letterSpacing: ".24em" }}>EXTRACTING PANELS…</p></div>}
+        {readerLoading && <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}><Loader size={32} /></div>}
         {readerError && (
           <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 18 }}>
             <p style={{ color: "#fff", fontSize: 13 }}>{readerError}</p>
@@ -312,7 +313,6 @@ export default function AdultPage() {
             <div>RESTRICTED SECTION<br />18+ ONLY</div>
             <div>
               <Link href="/">HOME</Link><br />
-              <Link href="/docs">API DOCS</Link><br />
               <Link href="/privacy">PRIVACY</Link>
             </div>
             <div>

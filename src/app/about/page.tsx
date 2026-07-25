@@ -48,11 +48,6 @@ export default function AboutPage() {
             <li><strong>Curators and community builders</strong> who want a single trending feed that already reflects activity across sources, instead of stitching one together by hand.</li>
           </ul>
 
-          <h3>The API</h3>
-          <p>
-            Everything the site itself uses — search, trending, and chapter image extraction — is exposed through a public JSON API. If you want to integrate MangaVault into your own tooling or app, the available endpoints are documented in the <Link href="/docs">API docs</Link>.
-          </p>
-
           <h3>Status</h3>
           <p>
             Because results are pulled live from external sources, an occasional outage or formatting quirk is expected as those sites change their layouts — if something looks off, it&apos;s almost always a sign that a source updated its page structure, not that the underlying data is wrong. Fixes for these typically follow within a few days of being noticed.

@@ -7,7 +7,7 @@ export const dynamic = "force-static";
 
 export const metadata: Metadata = {
   title: "Terms of Service — MangaVault",
-  description: "Terms of service for using MangaVault's search aggregator and public API.",
+  description: "Terms of service for using MangaVault's search aggregator.",
   alternates: { canonical: "/terms" },
   openGraph: {
     title: "Terms of Service — MangaVault",
@@ -39,13 +39,10 @@ export default function TermsPage() {
           <h3>3. Age Restriction</h3>
           <p>The adult section (/adult) contains content intended for users aged 18 and above. By accessing that section, you confirm you are of legal age in your jurisdiction.</p>
 
-          <h3>4. API Usage</h3>
-          <p>The public API is provided as-is with rate limits enforced. Excessive automated usage, scraping of the API itself, or attempting to circumvent rate limits may result in your access being blocked.</p>
-
-          <h3>5. Disclaimer</h3>
+          <h3>4. Disclaimer</h3>
           <p>MangaVault is provided &ldquo;as is&rdquo; without warranties of any kind. We are not responsible for the accuracy, availability, or legality of content found on external sources. All content is served from and remains on the original source infrastructure.</p>
 
-          <h3>6. Intellectual Property</h3>
+          <h3>5. Intellectual Property</h3>
           <p>All manga, manhwa, and webtoon titles, cover art, and chapter images are the property of their respective creators and publishers. MangaVault claims no ownership over third-party content. If you believe your rights are being infringed, see our <Link href="/dmca">DMCA page</Link>.</p>
 
           <h3>7. Changes</h3>

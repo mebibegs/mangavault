@@ -7,6 +7,7 @@ import VaultShell from "@/components/vault/VaultShell";
 import SectionHead from "@/components/vault/SectionHead";
 import MangaCard, { useReveal, type MangaResult } from "@/components/vault/MangaCard";
 import { vaultFlash } from "@/components/vault/VaultFX";
+import { Loader } from "@/components/vault/Loader";
 import { ALL_GENRES } from "@/lib/genres";
 
 const DetailModal = dynamic(() => import("@/components/DetailModal"), { ssr: false });
@@ -101,7 +102,12 @@ export default function GenresClient({ initialGenre, initialResults }: GenresCli
           idx="SEC.04"
           as="h1"
           title={<>{selectedGenre.toUpperCase()}<br />SHELF</>}
-          right={loading ? "SCANNING…" : `${results.length}${hasMore ? "+" : ""} TITLES`}
+          right={loading ? (
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <Loader size={16} strokeWidth={2} />
+        <span>LOADING</span>
+      </div>
+    ) : `${results.length}${hasMore ? "+" : ""} TITLES`}
         />
 
         <div className="chips">
@@ -118,7 +124,9 @@ export default function GenresClient({ initialGenre, initialResults }: GenresCli
         </div>
 
         {loading ? (
-          <div className="empty">SCANNING THE SHELF…</div>
+          <div className="empty" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: 200 }}>
+            <Loader size={40} strokeWidth={3} />
+          </div>
         ) : results.length === 0 ? (
           <div className="empty">NO RESULTS FOUND — THIS SHELF IS EMPTY.</div>
         ) : (
@@ -137,7 +145,14 @@ export default function GenresClient({ initialGenre, initialResults }: GenresCli
             {hasMore && (
               <div style={{ display: "flex", justifyContent: "center", marginTop: 40 }}>
                 <button className="btn ghost" disabled={loadingMore} onClick={() => fetchGenre(selectedGenre, page + 1, true)}>
-                  {loadingMore ? "LOADING…" : "LOAD MORE ↓"}
+                  {loadingMore ? (
+                    <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <Loader size={14} strokeWidth={2} />
+                      <span>LOADING</span>
+                    </span>
+                  ) : (
+                    "LOAD MORE ↓"
+                  )}
                 </button>
               </div>
             )}

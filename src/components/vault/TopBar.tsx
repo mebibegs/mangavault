@@ -9,7 +9,6 @@ const NAV = [
   { label: "HOME", href: "/" },
   { label: "BROWSE", href: "/browse" },
   { label: "GENRES", href: "/genres" },
-  { label: "API", href: "/docs" },
   { label: "18+", href: "/adult" },
 ];
 

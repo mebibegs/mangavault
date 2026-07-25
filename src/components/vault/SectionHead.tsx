@@ -9,7 +9,7 @@ export default function SectionHead({
 }: {
   idx?: string;
   title: ReactNode;
-  right?: string;
+  right?: ReactNode;
   as?: "h1" | "h2";
 }) {
   return (

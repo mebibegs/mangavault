@@ -8,6 +8,7 @@ import VaultShell from "@/components/vault/VaultShell";
 import SectionHead from "@/components/vault/SectionHead";
 import MangaCard, { useReveal, type MangaResult } from "@/components/vault/MangaCard";
 import { vaultFlash } from "@/components/vault/VaultFX";
+import { Loader } from "@/components/vault/Loader";
 
 export type { MangaResult };
 
@@ -135,7 +136,10 @@ export default function HomeClient({ initialTrending, totalTitles }: { initialTr
               ))}
             </ul>
           ) : (
-            <div className="empty">LOADING THE VAULT…</div>
+            <div className="empty" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
+              <Loader size={48} />
+              <span>LOADING</span>
+            </div>
           )}
         </div>
 
