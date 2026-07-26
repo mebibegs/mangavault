@@ -4,6 +4,7 @@
 import { useState, useRef, useEffect } from "react";
 import type { MangaResult } from "@/components/vault/MangaCard";
 import { vaultFlash } from "@/components/vault/VaultFX";
+import ReaderPanel from "@/components/ReaderPanel";
 
 interface ChapterInfo { title: string; url: string; date: string; }
 
@@ -95,11 +96,16 @@ export default function DetailModal({ result, onClose }: { result: MangaResult; 
             ← BACK
           </button>
           <h3 className="reader-t">{result.title}</h3>
-          <button className="m-close" style={{ position: "static" }} onClick={onClose} aria-label="Close reader">✕</button>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+            {readerImages.length > 0 && (
+              <span className="rp-count"><b>{readerImages.length}</b> PANELS</span>
+            )}
+            <button className="m-close" style={{ position: "static" }} onClick={() => { setReaderUrl(null); onClose(); }} aria-label="Close reader">✕</button>
+          </div>
         </div>
         {readerLoading && (
-          <div className="flex-1 flex items-center justify-center" style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <p style={{ color: "#888", fontSize: 11, letterSpacing: ".24em" }}>EXTRACTING PANELS…</p>
+          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div className="rp-spinner" style={{ width: 40, height: 40 }} />
           </div>
         )}
         {readerError && (
@@ -123,7 +129,7 @@ export default function DetailModal({ result, onClose }: { result: MangaResult; 
             <div ref={readerScrollRef} style={{ flex: 1, overflowY: "auto", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" }}>
               <div style={{ maxWidth: 768, margin: "0 auto", display: "flex", flexDirection: "column", alignItems: "center" }}>
                 {readerImages.map((src, i) => (
-                  <img key={i} src={src} alt={`Page ${i + 1}`} style={{ width: "100%", height: "auto", userSelect: "none" }} loading={i < 3 ? "eager" : "lazy"} referrerPolicy="no-referrer" draggable={false} />
+                  <ReaderPanel key={i} src={src} index={i} eager={i < 3} />
                 ))}
                 <div style={{ padding: "40px 0 60px", textAlign: "center" }}>
                   <p style={{ color: "#888", fontSize: 10, letterSpacing: ".24em", marginBottom: 18 }}>END OF CHAPTER</p>
