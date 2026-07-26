@@ -25,15 +25,44 @@ const limiter = redis
     })
   : null;
 
-export async function isBlocked(_ip: string): Promise<{ blocked: boolean; expiresIn: number }> {
-  return { blocked: false, expiresIn: 0 };
+const BLOCK_PREFIX = "mangavault:blocked:";
+const DEFAULT_BLOCK_SECONDS = 3600;
+
+export async function isBlocked(ip: string): Promise<{ blocked: boolean; expiresIn: number }> {
+  if (!redis) return { blocked: false, expiresIn: 0 };
+  try {
+    const ttl = await redis.ttl(`${BLOCK_PREFIX}${ip}`);
+    if (ttl > 0) return { blocked: true, expiresIn: ttl };
+    return { blocked: false, expiresIn: 0 };
+  } catch {
+    return { blocked: false, expiresIn: 0 };
+  }
 }
 
-export async function blockIp(_ip: string, _durationSeconds = 3600): Promise<void> {
-  // Blocking is handled by Upstash Ratelimit/proxy configuration.
+export async function blockIp(ip: string, durationSeconds = DEFAULT_BLOCK_SECONDS): Promise<void> {
+  if (!redis) return;
+  try {
+    await redis.set(`${BLOCK_PREFIX}${ip}`, "1", { ex: durationSeconds });
+  } catch {
+    // Best-effort — don't crash the request path
+  }
 }
 
 export async function checkRateLimit(ip: string): Promise<RateLimitResult> {
+  // Check IP blocklist first
+  const blockStatus = await isBlocked(ip);
+  if (blockStatus.blocked) {
+    return {
+      allowed: false,
+      remaining: 0,
+      resetIn: blockStatus.expiresIn,
+      retryAfter: blockStatus.expiresIn,
+      limited: false,
+      blocked: true,
+      reason: "IP is temporarily blocked.",
+    };
+  }
+
   if (!limiter) {
     if (process.env.NODE_ENV === "production") {
       return {

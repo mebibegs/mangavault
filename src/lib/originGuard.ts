@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { verifyCsrfToken } from "./csrf";
+import { verifyCsrfToken, CSRF_SESSION_COOKIE } from "./csrf";
 
 function normalizeOrigin(value: string): string {
   try {
@@ -70,7 +70,13 @@ export function guardPrivateApi(req: NextRequest): Response | null {
     return new Response("Forbidden", { status: 403 });
   }
 
-  if (!verifyCsrfToken(csrfToken)) {
+  // Extract session SID from cookie for CSRF session binding.
+  // This prevents replay of stolen tokens from a different session.
+  const cookieHeader = req.headers.get("cookie") || "";
+  const sidMatch = cookieHeader.match(new RegExp(`${CSRF_SESSION_COOKIE}=([a-f0-9]+)`));
+  const sessionSid = sidMatch?.[1];
+
+  if (!verifyCsrfToken(csrfToken, sessionSid)) {
     return new Response("Forbidden", { status: 403 });
   }
 

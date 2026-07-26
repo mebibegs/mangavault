@@ -54,9 +54,9 @@ export async function verifyAdultCookieValue(value: string | undefined | null, n
   try {
     secret = getAdultSecret();
   } catch {
-    // Secret not configured — deny all adult cookies in production,
-    // allow simple "1" token in development for local testing.
-    return process.env.NODE_ENV !== "production" && value === "1";
+    // Secret not configured — deny all adult cookies.
+    // Production deployments MUST set ADULT_COOKIE_SECRET.
+    return false;
   }
 
   const parts = value.split(".");

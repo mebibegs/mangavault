@@ -20,7 +20,8 @@ function sanitizeQuery(q: string): string {
   return q
     .normalize("NFC")
     .replace(/\0/g, "")
-    .replace(/[<>"'`;{}()[\]\\/]/g, "")
+    // Strip all characters that could be used for injection or regex manipulation
+    .replace(/[<>"'`;{}()\\[\]/\\!@#$%^&*+=|~`]/g, "")
     .replace(/[\u0001-\u001F\u007F]/g, "")
     .trim()
     .substring(0, 100);
@@ -54,7 +55,9 @@ export async function GET(req: NextRequest) {
     }
 
     // Reject queries that look like injection attempts
-    if (/['";`]|--|OR\s|AND\s|\$\{|%00/i.test(query)) {
+    // Only match when keywords appear as standalone terms (likely injection)
+    // not as parts of manga titles (e.g. "One Punch Man")
+    if (/['";`]|--|;\s|\bOR\s+\d|\bAND\s+\d|\bUNION\b|\bSELECT\b.*\bFROM\b|\bDROP\s+TABLE|\$where|\$ne|\$gt|\bjavascript:/i.test(query)) {
       return NextResponse.json(
         { error: "Bad Request", message: "Invalid query characters." },
         { status: 400 }

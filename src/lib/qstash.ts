@@ -10,6 +10,13 @@ let cachedKeys: { current: string; next: string } | null = null;
 let keysFetchedAt = 0;
 const KEYS_TTL_MS = 60 * 60 * 1000; // re-fetch hourly in case keys are rotated
 
+// Known QStash API hostnames — prevents DNS hijacking of key endpoint
+const QSTASH_ALLOWED_HOSTS = new Set([
+  "qstash.upstash.io",
+  "qstash.vercel.app",
+  "qstash-internal.upstash.io",
+]);
+
 async function getSigningKeys(): Promise<{ current?: string; next?: string }> {
   const envCurrent = process.env.QSTASH_CURRENT_SIGNING_KEY;
   const envNext = process.env.QSTASH_NEXT_SIGNING_KEY;
@@ -22,6 +29,14 @@ async function getSigningKeys(): Promise<{ current?: string; next?: string }> {
 
   try {
     const base = (process.env.QSTASH_URL || "https://qstash.upstash.io").replace(/\/$/, "");
+    const parsedBase = new URL(base);
+
+    // Validate hostname against allowlist to prevent DNS hijacking
+    if (!QSTASH_ALLOWED_HOSTS.has(parsedBase.hostname)) {
+      console.error("[QStash] Blocked key fetch to unrecognized hostname:", parsedBase.hostname);
+      return cachedKeys || {};
+    }
+
     const res = await fetch(`${base}/v2/keys`, {
       headers: { Authorization: `Bearer ${token}` },
       signal: AbortSignal.timeout(10000),
@@ -33,8 +48,9 @@ async function getSigningKeys(): Promise<{ current?: string; next?: string }> {
       keysFetchedAt = Date.now();
       return cachedKeys;
     }
-  } catch (error) {
-    console.error("[QStash] failed to fetch signing keys via QSTASH_TOKEN", error);
+  } catch {
+    // Do not log the full error — it may contain the QSTASH_TOKEN or signing keys
+    console.error("[QStash] failed to fetch signing keys — check QSTASH_TOKEN is set correctly");
   }
   return cachedKeys || {};
 }

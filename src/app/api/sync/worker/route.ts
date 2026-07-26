@@ -24,6 +24,12 @@ function parseBody(rawBody: string): SyncWorkerBody {
 const MAX_EMPTY_STREAK = 5;
 
 export async function POST(req: Request) {
+  // Content-Type validation — QStash sends application/json
+  const contentType = req.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) {
+    return NextResponse.json({ error: "Unsupported content type" }, { status: 415 });
+  }
+
   try {
     const rawBody = await readQStashVerifiedBody(req);
     if (rawBody === null) {
@@ -91,7 +97,7 @@ export async function POST(req: Request) {
       canQueueNext: shouldQueueNext,
     });
   } catch (error) {
-    console.error("[Worker Error]", error);
-    return NextResponse.json({ error: "Worker failed", details: String(error) }, { status: 500 });
+    console.error("[Worker Error]", error instanceof Error ? error.message : "unknown error");
+    return NextResponse.json({ error: "Worker failed" }, { status: 500 });
   }
 }

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import sharp from "sharp";
 import { ALLOWED_CONTENT_TYPES, fetchValidatedImage, getImageReferer, parseAndValidateImageUrl } from "@/lib/imageSecurity";
+import { MANGAVAULT_BROWSER } from "@/lib/userAgent";
 
 /**
  * Image proxy with on-the-fly resizing and WebP conversion via Sharp.
@@ -39,8 +40,7 @@ export async function GET(req: NextRequest) {
     try {
       upstream = await fetchValidatedImage(parsedUrl, (url) => ({
         headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+          "User-Agent": MANGAVAULT_BROWSER,
           Accept: "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
           "Accept-Language": "en-US,en;q=0.9",
           Referer: getImageReferer(url),

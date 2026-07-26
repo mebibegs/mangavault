@@ -3,6 +3,27 @@ import { NextFetchEvent, NextRequest, NextResponse } from "next/server";
 import { ADULT_COOKIE_NAME, verifyAdultCookieValue } from "@/lib/adultCookie";
 import { getRedis } from "@/lib/redisEnv";
 
+// CORS: API routes are same-origin only. Block cross-origin requests.
+function blockCrossOrigin(req: NextRequest): NextResponse | null {
+  const origin = req.headers.get("origin");
+  if (!origin) return null; // server-side / same-origin requests have no Origin header
+
+  try {
+    const originHost = new URL(origin).hostname;
+    const host = req.headers.get("host") || "";
+    const allowedHosts = [host];
+    if (process.env.NEXT_PUBLIC_BASE_URL) {
+      try { allowedHosts.push(new URL(process.env.NEXT_PUBLIC_BASE_URL).hostname); } catch {}
+    }
+    // Allow localhost for development
+    if (originHost === "localhost" || originHost === "127.0.0.1") return null;
+    if (allowedHosts.includes(originHost)) return null;
+    return new NextResponse("Forbidden", { status: 403 });
+  } catch {
+    return new NextResponse("Forbidden", { status: 403 });
+  }
+}
+
 interface RateLimitConfig {
   window: `${number} s` | `${number}s` | `${number} m` | `${number}m`;
   max: number;
@@ -71,16 +92,23 @@ export async function proxy(req: NextRequest, event: NextFetchEvent): Promise<Ne
   if (pathname.startsWith("/adult") && !pathname.startsWith("/api/")) {
     const verified = await verifyAdultCookieValue(req.cookies.get(ADULT_COOKIE_NAME)?.value);
     if (!verified) {
-      const gate = req.nextUrl.clone();
-      gate.pathname = "/adult";
-      gate.searchParams.set("gate", "1");
+      // Build a clean redirect URL — only include the gate param, never forward
+      // the original query string (could leak tokens, search terms, etc.).
+      const gate = new URL("/adult?gate=1", req.nextUrl.origin);
       if (!req.nextUrl.searchParams.has("gate")) {
-        return NextResponse.redirect(gate);
+        const res = NextResponse.redirect(gate);
+        // Prevent Referer header from leaking the original URL
+        res.headers.set("Referrer-Policy", "no-referrer");
+        return res;
       }
     }
   }
 
   if (!pathname.startsWith("/api/")) return NextResponse.next();
+
+  // Block cross-origin requests to API routes (CSRF mitigation)
+  const corsBlock = blockCrossOrigin(req);
+  if (corsBlock) return corsBlock;
 
   const rateLimit = getRateLimitConfig(pathname);
   if (!rateLimit) return applySecurityHeaders(NextResponse.next());
@@ -120,7 +148,8 @@ export async function proxy(req: NextRequest, event: NextFetchEvent): Promise<Ne
     res.headers.set("X-RateLimit-Reset", String(result.reset));
     return applySecurityHeaders(res);
   } catch (error) {
-    console.error("Rate limit check failed", error);
+    // Do not log the full error — it may contain Redis credentials
+    console.error("Rate limit check failed:", error instanceof Error ? error.message : "unknown");
     if (process.env.NODE_ENV === "production") {
       return NextResponse.json({ error: "Rate limit check failed" }, { status: 503 });
     }

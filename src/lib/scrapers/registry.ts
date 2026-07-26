@@ -1,6 +1,7 @@
 import type { MangaResult } from "../scraper";
 import * as cheerio from "cheerio";
 import type { AnyNode } from "domhandler";
+import { MANGAVAULT_BROWSER } from "../userAgent";
 
 // --- CLOUDFLARE BYPASS FETCHER ---
 const SCRAPINGANT_KEY = process.env.SCRAPINGANT_KEY || "";
@@ -25,7 +26,7 @@ async function smartFetch(url: string, init?: RequestInit): Promise<Response> {
 
   return await fetch(url, {
     headers: {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+      "User-Agent": MANGAVAULT_BROWSER,
       ...((init?.headers as Record<string, string>) || {})
     },
     signal: init?.signal || AbortSignal.timeout(15000)

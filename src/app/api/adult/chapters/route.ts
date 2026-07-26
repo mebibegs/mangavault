@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { MANGAVAULT_BROWSER } from "@/lib/userAgent";
 
 interface OmegaSeries {
   id: number;
@@ -14,7 +15,7 @@ interface OmegaChapter {
 }
 
 const OMEGA_HEADERS = {
-  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+  "User-Agent": MANGAVAULT_BROWSER,
   Accept: "application/json",
   Referer: "https://omegascans.org/",
 };

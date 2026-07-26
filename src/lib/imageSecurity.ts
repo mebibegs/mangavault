@@ -84,6 +84,37 @@ export function isAllowedImageHost(hostname: string): boolean {
   return false;
 }
 
+/**
+ * SSRF mitigation: Verify that a resolved IP address is not a private/loopback
+ * address. Prevents DNS rebinding attacks where an allowed hostname resolves
+ * to an internal IP (e.g. 127.0.0.1, 10.x.x.x).
+ */
+function isPrivateIp(ip: string): boolean {
+  if (ip === "127.0.0.1" || ip === "::1" || ip === "0.0.0.0") return true;
+  if (/^10\./.test(ip)) return true;
+  if (/^172\.(1[6-9]|2\d|3[01])\./.test(ip)) return true;
+  if (/^192\.168\./.test(ip)) return true;
+  if (/^169\.254\./.test(ip)) return true;
+  if (/^fc00:/i.test(ip)) return true;
+  if (/^fe80:/i.test(ip)) return true;
+  return false;
+}
+
+async function assertPublicHostname(hostname: string): Promise<boolean> {
+  try {
+    const { lookup } = await import("dns/promises");
+    const { address } = await lookup(hostname, { family: 4, verbatim: true });
+    if (isPrivateIp(address)) {
+      console.error(`[SSRF] Blocked DNS rebinding: ${hostname} resolved to private IP ${address}`);
+      return false;
+    }
+    return true;
+  } catch {
+    // DNS resolution failed — deny to be safe
+    return false;
+  }
+}
+
 export function parseAndValidateImageUrl(value: string): URL | null {
   let parsed: URL;
   try {
@@ -132,10 +163,12 @@ export async function fetchValidatedImage(
       throw new Error("Blocked image URL");
     }
 
-    // SSRF mitigation: redirect destinations must still pass the full
-    // allowlist + blocklist check (already done by parseAndValidateImageUrl above).
-    // Additionally block redirects to any private/loopback IP to prevent
-    // DNS rebinding attacks that resolve allowed hostnames to internal IPs.
+    // SSRF mitigation: verify resolved IP is not a private/loopback address.
+    // Prevents DNS rebinding attacks where allowed hostnames resolve to internal IPs.
+    const isPublic = await assertPublicHostname(validated.hostname);
+    if (!isPublic) {
+      throw new Error("Blocked image URL (private IP)");
+    }
 
     const upstream = await fetch(validated.toString(), {
       ...initForUrl(validated),

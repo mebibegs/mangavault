@@ -1,4 +1,39 @@
 import * as cheerio from "cheerio";
+import { MANGAVAULT_BOT } from "./userAgent";
+
+/**
+ * Sanitize text extracted from HTML to prevent stored XSS.
+ * Decodes HTML entities, strips tags, and removes null bytes.
+ */
+function sanitizeText(text: string): string {
+  if (!text) return "";
+  return text
+    .replace(/\0/g, "")
+    .replace(/<[^>]*>/g, "") // strip any residual HTML tags
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#x27;/g, "'")
+    .replace(/&#x2F;/g, "/")
+    .replace(/&nbsp;/g, " ")
+    .trim();
+}
+
+/**
+ * Sanitize a URL extracted from HTML. Blocks javascript: URIs and
+ * data: URIs (except images), and strips any injected markup.
+ */
+function sanitizeUrl(url: string): string {
+  if (!url) return "";
+  const trimmed = url.trim();
+  // Block script injection via URL schemes
+  if (/^javascript:/i.test(trimmed)) return "";
+  if (/^data:(?!image\/)/i.test(trimmed)) return "";
+  // Remove any characters that shouldn't be in a URL
+  return trimmed.replace(/[<>"'`]/g, "");
+}
 
 export interface MangaResult {
   title: string;
@@ -24,14 +59,8 @@ export interface ChapterInfo {
 
 const TIMEOUT_MS = 15000;
 
-// MangaVault identifies itself to target sites for compliance with their
-// robots.txt policies. Some sites block generic bot UAs but allow identified
-// crawlers with reasonable behavior.
-const MANGAVAULT_UA =
-  "MangaVault/1.0 (+https://www.mangavault.in; manga aggregator for personal use)";
-
 const HEADERS = {
-  "User-Agent": MANGAVAULT_UA,
+  "User-Agent": MANGAVAULT_BOT,
   Accept:
     "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
   "Accept-Language": "en-US,en;q=0.5",
@@ -1313,7 +1342,24 @@ export async function searchAllSources(query: string): Promise<MangaResult[]> {
       unique.push(r);
     }
   }
-  return unique;
+
+  // Sanitize all results before returning — prevents stored XSS via malicious
+  // content from scraped pages (HTML entities, injected tags, javascript: URLs).
+  return unique.map((r) => ({
+    ...r,
+    title: sanitizeText(r.title),
+    description: sanitizeText(r.description),
+    author: sanitizeText(r.author),
+    artist: sanitizeText(r.artist),
+    genres: r.genres.map((g) => sanitizeText(g)),
+    coverUrl: sanitizeUrl(r.coverUrl),
+    url: sanitizeUrl(r.url),
+    chapters: r.chapters.map((ch) => ({
+      title: sanitizeText(ch.title),
+      url: sanitizeUrl(ch.url),
+      date: sanitizeText(ch.date),
+    })),
+  }));
 }
 
 // ════════════════════════════════════════════════════════════════════
