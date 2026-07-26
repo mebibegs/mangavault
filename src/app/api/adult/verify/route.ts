@@ -7,12 +7,21 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  // Content-Type validation — adult verify only accepts form/JSON or empty body
+  const contentType = req.headers.get("content-type") || "";
+  const isSupported = contentType === ""
+    || contentType.includes("application/json")
+    || contentType.includes("application/x-www-form-urlencoded");
+  if (!isSupported) {
+    return NextResponse.json({ error: "Unsupported content type" }, { status: 415 });
+  }
+
   try {
     const token = await issueAdultCookieValue();
     const res = NextResponse.json({ success: true, verified: true });
     res.cookies.set(ADULT_COOKIE_NAME, token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: true,
       sameSite: "strict",
       path: "/",
       maxAge: ADULT_COOKIE_MAX_AGE,

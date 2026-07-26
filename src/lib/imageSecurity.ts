@@ -132,6 +132,11 @@ export async function fetchValidatedImage(
       throw new Error("Blocked image URL");
     }
 
+    // SSRF mitigation: redirect destinations must still pass the full
+    // allowlist + blocklist check (already done by parseAndValidateImageUrl above).
+    // Additionally block redirects to any private/loopback IP to prevent
+    // DNS rebinding attacks that resolve allowed hostnames to internal IPs.
+
     const upstream = await fetch(validated.toString(), {
       ...initForUrl(validated),
       redirect: "manual",

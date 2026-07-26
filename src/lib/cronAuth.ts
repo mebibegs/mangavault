@@ -29,6 +29,12 @@ export function guardCronApi(req: NextRequest): NextResponse | null {
 function safeEqual(a: string, b: string): boolean {
   const aBuffer = Buffer.from(a);
   const bBuffer = Buffer.from(b);
-  if (aBuffer.length !== bBuffer.length) return false;
-  return timingSafeEqual(aBuffer, bBuffer);
+  // Pad shorter buffer to avoid leaking length via timing.
+  // Use the longer length so both buffers are compared in full.
+  const maxLen = Math.max(aBuffer.length, bBuffer.length);
+  const aPadded = Buffer.alloc(maxLen, 0);
+  const bPadded = Buffer.alloc(maxLen, 0);
+  aBuffer.copy(aPadded);
+  bBuffer.copy(bPadded);
+  return timingSafeEqual(aPadded, bPadded) && aBuffer.length === bBuffer.length;
 }

@@ -1,6 +1,6 @@
 import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 
-const CSRF_TTL = 60 * 60; // 1 hour
+const CSRF_TTL = 60 * 15; // 15 minutes
 const REQUIRED_SECRET_BYTES = 32;
 const REQUIRED_HEX_LENGTH = REQUIRED_SECRET_BYTES * 2;
 

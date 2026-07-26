@@ -15,8 +15,8 @@ async function getCsrfToken(): Promise<string> {
     .then((data: { token: string }) => {
       csrfToken = data.token;
       fetchingToken = null;
-      // Auto-refresh at 55 minutes (before 1-hour expiry)
-      setTimeout(() => { csrfToken = null; }, 55 * 60 * 1000);
+      // Auto-refresh at 13 minutes (before 15-minute expiry)
+      setTimeout(() => { csrfToken = null; }, 13 * 60 * 1000);
       return csrfToken!;
     })
     .catch((err) => {

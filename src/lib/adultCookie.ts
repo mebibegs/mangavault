@@ -4,10 +4,14 @@ const MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
 const encoder = new TextEncoder();
 
 function getAdultSecret(): string {
-  return process.env.ADULT_COOKIE_SECRET
-    || process.env.CSRF_SECRET
-    || process.env.CRON_SECRET
-    || "";
+  const secret = process.env.ADULT_COOKIE_SECRET;
+  if (!secret) {
+    throw new Error(
+      "ADULT_COOKIE_SECRET is required for adult cookie signing. " +
+      "Set it in your environment variables."
+    );
+  }
+  return secret;
 }
 
 function base64Url(bytes: ArrayBuffer): string {
@@ -35,8 +39,7 @@ function safeEqual(a: string, b: string): boolean {
 }
 
 export async function issueAdultCookieValue(now = Date.now()): Promise<string> {
-  const secret = getAdultSecret();
-  if (!secret) throw new Error("ADULT_COOKIE_SECRET, CSRF_SECRET, or CRON_SECRET is required");
+  const secret = getAdultSecret(); // throws if not configured
 
   const expiresAt = now + MAX_AGE_SECONDS * 1000;
   const payload = `v1.${expiresAt}`;
@@ -47,8 +50,14 @@ export async function issueAdultCookieValue(now = Date.now()): Promise<string> {
 export async function verifyAdultCookieValue(value: string | undefined | null, now = Date.now()): Promise<boolean> {
   if (!value) return false;
 
-  const secret = getAdultSecret();
-  if (!secret) return process.env.NODE_ENV !== "production" && value === "1";
+  let secret: string;
+  try {
+    secret = getAdultSecret();
+  } catch {
+    // Secret not configured — deny all adult cookies in production,
+    // allow simple "1" token in development for local testing.
+    return process.env.NODE_ENV !== "production" && value === "1";
+  }
 
   const parts = value.split(".");
   if (parts.length !== 3 || parts[0] !== "v1") return false;

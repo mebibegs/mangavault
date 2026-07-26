@@ -24,9 +24,14 @@ export interface ChapterInfo {
 
 const TIMEOUT_MS = 15000;
 
+// MangaVault identifies itself to target sites for compliance with their
+// robots.txt policies. Some sites block generic bot UAs but allow identified
+// crawlers with reasonable behavior.
+const MANGAVAULT_UA =
+  "MangaVault/1.0 (+https://www.mangavault.in; manga aggregator for personal use)";
+
 const HEADERS = {
-  "User-Agent":
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+  "User-Agent": MANGAVAULT_UA,
   Accept:
     "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
   "Accept-Language": "en-US,en;q=0.5",

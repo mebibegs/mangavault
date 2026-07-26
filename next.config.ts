@@ -46,15 +46,15 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              // Cloudflare Insights script + cdn-cgi scripts
+              // Cloudflare Insights script + cdn-cgi scripts + Turnstile
+              // Note: 'unsafe-inline' is required for Cloudflare Turnstile challenge scripts
               "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com https://*.mangavault.in/cdn-cgi/scripts/ https://challenges.cloudflare.com",
               "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: blob: https: http:",
+              "img-src 'self' data: blob: https:",
               "font-src 'self' data:",
-              "connect-src 'self' https: http:",
+              "connect-src 'self' https:",
               // Cloudflare Turnstile iframes + cdn-cgi frames
               "frame-src 'self' https://challenges.cloudflare.com",
-              // Cloudflare beacon endpoint (cdn-cgi/rum, cdn-cgi/beacon)
               "worker-src 'none'",
               "object-src 'none'",
               "base-uri 'self'",
