@@ -27,7 +27,7 @@ export default function HomeClient({ initialTrending, totalTitles }: { initialTr
     e.preventDefault();
     if (searchQuery.trim().length >= 2) {
       vaultFlash();
-      router.push(`/browse?q=${encodeURIComponent(searchQuery.trim())}`);
+      router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
     }
   };
 

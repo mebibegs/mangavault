@@ -24,16 +24,13 @@ export default function ReaderPanel({ src, index, eager = false }: ReaderPanelPr
       {status === "loading" && (
         <div className="rp-spinner-wrap">
           <div className="rp-spinner" />
-          <span className="rp-spinner-label">{index + 1}</span>
         </div>
       )}
       {status === "error" && (
         <button className="rp-retry" onClick={handleRetry} aria-label={`Retry loading panel ${index + 1}`}>
           <svg className="rp-retry-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="23 4 23 10 17 10" />
-            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+            <circle cx="12" cy="12" r="10" />
           </svg>
-          <span className="rp-retry-label">{index + 1}</span>
         </button>
       )}
       <img
