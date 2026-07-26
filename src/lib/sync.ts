@@ -12,6 +12,7 @@ function normalizeTitleKey(title: string): string {
 /**
  * Better fuzzy matching for similar titles
  * Handles cases like "Inja gang" vs "Inja gang (I am Unbeatable)"
+ * Conservative: requires strong evidence titles are the same manga
  */
 function fuzzyTitleMatch(a: string, b: string): boolean {
   const normA = normalizeTitleKey(a);
@@ -19,13 +20,26 @@ function fuzzyTitleMatch(a: string, b: string): boolean {
   
   if (normA === normB) return true;
   
-  // Check if one is contained in the other (with reasonable length)
-  if (normA.length > 5 && normB.length > 5) {
-    if (normA.includes(normB) || normB.includes(normA)) {
-      // Additional check: the shorter one should be at least 70% of the longer
-      const ratio = Math.min(normA.length, normB.length) / Math.max(normA.length, normB.length);
-      return ratio >= 0.7;
+  // Exact containment: shorter is prefix/suffix of longer (very strong signal)
+  if (normA.length > 8 && normB.length > 8) {
+    if (normA.startsWith(normB) || normB.startsWith(normA)) {
+      return true;
     }
+    // Containment with reasonable length ratio (shorter >= 80% of longer)
+    if (normA.includes(normB) || normB.includes(normA)) {
+      const ratio = Math.min(normA.length, normB.length) / Math.max(normA.length, normB.length);
+      return ratio >= 0.8;
+    }
+  }
+  
+  // Word-level overlap: count shared significant words
+  const wordsA = a.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(w => w.length > 2);
+  const wordsB = b.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(w => w.length > 2);
+  if (wordsA.length >= 2 && wordsB.length >= 2) {
+    const shared = wordsA.filter(w => wordsB.includes(w)).length;
+    const minCount = Math.min(wordsA.length, wordsB.length);
+    // Require 80%+ word overlap for titles with 2+ words
+    if (shared / minCount >= 0.8 && shared >= 2) return true;
   }
   
   return false;
@@ -131,6 +145,13 @@ export async function upsertResults(results: MangaResult[]): Promise<{ inserted:
     for (const [titleKey, r] of chunk) {
       const existing = existingMap.get(titleKey);
       if (!existing) {
+        // Derive publishedAt from the most recent chapter date
+        const latestDate = r.chapters
+          .map(ch => ch.date)
+          .filter(d => d && d.length >= 8)
+          .sort()
+          .pop() || "";
+
         toInsert.push({
           titleKey,
           title: r.title,
@@ -147,6 +168,7 @@ export async function upsertResults(results: MangaResult[]): Promise<{ inserted:
           chapterCount: r.chapterCount,
           chapters: dedupeChapterList(r.chapters).map((ch) => ({ title: ch.title, url: ch.url, date: ch.date })),
           sources: [{ name: r.source, url: r.url, lastSeen: new Date() }],
+          publishedAt: latestDate || null,
           createdAt: new Date(),
           updatedAt: new Date(),
         });

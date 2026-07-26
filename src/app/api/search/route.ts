@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getMongoDb, ensureTextIndex } from "@/lib/mongodb";
 import { searchAllSources } from "@/lib/scraper";
 import { upsertResults } from "@/lib/sync";
-import { toSafeResult } from "@/lib/safeResult";
+import { toSafeResult, isAdultContent } from "@/lib/safeResult";
 import { checkRateLimit } from "@/lib/rate-limiter";
 import { logRequest } from "@/lib/logger";
 import { getCachedSearch, setCachedSearch, trackQueryFrequency } from "@/lib/cache";
@@ -53,6 +53,14 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    // Reject queries that look like injection attempts
+    if (/['";`]|--|OR\s|AND\s|\$\{|%00/i.test(query)) {
+      return NextResponse.json(
+        { error: "Bad Request", message: "Invalid query characters." },
+        { status: 400 }
+      );
+    }
+
     // Track query frequency for cache pre-warming (async, non-blocking)
     trackQueryFrequency(query).catch(() => {});
 
@@ -61,14 +69,14 @@ export async function GET(req: NextRequest) {
     // ──────────────────────────────────────────────────────────────────
     const cached = await getCachedSearch(query);
     if (cached && cached.length > 0) {
+      const filtered = cached.filter((d) => !isAdultContent(d.genres || []));
       logRequest({ ipAddress: ip, endpoint: "/api/search", method: "GET", statusCode: 200, query });
       return NextResponse.json({
         success: true,
-        results: cached.map((d) => toSafeResult(d as unknown as Record<string, unknown>)),
-        count: cached.length,
+        results: filtered.map((d) => toSafeResult(d as unknown as Record<string, unknown>)),
+        count: filtered.length,
         query,
         source: "cache",
-        rateLimit: { limit: 15, remaining: rateCheck.remaining, resetIn: rateCheck.resetIn },
       });
     }
 
@@ -89,6 +97,7 @@ export async function GET(req: NextRequest) {
               $or: [{ title: regex }, { description: regex }, { genres: regex }],
             })
             .limit(50)
+            .maxTimeMS(8000)
             .toArray();
 
         // $text search REQUIRES a text index. If the index is missing the
@@ -105,6 +114,7 @@ export async function GET(req: NextRequest) {
             )
             .sort({ score: { $meta: "textScore" } })
             .limit(50)
+            .maxTimeMS(8000)
             .toArray();
           usedTextSearch = true;
         } catch (textErr) {
@@ -120,18 +130,18 @@ export async function GET(req: NextRequest) {
         }
 
         if (results.length > 0) {
-          const mapped = results.map((d) => toSafeResult(d as Record<string, unknown>));
+          const filtered = results.filter((d) => !isAdultContent((d.genres as string[]) || []));
+          const mapped = filtered.map((d) => toSafeResult(d as Record<string, unknown>));
           // Populate cache for future requests
-          setCachedSearch(query, mapped as unknown as Parameters<typeof setCachedSearch>[1]).catch(() => {});
+          setCachedSearch(query, filtered as unknown as Parameters<typeof setCachedSearch>[1]).catch(() => {});
 
           logRequest({ ipAddress: ip, endpoint: "/api/search", method: "GET", statusCode: 200, query });
           return NextResponse.json({
             success: true,
             results: mapped,
-            count: results.length,
+            count: filtered.length,
             query,
             source: "mongodb",
-            rateLimit: { limit: 15, remaining: rateCheck.remaining, resetIn: rateCheck.resetIn },
           });
         }
       }
@@ -150,20 +160,22 @@ export async function GET(req: NextRequest) {
       return scraped;
     });
 
+    // Filter adult content from results
+    const filtered = results.filter((r) => !isAdultContent(r.genres || []));
+
     // Populate cache
-    if (results.length > 0) {
-      setCachedSearch(query, results).catch(() => {});
+    if (filtered.length > 0) {
+      setCachedSearch(query, filtered).catch(() => {});
     }
 
     logRequest({ ipAddress: ip, endpoint: "/api/search", method: "GET", statusCode: 200, query });
 
     return NextResponse.json({
       success: true,
-      results: results.map((r) => toSafeResult(r as unknown as Record<string, unknown>)),
-      count: results.length,
+      results: filtered.map((r) => toSafeResult(r as unknown as Record<string, unknown>)),
+      count: filtered.length,
       query,
       source: "live",
-      rateLimit: { limit: 15, remaining: rateCheck.remaining, resetIn: rateCheck.resetIn },
     });
   } catch (err) {
     console.error("Search API error:", err);

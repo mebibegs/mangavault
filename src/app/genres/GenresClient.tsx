@@ -9,6 +9,7 @@ import MangaCard, { useReveal, type MangaResult } from "@/components/vault/Manga
 import { vaultFlash } from "@/components/vault/VaultFX";
 import { Loader } from "@/components/vault/Loader";
 import { ALL_GENRES } from "@/lib/genres";
+import { ADULT_GENRES } from "@/lib/safeResult";
 
 const DetailModal = dynamic(() => import("@/components/DetailModal"), { ssr: false });
 
@@ -83,9 +84,9 @@ export default function GenresClient({ initialGenre, initialResults }: GenresCli
     return (
       <VaultShell>
         <section className="wrap">
-          <SectionHead idx="SEC.04" as="h1" title={<>BROWSE<br />BY GENRE</>} right={`${ALL_GENRES.length} SHELVES`} />
+          <SectionHead idx="SEC.04" as="h1" title={<>BROWSE<br />BY GENRE</>} right={`${ALL_GENRES.filter(g => !ADULT_GENRES.includes(g)).length} SHELVES`} />
           <div className="ggrid">
-            {ALL_GENRES.map((g, i) => (
+            {ALL_GENRES.filter(g => !ADULT_GENRES.includes(g)).map((g, i) => (
               <GenreTile key={g} name={g} index={i} onClick={() => selectGenre(g)} />
             ))}
           </div>
@@ -112,7 +113,7 @@ export default function GenresClient({ initialGenre, initialResults }: GenresCli
 
         <div className="chips">
           <button className="chip" onClick={() => selectGenre("")}>← ALL SHELVES</button>
-          {ALL_GENRES.map(g => (
+          {ALL_GENRES.filter(g => !ADULT_GENRES.includes(g)).map(g => (
             <button
               key={g}
               className={`chip${g.toLowerCase() === selectedGenre.toLowerCase() ? " on" : ""}`}

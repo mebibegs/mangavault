@@ -16,8 +16,8 @@ function searchKey(query: string): string {
   return `mangavault:cache:search:${query.toLowerCase().trim()}`;
 }
 
-function trendingKey(page: number): string {
-  return `mangavault:cache:trending:${page}`;
+function trendingKey(page: number, sort?: string): string {
+  return `mangavault:cache:trending:${sort || "latest"}:${page}`;
 }
 
 export async function getCachedSearch(query: string): Promise<MangaResult[] | null> {
@@ -46,19 +46,19 @@ export async function trackQueryFrequency(query: string): Promise<void> {
   await redis.expire(key, 60 * 60 * 24 * 30).catch(() => undefined);
 }
 
-export async function getCachedTrending(page: number): Promise<{ results: MangaResult[]; hasMore: boolean } | null> {
-  const key = trendingKey(page);
+export async function getCachedTrending(page: number, sort?: string): Promise<{ results: MangaResult[]; hasMore: boolean; total?: number } | null> {
+  const key = trendingKey(page, sort);
 
   if (redis) {
-    const cached = await redis.get<{ results: MangaResult[]; hasMore: boolean }>(key).catch(() => null);
+    const cached = await redis.get<{ results: MangaResult[]; hasMore: boolean; total?: number }>(key).catch(() => null);
     if (cached) return cached;
   }
 
-  return (memoryCache.get(key) as { results: MangaResult[]; hasMore: boolean } | undefined) || null;
+  return (memoryCache.get(key) as { results: MangaResult[]; hasMore: boolean; total?: number } | undefined) || null;
 }
 
-export async function setCachedTrending(page: number, results: { results: MangaResult[]; hasMore: boolean }): Promise<void> {
-  const key = trendingKey(page);
+export async function setCachedTrending(page: number, results: { results: MangaResult[]; hasMore: boolean; total?: number }, sort?: string): Promise<void> {
+  const key = trendingKey(page, sort);
   memoryCache.set(key, results, { ttl: TRENDING_TTL_SECONDS * 1000 });
   if (redis) await redis.set(key, results, { ex: TRENDING_TTL_SECONDS }).catch(() => undefined);
 }

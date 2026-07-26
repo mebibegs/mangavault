@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
 
   const parsedUrl = parseAndValidateImageUrl(imageUrl);
   if (!parsedUrl) {
-    return Response.json({ error: "URL not allowed" }, { status: 403 });
+    return Response.json({ error: "Invalid image" }, { status: 403 });
   }
 
   try {

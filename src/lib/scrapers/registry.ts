@@ -158,7 +158,7 @@ function isBoilerplateDescription(text: string): boolean {
 }
 
 /** Fetch description / genres / status / alt titles from the detail page HTML. */
-function parseManganatoMeta(html: string): { description: string; genres: string[]; status: string; altTitles: string[] } {
+function parseManganatoMeta(html: string): { description: string; genres: string[]; status: string; altTitles: string[]; author: string; artist: string } {
   try {
     const $ = cheerio.load(html);
     const genres: string[] = [];
@@ -198,9 +198,24 @@ function parseManganatoMeta(html: string): { description: string; genres: string
     let altTitles: string[] = [];
     const am = bodyText.match(/Alternative\s*:?\s*([^\n<]+)/i);
     if (am) altTitles = am[1].split(/[;,]/).map((s) => s.trim()).filter((s) => s && s.length > 1).slice(0, 8);
-    return { description, genres, status, altTitles };
+
+    // Author / Artist extraction from info table rows
+    let author = "Unknown";
+    let artist = "Unknown";
+    $(".info-list .row, .post-status .row, .panel-story-info-detail .row").each((_, el) => {
+      const label = $(el).find(".col-4, .summary-heading, td:first-child").text().toLowerCase().trim();
+      const value = $(el).find(".col-8, .summary-content, td:last-child").text().trim();
+      if (label.includes("author") && value && value !== "Updating" && author === "Unknown") {
+        author = value.replace(/\s*\(Author\)/i, "").trim();
+      }
+      if (label.includes("artist") && value && value !== "Updating" && artist === "Unknown") {
+        artist = value.replace(/\s*\(Artist\)/i, "").trim();
+      }
+    });
+
+    return { description, genres, status, altTitles, author, artist };
   } catch {
-    return { description: "", genres: [], status: "Ongoing", altTitles: [] };
+    return { description: "", genres: [], status: "Ongoing", altTitles: [], author: "Unknown", artist: "Unknown" };
   }
 }
 
@@ -229,7 +244,7 @@ async function enrichManganato(results: MangaResult[]): Promise<MangaResult[]> {
     ]);
     const meta = metaHtml
       ? parseManganatoMeta(metaHtml)
-      : { description: "", genres: [], status: r.status, altTitles: [] };
+      : { description: "", genres: [], status: r.status, altTitles: [], author: "Unknown", artist: "Unknown" };
     return {
       ...r,
       chapters,
@@ -237,6 +252,8 @@ async function enrichManganato(results: MangaResult[]): Promise<MangaResult[]> {
       description: meta.description || r.description,
       genres: meta.genres.length ? meta.genres : r.genres,
       status: meta.status || r.status,
+      author: meta.author !== "Unknown" ? meta.author : r.author,
+      artist: meta.artist !== "Unknown" ? meta.artist : r.artist,
     };
   });
 }

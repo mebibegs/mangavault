@@ -64,6 +64,7 @@ export async function ensureIndexes(): Promise<void> {
     titles.createIndex({ titleKey: 1 }, { unique: true }),
     titles.createIndex({ genres: 1 }),
     titles.createIndex({ updatedAt: -1 }),
+    titles.createIndex({ publishedAt: -1 }),
     titles.createIndex({ rating: -1 }),
     titles.createIndex({ status: 1 }),
     titles.createIndex({ type: 1 }),

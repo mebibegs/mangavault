@@ -14,6 +14,24 @@ const SOURCE_NAMES: Record<string, string> = {
 };
 
 /**
+ * Genre names that mark a title as 18+.
+ */
+export const ADULT_GENRES = [
+  "Adult", "Mature", "Smut", "Ecchi", "Erotica", "Hentai",
+  "Pornographic", "Doujinshi", "Yaoi", "Yuri", "Boys Love",
+  "Girls Love", "Netorare", "SM BDSM",
+];
+
+const ADULT_GENRE_LOWER = ADULT_GENRES.map(g => g.toLowerCase());
+
+/**
+ * Check if a result contains adult/18+ genres.
+ */
+export function isAdultContent(genres: string[]): boolean {
+  return genres.some(g => ADULT_GENRE_LOWER.includes(g.toLowerCase()));
+}
+
+/**
  * Build a proxy URL for our /api/img endpoint.
  *
  * The proxy handles:
@@ -40,6 +58,7 @@ export function toSafeResult(doc: Record<string, unknown>) {
   const url = (doc.url as string) || "";
   const title = (doc.title as string) || "";
   const chapters = (doc.chapters as Array<{ title: string; url: string; date: string }>) || [];
+  const sources = (doc.sources as Array<{ name: string; url: string }>) || [];
 
   return {
     title,
@@ -57,6 +76,10 @@ export function toSafeResult(doc: Record<string, unknown>) {
     coverUrl: coverUrl ? proxyImageUrl(coverUrl) : "",
     url: url || "",
     source: SOURCE_NAMES[source] || source || "Unknown",
+    sources: sources.map((s) => ({
+      name: SOURCE_NAMES[s.name] || s.name || "Unknown",
+      url: s.url || "",
+    })),
     author: (doc.author as string) || "Unknown",
     artist: (doc.artist as string) || "Unknown",
   };

@@ -39,7 +39,7 @@ export default function HomeClient({ initialTrending, totalTitles }: { initialTr
         const res = await fetch("/api/trending?page=1");
         if (res.ok) {
           const d = await res.json();
-          setTrending((d.results || []).slice(0, 20));
+          setTrending((d.results || []).slice(0, 30));
         }
       } catch { /* */ }
     })();

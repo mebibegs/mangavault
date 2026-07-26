@@ -20,7 +20,7 @@ export default async function HomePage() {
   try {
     const { results } = await browseCatalog(1);
     initialTrending = results
-      .slice(0, 20)
+      .slice(0, 30)
       .map((r) => toSafeResult(r as unknown as Record<string, unknown>));
   } catch {
     // Graceful fallback — client will fetch via /api/trending

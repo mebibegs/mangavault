@@ -224,7 +224,14 @@ function sortChaptersForDisplay(entries: Array<{ index: number; chapter: Chapter
       const bHasNum = Number.isFinite(bNum);
 
       // Prefer numbered chapters, sorted newest -> oldest
-      if (aHasNum && bHasNum && aNum !== bNum) return bNum - aNum;
+      if (aHasNum && bHasNum && aNum !== bNum) {
+        // Compare major versions first (integer part), then minor (decimal part)
+        const aMajor = Math.floor(aNum);
+        const bMajor = Math.floor(bNum);
+        if (aMajor !== bMajor) return bMajor - aMajor;
+        // Same major: sub-chapters sort ascending (0.1 before 0.2)
+        return aNum - bNum;
+      }
       if (aHasNum && !bHasNum) return -1;
       if (!aHasNum && bHasNum) return 1;
 
@@ -1075,10 +1082,16 @@ function isRelevant(result: MangaResult, query: string): boolean {
   const BAD = ["manga lists","latest updates","popular","home","search","scythe scans","demonic scans"];
   if (BAD.some(s => titleLower === s || titleLower.includes(s))) return false;
 
+  // Exact or substring match in title — always relevant
   if (titleLower === q || titleLower.includes(q)) return true;
 
   const titleWordMatches = qWords.filter(w => titleLower.includes(w)).length;
   const anyWordMatches = qWords.filter(w => titleLower.includes(w) || descLower.includes(w)).length;
+
+  // Single-word queries: require title match (not just description)
+  if (qWords.length === 1) {
+    return titleWordMatches >= 1;
+  }
 
   // Exact / near exact title searches should require much stronger title overlap
   if (qWords.length >= 4) {
@@ -1086,7 +1099,8 @@ function isRelevant(result: MangaResult, query: string): boolean {
     return titleWordMatches >= Math.ceil(qWords.length * 0.6);
   }
 
-  return anyWordMatches >= Math.max(1, Math.floor(qWords.length * 0.5));
+  // Require at least some title overlap for multi-word queries
+  return titleWordMatches >= Math.max(1, Math.floor(qWords.length * 0.5));
 }
 
 function isValidEntry(r: MangaResult): boolean {
@@ -1258,17 +1272,39 @@ export async function searchAllSources(query: string): Promise<MangaResult[]> {
 
   const results = settled.flatMap((s) => s.results);
 
-  // Filter and deduplicate
+  // Filter and deduplicate using fuzzy matching
   const relevant = results
     .filter((r) => isRelevant(r, query))
     .sort((a, b) => getRelevanceScore(b, query) - getRelevanceScore(a, query));
 
-  const seen = new Set<string>();
+  const seen: { key: string; title: string }[] = [];
   const unique: MangaResult[] = [];
   for (const r of relevant) {
     const k = r.title.toLowerCase().replace(/[^a-z0-9]/g, "");
-    if (!seen.has(k) && k.length > 2) {
-      seen.add(k);
+    if (k.length <= 2) continue;
+
+    // Check for fuzzy match against already-accepted titles
+    let isDupe = false;
+    for (const s of seen) {
+      if (k === s.key) { isDupe = true; break; }
+      // Containment check: shorter key is at least 70% of longer
+      if (k.length > 5 && s.key.length > 5) {
+        if (k.includes(s.key) || s.key.includes(k)) {
+          const ratio = Math.min(k.length, s.key.length) / Math.max(k.length, s.key.length);
+          if (ratio >= 0.7) { isDupe = true; break; }
+        }
+      }
+      // Word overlap: if 2+ word titles share most words
+      const rWords = r.title.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+      const sWords = s.title.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+      if (rWords.length >= 2 && sWords.length >= 2) {
+        const overlap = rWords.filter(w => sWords.includes(w)).length;
+        const minLen = Math.min(rWords.length, sWords.length);
+        if (minLen >= 2 && overlap / minLen >= 0.8) { isDupe = true; break; }
+      }
+    }
+    if (!isDupe) {
+      seen.push({ key: k, title: r.title });
       unique.push(r);
     }
   }

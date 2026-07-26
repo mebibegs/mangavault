@@ -9,6 +9,7 @@ import MangaCard, { type MangaResult } from "@/components/vault/MangaCard";
 import { vaultFlash } from "@/components/vault/VaultFX";
 import { Loader } from "@/components/vault/Loader";
 import { ALL_GENRES } from "@/lib/genres";
+import { ADULT_GENRES } from "@/lib/safeResult";
 
 const DetailModal = dynamic(() => import("@/components/DetailModal"), { ssr: false });
 
@@ -18,6 +19,8 @@ export default function BrowseClient() {
   const q = params.get("q") || "";
   const genre = params.get("genre") || "";
   const sort = params.get("sort") || "updated";
+  const rawPage = parseInt(params.get("page") || "1", 10) || 1;
+  const validPage = Math.max(1, Math.min(500, rawPage));
 
   const [results, setResults] = useState<MangaResult[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,9 +62,9 @@ export default function BrowseClient() {
   }, [q, genre, sort]);
 
   useEffect(() => {
-    const timeout = window.setTimeout(() => { void fetchPage(1, false); }, 0);
+    const timeout = window.setTimeout(() => { void fetchPage(validPage, false); }, 0);
     return () => window.clearTimeout(timeout);
-  }, [fetchPage]);
+  }, [fetchPage, validPage]);
 
   const selectGenre = (g: string) => {
     vaultFlash();
@@ -83,8 +86,8 @@ export default function BrowseClient() {
         <span>LOADING</span>
       </div>
     )
-    : total > results.length
-      ? `${total.toLocaleString("en-US")} TITLES`
+    : total > 0
+      ? `${total.toLocaleString("en-US")}+ TITLES`
       : `${results.length}${hasMore ? "+" : ""} TITLES`;
 
   return (
@@ -101,7 +104,7 @@ export default function BrowseClient() {
         {!q && (
           <div className="chips">
             <button className={`chip${!genre ? " on" : ""}`} onClick={() => selectGenre("")}>ALL</button>
-            {ALL_GENRES.map(g => (
+            {ALL_GENRES.filter(g => !ADULT_GENRES.includes(g)).map(g => (
               <button key={g} className={`chip${genre.toLowerCase() === g.toLowerCase() ? " on" : ""}`} onClick={() => selectGenre(g)}>{g}</button>
             ))}
           </div>

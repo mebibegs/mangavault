@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMongoDb } from "@/lib/mongodb";
-import { toSafeResult } from "@/lib/safeResult";
+import { toSafeResult, ADULT_GENRES } from "@/lib/safeResult";
 
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -9,16 +9,16 @@ function escapeRegex(value: string): string {
 function getSort(sortParam: string): Record<string, 1 | -1> {
   switch (sortParam) {
     case "popular":
-      return { rating: -1, chapterCount: -1, updatedAt: -1 };
+      return { rating: -1, chapterCount: -1, publishedAt: -1, updatedAt: -1 };
     case "title":
       return { title: 1 };
     case "rating":
-      return { rating: -1, updatedAt: -1 };
+      return { rating: -1, publishedAt: -1, updatedAt: -1 };
     case "chapters":
-      return { chapterCount: -1, updatedAt: -1 };
+      return { chapterCount: -1, publishedAt: -1, updatedAt: -1 };
     case "updated":
     default:
-      return { updatedAt: -1 };
+      return { publishedAt: -1, updatedAt: -1 };
   }
 }
 
@@ -27,7 +27,13 @@ export async function GET(req: NextRequest) {
     const genre = req.nextUrl.searchParams.get("q")?.trim();
     if (!genre) return NextResponse.json({ error: "Missing genre" }, { status: 400 });
 
-    const page = Math.max(1, parseInt(req.nextUrl.searchParams.get("page") || "1", 10) || 1);
+    // Block adult genres from regular genres endpoint
+    if (ADULT_GENRES.some(ag => ag.toLowerCase() === genre.toLowerCase())) {
+      return NextResponse.json({ error: "Genre not found" }, { status: 404 });
+    }
+
+    const rawPage = parseInt(req.nextUrl.searchParams.get("page") || "1", 10) || 1;
+    const page = Math.max(1, Math.min(500, rawPage));
     const limit = Math.min(60, Math.max(1, parseInt(req.nextUrl.searchParams.get("limit") || "30", 10) || 30));
     const sortParam = req.nextUrl.searchParams.get("sort") || "updated";
 
