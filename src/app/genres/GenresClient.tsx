@@ -129,7 +129,10 @@ export default function GenresClient({ initialGenre, initialResults }: GenresCli
             <Loader size={40} strokeWidth={3} />
           </div>
         ) : results.length === 0 ? (
-          <div className="empty">NO RESULTS FOUND — THIS SHELF IS EMPTY.</div>
+          <div className="empty" style={{ textAlign: "center", padding: "40px 20px" }}>
+            <p style={{ marginBottom: 16 }}>SHELF &ldquo;{selectedGenre.toUpperCase()}&rdquo; IS EMPTY OR DOES NOT EXIST.</p>
+            <button className="btn" onClick={() => selectGenre("")}>BROWSE ALL SHELVES</button>
+          </div>
         ) : (
           <>
             <div className="comic-grid">

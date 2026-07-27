@@ -62,19 +62,38 @@ export async function GET(req: NextRequest) {
         if (sortParam === "popular") {
           sort = { rating: -1, chapterCount: -1, publishedAt: -1, updatedAt: -1 };
         } else if (sortParam === "rating") {
-          sort = { rating: -1, publishedAt: -1, updatedAt: -1 };
+          sort = { hasRating: -1, ratingNumeric: -1, publishedAt: -1, updatedAt: -1 };
         } else if (sortParam === "chapters") {
           sort = { chapterCount: -1, publishedAt: -1, updatedAt: -1 };
         } else if (sortParam === "title") {
           sort = { title: 1 };
         }
 
-        const results = await titles
-          .find(filter)
-          .sort(sort)
-          .skip(skip)
-          .limit(limit)
-          .toArray();
+        // For rating sort, use aggregation to push "N/A" ratings to the end
+        let results: Array<Record<string, unknown>>;
+        if (sortParam === "rating") {
+          results = await titles
+            .aggregate([
+              { $match: filter },
+              {
+                $addFields: {
+                  hasRating: { $cond: [{ $ne: ["$rating", "N/A"] }, 1, 0] },
+                  ratingNumeric: { $toDouble: { $ifNull: ["$rating", "0"] } },
+                },
+              },
+              { $sort: sort },
+              { $skip: skip },
+              { $limit: limit },
+            ])
+            .toArray();
+        } else {
+          results = await titles
+            .find(filter)
+            .sort(sort)
+            .skip(skip)
+            .limit(limit)
+            .toArray();
+        }
 
         const mapped = results.map((d) => toSafeResult(d as Record<string, unknown>));
         const hasMore = skip + results.length < total;

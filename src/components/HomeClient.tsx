@@ -16,7 +16,7 @@ const DetailModal = dynamic(() => import("@/components/DetailModal"), { ssr: fal
 
 const MARQUEE = "NOW INDEXING ✦ MANGA ✦ MANHWA ✦ MANHUA ✦ WEBTOON ✦ ";
 
-export default function HomeClient({ initialTrending, totalTitles }: { initialTrending: MangaResult[]; totalTitles?: number }) {
+export default function HomeClient({ initialTrending }: { initialTrending: MangaResult[] }) {
   const router = useRouter();
   const [trending, setTrending] = useState<MangaResult[]>(initialTrending);
   const [latest, setLatest] = useState<MangaResult[]>([]);
@@ -67,8 +67,10 @@ export default function HomeClient({ initialTrending, totalTitles }: { initialTr
       if (rb !== ra) return rb - ra;
       return (parseInt(b.chapterCount) || 0) - (parseInt(a.chapterCount) || 0);
     })
-    .slice(0, 8);
+    .slice(0, 9);
   const featured = strip[0] || trending[0];
+  // Exclude featured title from trending strip so it doesn't appear twice
+  const trendingStrip = featured ? strip.filter(r => r.title !== featured.title).slice(0, 8) : strip.slice(0, 8);
   // Latest drops = already sorted by updatedAt desc from API
   const latestDrops = latest.length > 0 ? latest : trending.slice(0, 8);
 
@@ -119,10 +121,10 @@ export default function HomeClient({ initialTrending, totalTitles }: { initialTr
 
         {/* ---------- TRENDING ---------- */}
         <div className="wrap" id="trending">
-          <SectionHead idx="SEC.01" title={<>TRENDING<br />NOW</>} right={`TOP ${String(strip.length).padStart(2, "0")} / TODAY`} />
-          {strip.length > 0 ? (
+          <SectionHead idx="SEC.01" title={<>TRENDING<br />NOW</>} right={`TOP ${String(trendingStrip.length).padStart(2, "0")} / TODAY`} />
+          {trendingStrip.length > 0 ? (
             <ul className="strip">
-              {strip.map((r, i) => (
+              {trendingStrip.map((r, i) => (
                 <li key={`${r.title}-${i}`} className={i === 0 ? "feat" : undefined}>
                   <MangaCard
                     result={r}
@@ -153,20 +155,6 @@ export default function HomeClient({ initialTrending, totalTitles }: { initialTr
           </div>
         </div>
 
-        {/* ---------- BROWSE CTA ---------- */}
-        <div className="wrap" style={{ marginTop: "clamp(56px, 8vh, 88px)" }}>
-          <div className="vpanel" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 24, justifyContent: "space-between" }}>
-            <div>
-              <p className="kicker" style={{ margin: "0 0 8px" }}>SEC.03 — FULL CATALOG</p>
-              <p style={{ margin: 0, fontWeight: 900, fontStyle: "italic", fontSize: "clamp(22px,3vw,34px)", textTransform: "uppercase", lineHeight: 0.95 }}>
-                {totalTitles && totalTitles > 0
-                  ? `${totalTitles.toLocaleString("en-US")}+ TITLES IN THE VAULT`
-                  : "85,000+ TITLES IN THE VAULT"}
-              </p>
-            </div>
-            <Link href="/browse" className="btn" onClick={() => vaultFlash()}>OPEN THE VAULT</Link>
-          </div>
-        </div>
       </section>
 
       {selected && <DetailModal result={selected} onClose={() => setSelected(null)} />}

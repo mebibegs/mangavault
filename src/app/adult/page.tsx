@@ -19,6 +19,7 @@ const ADULT_GENRES = [
 
 export default function AdultPage() {
   const [confirmed, setConfirmed] = useState(false);
+  const [checkingCookie, setCheckingCookie] = useState(true);
 
   const [results, setResults] = useState<MangaResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -46,6 +47,22 @@ export default function AdultPage() {
     onScroll();
     return () => container.removeEventListener("scroll", onScroll);
   }, [readerImages]);
+
+  // Check if adult cookie already exists on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/adult/verify", { credentials: "include" });
+        if (res.ok) {
+          const d = await res.json();
+          if (d.verified) {
+            setConfirmed(true);
+          }
+        }
+      } catch { /* */ }
+      finally { setCheckingCookie(false); }
+    })();
+  }, []);
 
   const fetchResults = useCallback(async (q: string, g: string, p: number) => {
     setLoading(true);
@@ -110,6 +127,16 @@ export default function AdultPage() {
   };
 
   /* ─── Age Gate ─── */
+  if (checkingCookie) {
+    return (
+      <>
+        <VaultFX />
+        <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <Loader size={40} />
+        </div>
+      </>
+    );
+  }
   if (!confirmed) {
     return (
       <>
@@ -127,8 +154,11 @@ export default function AdultPage() {
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <button
                 className="btn"
-                onClick={() => {
+                onClick={async () => {
                   vaultFlash();
+                  try {
+                    await fetch("/api/adult/verify", { method: "POST", credentials: "include" });
+                  } catch { /* */ }
                   setConfirmed(true);
                 }}
               >
@@ -205,7 +235,7 @@ export default function AdultPage() {
             <h3 className="m-title">{selectedResult.title}</h3>
             <div className="m-stats">
               {selectedResult.rating !== "N/A" && <span>RATING <b>★ {selectedResult.rating}</b></span>}
-              <span>CHAPTERS <b>{selectedResult.chapterCount || "—"}</b></span>
+              <span>CHAPTERS <b>{selectedResult.chapterCount !== "0" ? selectedResult.chapterCount : "—"}</b></span>
               <span>STATUS <b>{selectedResult.status}</b></span>
             </div>
             {selectedResult.genres.length > 0 && (

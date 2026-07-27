@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
     }
 
     const rawPage = parseInt(req.nextUrl.searchParams.get("page") || "1", 10) || 1;
-    const page = Math.max(1, Math.min(500, rawPage));
+    const page = Math.max(1, Math.min(660, rawPage));
     const limit = Math.min(60, Math.max(1, parseInt(req.nextUrl.searchParams.get("limit") || "30", 10) || 30));
     const sortParam = req.nextUrl.searchParams.get("sort") || "updated";
 

@@ -20,7 +20,7 @@ export default function BrowseClient() {
   const genre = params.get("genre") || "";
   const sort = params.get("sort") || "updated";
   const rawPage = parseInt(params.get("page") || "1", 10) || 1;
-  const validPage = Math.max(1, Math.min(500, rawPage));
+  const validPage = Math.max(1, Math.min(660, rawPage));
 
   const [results, setResults] = useState<MangaResult[]>([]);
   const [loading, setLoading] = useState(true);
