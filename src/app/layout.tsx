@@ -36,7 +36,6 @@ export const metadata: Metadata = {
     description: "Search manga, manhwa, manhua across multiple sources simultaneously. Deduplicated, ranked results in a single list.",
     images: ["/opengraph-image"],
   },
-  icons: { icon: [{ url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" }], apple: "/apple-touch-icon.png" },
   manifest: "/manifest.json",
 };
 
