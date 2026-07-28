@@ -17,6 +17,8 @@ const nextConfig: NextConfig = {
     return [
       { source: "/api", destination: "/docs", permanent: false },
       { source: "/18%2B", destination: "/adult", permanent: false },
+      { source: "/18plus", destination: "/adult", permanent: false },
+      { source: "/manga/:slug*", destination: "/title/:slug*", permanent: false },
     ];
   },
 

@@ -601,7 +601,7 @@ export async function browseSource2(page: number): Promise<MangaResult[]> {
     }
 
     // For items WITH cover from listing, still need to fetch detail for desc/rating
-    const withCover = allResults.filter(r => r.coverUrl && !r.description).slice(0, 15);
+    const withCover = allResults.filter(r => r.coverUrl && r.rating === "N/A" && !r.description).slice(0, 15);
     if (withCover.length > 0) {
       const details = await Promise.all(withCover.map(async r => {
         const h = await fetchSafe(r.url);
@@ -770,8 +770,8 @@ export async function browseSource3(page: number): Promise<MangaResult[]> {
       allResults.push(...parseSource3ListingPage(html));
     }
 
-    // Fetch details for items without descriptions (limit to 10 per batch)
-    const needsDetail = allResults.filter(r => !r.description).slice(0, 10);
+    // Fetch details for items without descriptions or with N/A ratings (limit to 10 per batch)
+    const needsDetail = allResults.filter(r => !r.description || r.rating === "N/A").slice(0, 10);
     if (needsDetail.length > 0) {
       const details = await Promise.all(needsDetail.map(async r => {
         const h = await fetchSafe(r.url);
@@ -979,6 +979,20 @@ function titleFromWebtoonUrl(href: string): string {
   return m[1].split("-").filter(Boolean).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
 }
 
+/** Lightweight: extract only rating from a Webtoon detail page (no chapter fetch). */
+function parseWebtoonRatingOnly(html: string): string {
+  try {
+    const $ = cheerio.load(html);
+    const rateEl = $(".grade_num");
+    if (rateEl.length) {
+      const rText = rateEl.first().text().trim();
+      const rMatch = rText.match(/([\d.]+)/);
+      if (rMatch && parseFloat(rMatch[1]) <= 10) return rMatch[1];
+    }
+  } catch { /* */ }
+  return "N/A";
+}
+
 /**
  * Browse the Webtoons catalog.
  *
@@ -1063,6 +1077,20 @@ export async function browseSource4(page: number): Promise<MangaResult[]> {
       });
     }
 
+    // Fetch detail pages for a batch of titles to populate ratings
+    const needsRating = results.filter(r => r.rating === "N/A").slice(0, 20);
+    if (needsRating.length > 0) {
+      const ratingHtmls = await Promise.all(needsRating.map(r => fetchSafeWebtoon(r.url)));
+      for (let i = 0; i < ratingHtmls.length; i++) {
+        if (!ratingHtmls[i]) continue;
+        const rating = parseWebtoonRatingOnly(ratingHtmls[i]!);
+        if (rating !== "N/A") {
+          const idx = results.findIndex(r => r.url === needsRating[i].url);
+          if (idx >= 0) results[idx] = { ...results[idx], rating };
+        }
+      }
+    }
+
     console.log(`[Browse] Webtoons catalog: ${results.length} titles`);
     return results;
   } catch (err) {
@@ -1122,9 +1150,15 @@ function isRelevant(result: MangaResult, query: string): boolean {
   const titleWordMatches = qWords.filter(w => titleLower.includes(w)).length;
   const anyWordMatches = qWords.filter(w => titleLower.includes(w) || descLower.includes(w)).length;
 
-  // Single-word queries: require title match (not just description)
+  // Single-word queries: require the word to be a significant portion of the title
+  // to avoid false positives like "naruto" matching unrelated long titles
   if (qWords.length === 1) {
-    return titleWordMatches >= 1;
+    const qWord = qWords[0];
+    if (qWord.length < 3) return false;
+    if (!titleLower.includes(qWord)) return false;
+    // The query word must be ≥30% of the title or the title ≤ 3× query length
+    if (qWord.length < titleLower.length * 0.3 && titleLower.length > qWord.length * 3) return false;
+    return true;
   }
 
   // Exact / near exact title searches should require much stronger title overlap
@@ -1133,8 +1167,8 @@ function isRelevant(result: MangaResult, query: string): boolean {
     return titleWordMatches >= Math.ceil(qWords.length * 0.6);
   }
 
-  // Require at least some title overlap for multi-word queries
-  return titleWordMatches >= Math.max(1, Math.floor(qWords.length * 0.5));
+  // Multi-word: require at least half the query words in the title (not just description)
+  return titleWordMatches >= Math.max(1, Math.ceil(qWords.length * 0.5));
 }
 
 function isValidEntry(r: MangaResult): boolean {
@@ -1250,6 +1284,26 @@ export async function fetchMangaByUrl(url: string, fallbackTitle = ""): Promise<
       const html = await fetchSafeWebtoon(url);
       return html ? parseWebtoonDetailAsync(html, url, "") : null;
     }
+    if (url.includes("manganato.gg")) {
+      const html = await fetchSafe(url);
+      if (!html) return null;
+      const $ = cheerio.load(html);
+      const title = $('meta[property="og:title"]').attr("content") || $("title").text().trim() || fallbackTitle;
+      if (!title) return null;
+      let rating = "N/A";
+      const ratingEl = $(".post-total-rating .score, .total_votes, .rating-value, .rate .num, .info-rate .score").first();
+      if (ratingEl.length) {
+        const rm = ratingEl.text().trim().match(/(\d+\.?\d*)/);
+        if (rm && parseFloat(rm[1]) <= 10) rating = rm[1];
+      }
+      let description = $('meta[property="og:description"]').attr("content") || "";
+      const coverUrl = $('meta[property="og:image"]').attr("content") || "";
+      return {
+        title, description: description || "No description available.", rating,
+        status: "Ongoing", type: "Manga", genres: [], chapters: [], chapterCount: "0",
+        coverUrl, url, source: "Manganato", author: "Unknown", artist: "Unknown",
+      };
+    }
     if (url.includes("omegascans.org")) {
       const slug = new URL(url).pathname.split("/").filter(Boolean).at(-1) || "";
       const res = await fetchWithTimeout(`https://api.omegascans.org/series/${encodeURIComponent(slug)}`, { headers: { Accept: "application/json", Referer: "https://omegascans.org/" } });
@@ -1321,12 +1375,31 @@ export async function searchAllSources(query: string): Promise<MangaResult[]> {
     let isDupe = false;
     for (const s of seen) {
       if (k === s.key) { isDupe = true; break; }
-      // Containment check: shorter key is at least 70% of longer
+      // Romanization-aware check
+      const ra = r.title.toLowerCase().replace(/ou/g, "o").replace(/uu/g, "u").replace(/[^a-z0-9]/g, "");
+      const rb = s.title.toLowerCase().replace(/ou/g, "o").replace(/uu/g, "u").replace(/[^a-z0-9]/g, "");
+      if (ra === rb) { isDupe = true; break; }
+      // Containment check: shorter key is at least 65% of longer
       if (k.length > 5 && s.key.length > 5) {
         if (k.includes(s.key) || s.key.includes(k)) {
           const ratio = Math.min(k.length, s.key.length) / Math.max(k.length, s.key.length);
-          if (ratio >= 0.7) { isDupe = true; break; }
+          if (ratio >= 0.65) { isDupe = true; break; }
         }
+      }
+      // Levenshtein distance for close variants
+      if (Math.abs(k.length - s.key.length) <= 3 && k.length > 5) {
+        let dp = Array.from({ length: k.length + 1 }, (_, i) => i);
+        for (let i = 1; i <= k.length; i++) {
+          let prev = dp[0]; dp[0] = i;
+          for (let j = 1; j <= s.key.length; j++) {
+            const temp = dp[j];
+            dp[j] = k[i-1] === s.key[j-1] ? prev : 1 + Math.min(prev, dp[j], dp[j-1]);
+            prev = temp;
+          }
+        }
+        const dist = dp[s.key.length];
+        const maxLen = Math.max(k.length, s.key.length);
+        if (dist <= Math.max(1, Math.floor(maxLen * 0.2))) { isDupe = true; break; }
       }
       // Word overlap: if 2+ word titles share most words
       const rWords = r.title.toLowerCase().split(/\s+/).filter(w => w.length > 2);
@@ -1334,7 +1407,7 @@ export async function searchAllSources(query: string): Promise<MangaResult[]> {
       if (rWords.length >= 2 && sWords.length >= 2) {
         const overlap = rWords.filter(w => sWords.includes(w)).length;
         const minLen = Math.min(rWords.length, sWords.length);
-        if (minLen >= 2 && overlap / minLen >= 0.8) { isDupe = true; break; }
+        if (minLen >= 2 && overlap / minLen >= 0.7) { isDupe = true; break; }
       }
     }
     if (!isDupe) {

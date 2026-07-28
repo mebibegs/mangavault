@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { Client } from "@upstash/qstash";
 import { browseSource } from "@/lib/scrapers/registry";
-import { upsertResults } from "@/lib/sync";
+import { upsertResults, backfillRatings } from "@/lib/sync";
 import { readQStashVerifiedBody, resolveBaseUrl } from "@/lib/qstash";
 
 interface SyncWorkerBody {
@@ -43,6 +43,35 @@ export async function POST(req: Request) {
 
     if (!source) {
       return NextResponse.json({ error: "Missing source" }, { status: 400 });
+    }
+
+    // ── Rating backfill mode ──
+    if (source === "ratings") {
+      const stats = await backfillRatings(100);
+      console.log(`[Worker] Rating backfill: ${stats.updated}/${stats.processed} updated in ${stats.durationMs}ms`);
+
+      // Chain another backfill if there are more N/A titles to process
+      let queuedNext = false;
+      if (stats.updated > 0 && process.env.QSTASH_TOKEN) {
+        const qstash = new Client({ token: process.env.QSTASH_TOKEN });
+        const workerUrl = `${resolveBaseUrl(req)}/api/sync/worker`;
+        await qstash.publishJSON({
+          url: workerUrl,
+          body: { source: "ratings" },
+          delay: 10,
+          retries: 2,
+        });
+        queuedNext = true;
+      }
+
+      return NextResponse.json({
+        success: true,
+        source: "ratings",
+        processed: stats.processed,
+        updated: stats.updated,
+        durationMs: stats.durationMs,
+        queuedNext,
+      });
     }
 
     console.log(`[Worker] Scraping ${source} - Page ${page}`);

@@ -159,7 +159,7 @@ function isBoilerplateDescription(text: string): boolean {
 }
 
 /** Fetch description / genres / status / alt titles from the detail page HTML. */
-function parseManganatoMeta(html: string): { description: string; genres: string[]; status: string; altTitles: string[]; author: string; artist: string } {
+function parseManganatoMeta(html: string): { description: string; genres: string[]; status: string; altTitles: string[]; author: string; artist: string; rating: string } {
   try {
     const $ = cheerio.load(html);
     const genres: string[] = [];
@@ -192,6 +192,14 @@ function parseManganatoMeta(html: string): { description: string; genres: string
       if (!isBoilerplateDescription(og)) description = og.slice(0, 2000);
     }
 
+    // Rating — try common selectors across Manganato templates
+    let rating = "N/A";
+    const ratingEl = $(".post-total-rating .score, .total_votes, .rating-value, .rate .num, .info-rate .score, .manga-rating评分, .rating .num").first();
+    if (ratingEl.length) {
+      const rm = ratingEl.text().trim().match(/(\d+\.?\d*)/);
+      if (rm && parseFloat(rm[1]) <= 10) rating = rm[1];
+    }
+
     let status = "Ongoing";
     const bodyText = $("body").text();
     const sm = bodyText.match(/Status\s*:?\s*(Ongoing|Completed|Hiatus|Cancelled)/i);
@@ -214,9 +222,9 @@ function parseManganatoMeta(html: string): { description: string; genres: string
       }
     });
 
-    return { description, genres, status, altTitles, author, artist };
+    return { description, genres, status, altTitles, author, artist, rating };
   } catch {
-    return { description: "", genres: [], status: "Ongoing", altTitles: [], author: "Unknown", artist: "Unknown" };
+    return { description: "", genres: [], status: "Ongoing", altTitles: [], author: "Unknown", artist: "Unknown", rating: "N/A" };
   }
 }
 
@@ -245,7 +253,7 @@ async function enrichManganato(results: MangaResult[]): Promise<MangaResult[]> {
     ]);
     const meta = metaHtml
       ? parseManganatoMeta(metaHtml)
-      : { description: "", genres: [], status: r.status, altTitles: [], author: "Unknown", artist: "Unknown" };
+      : { description: "", genres: [], status: r.status, altTitles: [], author: "Unknown", artist: "Unknown", rating: "N/A" };
     return {
       ...r,
       chapters,
@@ -253,6 +261,7 @@ async function enrichManganato(results: MangaResult[]): Promise<MangaResult[]> {
       description: meta.description || r.description,
       genres: meta.genres.length ? meta.genres : r.genres,
       status: meta.status || r.status,
+      rating: meta.rating !== "N/A" ? meta.rating : r.rating,
       author: meta.author !== "Unknown" ? meta.author : r.author,
       artist: meta.artist !== "Unknown" ? meta.artist : r.artist,
     };

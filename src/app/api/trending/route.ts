@@ -17,7 +17,14 @@ function getClientIp(req: NextRequest): string {
 export async function GET(req: NextRequest) {
   const ip = getClientIp(req);
   const pageParam = req.nextUrl.searchParams.get("page");
-  const page = Math.max(1, Math.min(50, parseInt(pageParam || "1", 10) || 1));
+  const parsed = parseInt(pageParam || "1", 10);
+  if (pageParam && isNaN(parsed)) {
+    return NextResponse.json({ error: "Invalid page parameter — must be a number" }, { status: 400 });
+  }
+  const page = Math.max(1, Math.min(50, parsed || 1));
+  if (pageParam && (parsed < 1 || parsed > 50)) {
+    return NextResponse.json({ error: `Page ${parsed} out of range — valid: 1–50` }, { status: 400 });
+  }
   const limit = 30;
   const skip = (page - 1) * limit;
   const sortParam = req.nextUrl.searchParams.get("sort") || "latest";

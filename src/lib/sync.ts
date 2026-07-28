@@ -10,38 +10,100 @@ function normalizeTitleKey(title: string): string {
 }
 
 /**
- * Better fuzzy matching for similar titles
- * Handles cases like "Inja gang" vs "Inja gang (I am Unbeatable)"
- * Conservative: requires strong evidence titles are the same manga
+ * Normalize romanization variants: Bungou→Bungo, Houshii→Hoshi, etc.
+ * Strips common Japanese romanization extras so variant spellings match.
+ */
+function normalizeRomanization(title: string): string {
+  return title
+    .toLowerCase()
+    // Remove parenthetical suffixes like (15-nen), (EN), (JP), (Completed)
+    .replace(/\s*\([^)]*\)\s*/g, " ")
+    .replace(/\s*\[[^\]]*\]\s*/g, " ")
+    // Romanization normalization
+    .replace(/ou/g, "o")         // Bungou→Bungo
+    .replace(/uu/g, "u")         // Houshii→Houshi
+    .replace(/ou/g, "o")
+    .replace(/aa/g, "a")
+    .replace(/ee/g, "e")
+    .replace(/oo/g, "o")
+    // Strip subtitle after colon/dash (Thiendavis: The Road → Thiendavis)
+    .replace(/[:\-–—]\s+.*$/, "")
+    .replace(/\s+for\s+the\s+/g, " ")
+    .replace(/\s+to\s+/g, " ")
+    .replace(/[^a-z0-9\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Levenshtein distance between two strings (for close variant matching)
+ */
+function levenshtein(a: string, b: string): number {
+  const la = a.length, lb = b.length;
+  if (Math.abs(la - lb) > 3) return Math.max(la, lb); // early exit
+  const dp: number[][] = Array.from({ length: la + 1 }, () => Array(lb + 1).fill(0));
+  for (let i = 0; i <= la; i++) dp[i][0] = i;
+  for (let j = 0; j <= lb; j++) dp[0][j] = j;
+  for (let i = 1; i <= la; i++) {
+    for (let j = 1; j <= lb; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1]
+        ? dp[i - 1][j - 1]
+        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    }
+  }
+  return dp[la][lb];
+}
+
+/**
+ * Better fuzzy matching for similar titles.
+ * Handles romanization variants, transliterations, pluralization,
+ * Japanese/English title pairs, and subtitle differences.
  */
 function fuzzyTitleMatch(a: string, b: string): boolean {
   const normA = normalizeTitleKey(a);
   const normB = normalizeTitleKey(b);
-  
+
   if (normA === normB) return true;
-  
-  // Exact containment: shorter is prefix/suffix of longer (very strong signal)
-  if (normA.length > 8 && normB.length > 8) {
+
+  // 1. Romanization-aware comparison
+  const romanA = normalizeRomanization(a).replace(/\s+/g, "");
+  const romanB = normalizeRomanization(b).replace(/\s+/g, "");
+  if (romanA === romanB) return true;
+
+  // Levenshtein on romanized forms (catches Bungo/Bungou, etc.)
+  if (Math.abs(romanA.length - romanB.length) <= 3 && romanA.length > 3) {
+    const dist = levenshtein(romanA, romanB);
+    const maxLen = Math.max(romanA.length, romanB.length);
+    if (dist <= Math.max(1, Math.floor(maxLen * 0.15))) return true; // ≤15% edit distance
+  }
+
+  // 2. Containment: shorter is prefix/suffix of longer
+  if (normA.length > 6 && normB.length > 6) {
     if (normA.startsWith(normB) || normB.startsWith(normA)) {
       return true;
     }
-    // Containment with reasonable length ratio (shorter >= 80% of longer)
     if (normA.includes(normB) || normB.includes(normA)) {
       const ratio = Math.min(normA.length, normB.length) / Math.max(normA.length, normB.length);
-      return ratio >= 0.8;
+      if (ratio >= 0.7) return true;
     }
   }
-  
-  // Word-level overlap: count shared significant words
+
+  // 3. Word-level overlap
   const wordsA = a.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(w => w.length > 2);
   const wordsB = b.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(w => w.length > 2);
   if (wordsA.length >= 2 && wordsB.length >= 2) {
     const shared = wordsA.filter(w => wordsB.includes(w)).length;
     const minCount = Math.min(wordsA.length, wordsB.length);
-    // Require 80%+ word overlap for titles with 2+ words
-    if (shared / minCount >= 0.8 && shared >= 2) return true;
+    if (shared / minCount >= 0.7 && shared >= 2) return true;
   }
-  
+
+  // 4. Levenshtein on full normalized strings (catches Kawai/Kawari typo)
+  if (Math.abs(normA.length - normB.length) <= 3 && normA.length > 5) {
+    const dist = levenshtein(normA, normB);
+    const maxLen = Math.max(normA.length, normB.length);
+    if (dist <= Math.max(1, Math.floor(maxLen * 0.2))) return true; // ≤20% edit distance
+  }
+
   return false;
 }
 
@@ -152,6 +214,7 @@ export async function upsertResults(results: MangaResult[]): Promise<{ inserted:
           .sort()
           .pop() || "";
 
+        const dedupedChapters = dedupeChapterList(r.chapters);
         toInsert.push({
           titleKey,
           title: r.title,
@@ -165,8 +228,8 @@ export async function upsertResults(results: MangaResult[]): Promise<{ inserted:
           coverUrl: r.coverUrl,
           url: r.url,
           source: r.source,
-          chapterCount: r.chapterCount,
-          chapters: dedupeChapterList(r.chapters).map((ch) => ({ title: ch.title, url: ch.url, date: ch.date })),
+          chapters: dedupedChapters.map((ch) => ({ title: ch.title, url: ch.url, date: ch.date })),
+          chapterCount: String(dedupedChapters.length),
           sources: [{ name: r.source, url: r.url, lastSeen: new Date() }],
           publishedAt: latestDate || null,
           createdAt: new Date(),
@@ -199,7 +262,6 @@ export async function upsertResults(results: MangaResult[]): Promise<{ inserted:
         if (r.status && r.status !== "Unknown" && r.status !== existing.status) setFields.status = r.status;
         if (r.coverUrl && (!existing.coverUrl || (existing.coverUrl as string).length < 5)) setFields.coverUrl = r.coverUrl;
         if (r.description && r.description !== "No description available." && r.description.length > ((existing.description as string) || "").length) setFields.description = r.description;
-        if (parseInt(r.chapterCount) > parseInt((existing.chapterCount as string) || "0")) setFields.chapterCount = r.chapterCount;
 
         const mergedGenres = [...new Set([...((existing.genres as string[]) || []), ...r.genres])];
         setFields.genres = mergedGenres;
@@ -219,6 +281,11 @@ export async function upsertResults(results: MangaResult[]): Promise<{ inserted:
 
         const existingChapterKeys = new Set(((existing.chapters as { title?: string; url?: string }[]) || []).map(chapterKey));
         const newChapters = dedupeChapterList(r.chapters).filter((ch) => !existingChapterKeys.has(chapterKey(ch)));
+
+        // Always reconcile chapterCount to actual array length to prevent drift
+        const existingChapterCount = ((existing.chapters as unknown[]) || []).length;
+        const totalChapterCount = existingChapterCount + newChapters.length;
+        setFields.chapterCount = String(totalChapterCount);
 
         const update: Record<string, unknown> = { $set: setFields };
         if (newChapters.length > 0) {
@@ -247,16 +314,68 @@ export async function searchAndSync(query: string): Promise<void> {
 }
 
 /**
+ * Rating backfill: picks titles with "N/A" ratings from the DB,
+ * fetches their detail pages via fetchMangaByUrl, and updates ratings.
+ *
+ * @param limit — how many titles to process per run (default 100)
+ */
+export async function backfillRatings(limit = 100): Promise<{ processed: number; updated: number; durationMs: number }> {
+  const start = Date.now();
+  const db = await getMongoDb();
+  if (!db) return { processed: 0, updated: 0, durationMs: 0 };
+
+  const col = db.collection("titles");
+
+  // Get titles with N/A rating that have a valid URL
+  const naive = await col
+    .find({ rating: "N/A", url: { $exists: true, $ne: "" } })
+    .sort({ updatedAt: 1 })
+    .limit(limit)
+    .toArray();
+
+  if (naive.length === 0) return { processed: 0, updated: 0, durationMs: Date.now() - start };
+
+  let processed = 0;
+  let updated = 0;
+
+  // Process in batches of 5
+  for (let i = 0; i < naive.length; i += 5) {
+    const batch = naive.slice(i, i + 5);
+    const results = await Promise.allSettled(
+      batch.map(async (doc) => {
+        try {
+          const byUrl = await fetchMangaByUrl(doc.url as string, doc.title as string);
+          if (byUrl && byUrl.rating !== "N/A") {
+            await col.updateOne(
+              { _id: doc._id },
+              { $set: { rating: byUrl.rating, updatedAt: new Date() } }
+            );
+            return true;
+          }
+        } catch { /* */ }
+        return false;
+      })
+    );
+    for (const r of results) {
+      processed++;
+      if (r.status === "fulfilled" && r.value) updated++;
+    }
+  }
+
+  return { processed, updated, durationMs: Date.now() - start };
+}
+
+/**
  * Chapter refresh: picks the oldest-refreshed titles from the DB,
  * fetches their detail/list pages from the original source,
  * and merges any new chapters back into the DB.
  *
  * @param limit — how many titles to refresh per run (default 50)
  */
-export async function refreshChapters(limit = 50): Promise<{ refreshed: number; newChapters: number; newTitles: number; durationMs: number }> {
+export async function refreshChapters(limit = 50): Promise<{ refreshed: number; newChapters: number; newTitles: number; ratingsBackfilled: number; durationMs: number }> {
   const start = Date.now();
   const db = await getMongoDb();
-  if (!db) return { refreshed: 0, newChapters: 0, newTitles: 0, durationMs: 0 };
+  if (!db) return { refreshed: 0, newChapters: 0, newTitles: 0, ratingsBackfilled: 0, durationMs: 0 };
 
   const col = db.collection("titles");
 
@@ -312,15 +431,17 @@ export async function refreshChapters(limit = 50): Promise<{ refreshed: number; 
       if (r.description && r.description !== "No description available." && r.description.length > ((doc.description as string) || "").length) {
         setFields.description = r.description;
       }
-      if (parseInt(r.chapterCount) > parseInt((doc.chapterCount as string) || "0")) {
-        setFields.chapterCount = r.chapterCount;
-      }
 
       // Merge genres
       const mergedGenres = [...new Set([...((doc.genres as string[]) || []), ...r.genres])];
       if (mergedGenres.length > ((doc.genres as string[]) || []).length) {
         setFields.genres = mergedGenres;
       }
+
+      // Always reconcile chapterCount to actual array length to prevent drift
+      const docChapterCount = ((doc.chapters as unknown[]) || []).length;
+      const totalChapterCount = docChapterCount + freshChapters.length;
+      setFields.chapterCount = String(totalChapterCount);
 
       const update: Record<string, unknown> = { $set: setFields };
       if (freshChapters.length > 0) {
@@ -352,10 +473,14 @@ export async function refreshChapters(limit = 50): Promise<{ refreshed: number; 
   }
   const browseStats = browseBatch.length > 0 ? await upsertResults(browseBatch) : { inserted: 0 };
 
+  // Also backfill ratings for titles that still have N/A
+  const ratingStats = await backfillRatings(50);
+
   return {
     refreshed,
     newChapters,
     newTitles: browseStats.inserted,
+    ratingsBackfilled: ratingStats.updated,
     durationMs: Date.now() - start,
   };
 }

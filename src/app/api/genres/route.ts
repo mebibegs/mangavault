@@ -32,8 +32,15 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Genre not found" }, { status: 404 });
     }
 
-    const rawPage = parseInt(req.nextUrl.searchParams.get("page") || "1", 10) || 1;
+    const rawPageParam = req.nextUrl.searchParams.get("page");
+    const rawPage = parseInt(rawPageParam || "1", 10) || 1;
+    if (rawPageParam && isNaN(parseInt(rawPageParam, 10))) {
+      return NextResponse.json({ error: "Invalid page parameter — must be a number" }, { status: 400 });
+    }
     const page = Math.max(1, Math.min(660, rawPage));
+    if (rawPageParam && (rawPage < 1 || rawPage > 660)) {
+      return NextResponse.json({ error: `Page ${rawPage} out of range — valid: 1–660` }, { status: 400 });
+    }
     const limit = Math.min(60, Math.max(1, parseInt(req.nextUrl.searchParams.get("limit") || "30", 10) || 30));
     const sortParam = req.nextUrl.searchParams.get("sort") || "updated";
 

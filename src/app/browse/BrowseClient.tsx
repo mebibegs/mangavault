@@ -141,29 +141,36 @@ export default function BrowseClient() {
             </div>
             {(hasMore || page > 1) && (
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 40, flexWrap: "wrap" }}>
+                <button className="btn ghost sm" onClick={() => setPage(1)} disabled={page <= 1 || loadingMore}>⏮ FIRST</button>
                 <button className="btn ghost sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1 || loadingMore}>← PREV</button>
-                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                  let pageNum: number;
-                  if (totalPages <= 5) {
-                    pageNum = i + 1;
-                  } else if (page <= 3) {
-                    pageNum = i + 1;
-                  } else if (page >= totalPages - 2) {
-                    pageNum = totalPages - 4 + i;
+                {(() => {
+                  const pages: (number | "...")[] = [];
+                  if (totalPages <= 7) {
+                    for (let i = 1; i <= totalPages; i++) pages.push(i);
                   } else {
-                    pageNum = page - 2 + i;
+                    pages.push(1);
+                    if (page > 3) pages.push("...");
+                    const start = Math.max(2, page - 1);
+                    const end = Math.min(totalPages - 1, page + 1);
+                    for (let i = start; i <= end; i++) pages.push(i);
+                    if (page < totalPages - 2) pages.push("...");
+                    pages.push(totalPages);
                   }
-                  return (
-                    <button
-                      key={pageNum}
-                      className={`btn ghost sm ${page === pageNum ? "on" : ""}`}
-                      onClick={() => setPage(pageNum)}
-                      disabled={page === pageNum}
-                    >
-                      {String(pageNum).padStart(2, "0")}
-                    </button>
+                  return pages.map((p, idx) =>
+                    p === "..." ? (
+                      <span key={`e${idx}`} style={{ color: "#555", fontSize: 11, letterSpacing: ".1em" }}>···</span>
+                    ) : (
+                      <button
+                        key={p}
+                        className={`btn ghost sm ${page === p ? "on" : ""}`}
+                        onClick={() => setPage(p)}
+                        disabled={page === p}
+                      >
+                        {String(p).padStart(2, "0")}
+                      </button>
+                    )
                   );
-                })}
+                })()}
                 <button className="btn ghost sm" onClick={() => { if (!loadingMore && hasMore) fetchPage(page + 1, true); }} disabled={!hasMore || loadingMore}>
                   {loadingMore ? (
                     <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -174,6 +181,8 @@ export default function BrowseClient() {
                     "NEXT →"
                   )}
                 </button>
+                <button className="btn ghost sm" onClick={() => setPage(totalPages)} disabled={page >= totalPages || loadingMore}>LAST ⏭</button>
+                <span style={{ color: "#666", fontSize: 10, letterSpacing: ".18em", marginLeft: 8 }}>PAGE {page} / {totalPages}</span>
               </div>
             )}
           </>
