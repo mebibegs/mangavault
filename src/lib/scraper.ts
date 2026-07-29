@@ -419,7 +419,7 @@ function asuraApiToResult(item: Record<string, unknown>): MangaResult {
 
 async function searchSource1(query: string): Promise<MangaResult[]> {
   try {
-    // Asura exposes a clean JSON search API (the /browse?q= page is client-rendered)
+    // Asura exposes a clean JSON search API (the /genres?q= page is client-rendered)
     const apiUrl = `https://api.asurascans.com/api/series?search=${encodeURIComponent(query)}`;
     const res = await fetchWithTimeout(apiUrl, { headers: { Accept: "application/json" } });
     if (!res.ok) return [];

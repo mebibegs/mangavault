@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 export const metadata: Metadata = {
-  title: "Browse by Genre — MangaVault",
+  title: "Categories — MangaVault",
   description:
-    "Browse manga, manhwa, and webtoons by genre on MangaVault. Filter by Action, Fantasy, Romance, Comedy, Drama, Sci-Fi, and dozens more categories.",
+    "Browse manga, manhwa, and webtoons by genre/category on MangaVault. Filter by Action, Fantasy, Romance, Comedy, Drama, Sci-Fi, and dozens more categories.",
   alternates: { canonical: "/genres" },
   openGraph: {
     title: "Browse Manga by Genre — MangaVault",

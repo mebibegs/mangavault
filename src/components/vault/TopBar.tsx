@@ -7,8 +7,7 @@ import { vaultFlash } from "./VaultFX";
 
 const NAV = [
   { label: "HOME", href: "/" },
-  { label: "BROWSE", href: "/browse" },
-  { label: "GENRES", href: "/genres" },
+  { label: "CATEGORIES", href: "/genres" },
   { label: "18+", href: "/adult" },
 ];
 
@@ -36,7 +35,7 @@ export default function TopBar() {
     const v = inputRef.current?.value.trim();
     if (!v || v.length < 2) return;
     vaultFlash();
-    router.push(`/browse?q=${encodeURIComponent(v)}`);
+    router.push(`/genres?q=${encodeURIComponent(v)}`);
     inputRef.current?.blur();
   };
 

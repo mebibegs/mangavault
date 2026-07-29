@@ -1,5 +1,5 @@
 /**
- * Canonical genre list shared by the /genres shelves and /browse filter chips
+ * Canonical genre list shared by the /genres shelves
  * so the two pages never drift out of sync.
  */
 export const ALL_GENRES = [

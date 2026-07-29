@@ -19,6 +19,8 @@ const nextConfig: NextConfig = {
       { source: "/18%2B", destination: "/adult", permanent: false },
       { source: "/18plus", destination: "/adult", permanent: false },
       { source: "/manga/:slug*", destination: "/title/:slug*", permanent: false },
+      { source: "/browse", destination: "/genres", permanent: false },
+      { source: "/browse/:path*", destination: "/genres", permanent: false },
     ];
   },
 

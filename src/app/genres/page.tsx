@@ -7,13 +7,13 @@ import { Loader } from "@/components/vault/Loader";
 export default async function GenresPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ genre?: string; q?: string }>;
 }) {
   const params = await searchParams;
-  const genre = params.q || "";
+  const genre = params.genre || "";
+  const query = params.q || "";
   let initialResults: ReturnType<typeof toSafeResult>[] = [];
 
-  // Only pre-fetch when a shelf is selected; the bare /genres page is the tile index.
   if (genre) {
     try {
       const db = await getMongoDb();
@@ -36,6 +36,7 @@ export default async function GenresPage({
     >
       <GenresClient
         initialGenre={genre}
+        initialQuery={query}
         initialResults={initialResults as Parameters<typeof GenresClient>[0]["initialResults"]}
       />
     </Suspense>

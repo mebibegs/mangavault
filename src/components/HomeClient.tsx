@@ -104,7 +104,7 @@ export default function HomeClient({ initialTrending }: { initialTrending: Manga
               </div>
             </form>
             <div className="h-cta">
-              <Link href="/browse" className="btn" onClick={() => vaultFlash()}>BROWSE VAULT</Link>
+              <Link href="/genres" className="btn" onClick={() => vaultFlash()}>BROWSE VAULT</Link>
               <Link href="/genres" className="btn ghost">BROWSE GENRES</Link>
             </div>
           </div>
