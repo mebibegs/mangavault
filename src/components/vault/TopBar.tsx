@@ -66,7 +66,9 @@ export default function TopBar() {
               placeholder="SEARCH THE VAULT…  [ / ]"
               autoComplete="off"
               aria-label="Search manga"
-              onFocus={() => setLocked(true)}
+              onFocus={() => {
+                if (pathname !== "/search") router.push("/search");
+              }}
               onBlur={() => setLocked(false)}
             />
             <button type="submit" className="s-go">GO</button>
