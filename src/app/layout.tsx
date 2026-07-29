@@ -16,26 +16,26 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "MangaVault — Search Manga, Manhwa & Webtoons Across Multiple Sources",
+  title: "MangaVault — Ready to read some manga?",
   description:
-    "Type a title once. MangaVault queries multiple manga, manhwa, and webtoon databases in parallel, deduplicates results, and returns a single ranked list with covers, ratings, and chapter counts.",
+    "Pick a series and jump straight into the story.",
   metadataBase: new URL(PROD_URL),
   alternates: { canonical: "/" },
   openGraph: {
-    title: "MangaVault — One Search, Every Manga Source",
-    description:
-      "Stop checking multiple sites. MangaVault runs one query across several manga and manhwa databases simultaneously and merges the results into a clean, ranked feed.",
+    title: "MangaVault — Ready to read some manga?",
+    description: "Pick a series and jump straight into the story.",
     siteName: "MangaVault",
     type: "website",
     url: PROD_URL,
-    images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: "MangaVault — One Search, Every Manga Source" }],
+    images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: "MangaVault — Ready to read some manga?" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "MangaVault — One Search, Every Manga Source",
-    description: "Search manga, manhwa, manhua across multiple sources simultaneously. Deduplicated, ranked results in a single list.",
+    title: "MangaVault — Ready to read some manga?",
+    description: "Pick a series and jump straight into the story.",
     images: ["/opengraph-image"],
   },
+  icons: { icon: [{ url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" }], apple: "/apple-touch-icon.png" },
   manifest: "/manifest.json",
 };
 

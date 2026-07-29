@@ -7,20 +7,20 @@ import SectionHead from "@/components/vault/SectionHead";
 export const dynamic = "force-static";
 
 export const metadata: Metadata = {
-  title: "About MangaVault — How It Works",
+  title: "About MangaVault — Your Friendly Manga Reader",
   description:
-    "Learn how MangaVault searches manga, manhwa, and webtoon sources in parallel and returns deduplicated results in a single ranked feed.",
+    "Hey! Welcome to MangaVault. Search and read manga, manhwa, and webtoons whenever you want — no complicated stuff, just find what you're in the mood for and start reading.",
   alternates: { canonical: "/about" },
   openGraph: {
     title: "About MangaVault",
-    description: "How parallel manga search works — one query, multiple sources, deduplicated results.",
+    description: "Hey! Welcome to MangaVault — your simple, friendly place to read manga, manhwa, and webtoons.",
     url: "/about",
     images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: "About MangaVault" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "About MangaVault",
-    description: "Learn how MangaVault queries multiple manga databases simultaneously.",
+    description: "Hey! Welcome to MangaVault — your simple, friendly place to read manga, manhwa, and webtoons.",
     images: ["/opengraph-image"],
   },
 };
@@ -33,7 +33,12 @@ export default function AboutPage() {
 
         <div className="prose-vault">
           <p>
-            Finding out where a series is being updated, what it&apos;s rated, or whether it&apos;s even still ongoing usually means checking three or four sites and comparing what you find. MangaVault was built to remove that step. It&apos;s a search engine purpose-built for manga, manhwa, manhua, anime, donghua, and webtoon titles: type a name once, and it returns a single, deduplicated list pulled from multiple public sources, complete with cover art, ratings, chapter counts, and a synopsis.
+            Hey! Welcome to MangaVault. This is where you come to search and read manga, manhwa, and webtoons whenever you want. No complicated stuff — just find what you&apos;re in the mood for and start reading.
+          </p>
+
+          <h3>Who we are</h3>
+          <p>
+            Hey there! MangaVault is your simple, friendly place to read manga, manhwa, and webtoons. Whether you&apos;re starting something brand new or catching up on a series you love, everything is right here waiting for you. Take a look around, pick what looks good, and enjoy the story.
           </p>
 
           <h3>How it works</h3>
