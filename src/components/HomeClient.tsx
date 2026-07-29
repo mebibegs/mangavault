@@ -109,7 +109,7 @@ export default function HomeClient({ initialTrending }: { initialTrending: Manga
           </div>
           <div className="hero-r">
             {featured && (
-              <MangaCard result={featured} onClick={() => open(featured)} rank="01" pop priority />
+              <MangaCard result={featured} onClick={() => open(featured)} rank="01" priority />
             )}
           </div>
         </div>
@@ -129,7 +129,6 @@ export default function HomeClient({ initialTrending }: { initialTrending: Manga
                     result={r}
                     onClick={() => open(r)}
                     rank={String(i + 1).padStart(2, "0")}
-                    pop={i === 0}
                     index={i}
                     priority={i < 3}
                   />
