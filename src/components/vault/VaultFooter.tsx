@@ -8,7 +8,7 @@ export default function VaultFooter() {
         <div>ONE SEARCH.<br />EVERY SOURCE.<br />MANGA · MANHWA · MANHUA · WEBTOON</div>
         <div>
           <Link href="/about">ABOUT</Link><br />
-          <Link href="/genres">GENRES</Link><br />
+          <Link href="/genres">CATEGORIES</Link><br />
           <Link href="/adult">18+ VAULT</Link>
         </div>
         <div>

@@ -132,11 +132,10 @@ const MangaCard = memo(function MangaCard({
             )}
           </span>
           <span className="speed" />
-          {rank != null && <span className="rankwrap"><span className="rank">{rank}</span></span>}
-          {pop && <PopArt />}
-        </span>
-        <span className="meta">
-          <span className="ttl">{result.title}</span>
+            {rank != null && <span className="rankwrap"><span className="rank">{rank}</span></span>}
+            {pop && <PopArt />}
+          </span>
+          <span className="meta">
           <hr className="sep" />
           <span className="row1">
             <span className="rate">★ {result.rating !== "N/A" ? result.rating : "N/A"}</span>

@@ -100,7 +100,7 @@ export default function DetailModal({ result, onClose }: { result: MangaResult; 
             {readerImages.length > 0 && (
               <span className="rp-count"><b>{readerImages.length}</b> PANELS</span>
             )}
-            <button className="m-close" style={{ position: "static" }} onClick={() => { setReaderUrl(null); onClose(); }} aria-label="Close reader">✕</button>
+            <button className="m-close" onClick={() => { setReaderUrl(null); onClose(); }} aria-label="Close reader">✕</button>
           </div>
         </div>
         {readerLoading && (

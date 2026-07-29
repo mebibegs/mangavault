@@ -153,7 +153,7 @@ export default function AdultPage() {
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <button
-                className="btn"
+                className="btn accent"
                 onClick={async () => {
                   vaultFlash();
                   try {
@@ -164,7 +164,7 @@ export default function AdultPage() {
               >
                 I AM 18+ — ENTER THE VAULT
               </button>
-              <Link href="/" className="btn ghost">← GO BACK</Link>
+              <Link href="/" className="btn ghost accent">← GO BACK</Link>
             </div>
             <img
               src="/images/anime-girl-chibi.png"

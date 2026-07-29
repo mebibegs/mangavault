@@ -81,11 +81,11 @@ export default function HomeClient({ initialTrending }: { initialTrending: Manga
         <div className="hero wrap">
           <div className="hero-l">
             <p className="kicker tracking-widest">MANGA · MANHWA · MANHUA · WEBTOON</p>
-            <h1 className="h-title">ONE SEARCH.<br /><span className="outline">EVERY SOURCE.</span></h1>
+            <h1 className="h-title">Ready to read<br /><span className="outline">some manga?</span></h1>
             <p className="h-sub">
-              Type a title once and MangaVault checks multiple databases in parallel —
-              then merges the results into a single ranked, deduplicated list with covers,
-              ratings, and chapter counts. Ink on paper. Nothing else.
+              Pick a series and jump straight into the story. MangaVault aggregates
+              manga, manhwa, and webtoons from multiple sources in one place —
+              find what you're in the mood for and start reading instantly.
             </p>
             <form onSubmit={handleSearch} style={{ marginTop: 24, marginBottom: 16 }}>
               <div className="searchbox" style={{ maxWidth: 520, margin: "0 auto 16px" }}>
@@ -104,8 +104,7 @@ export default function HomeClient({ initialTrending }: { initialTrending: Manga
               </div>
             </form>
             <div className="h-cta">
-              <Link href="/genres" className="btn" onClick={() => vaultFlash()}>BROWSE VAULT</Link>
-              <Link href="/genres" className="btn ghost">BROWSE GENRES</Link>
+              <Link href="/genres" className="btn">BROWSE VAULT</Link>
             </div>
           </div>
           <div className="hero-r">

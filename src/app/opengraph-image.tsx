@@ -80,9 +80,9 @@ export default function OGImage() {
         {/* Tagline */}
         <div
           style={{
-            fontSize: "32px",
-            color: "#888888",
-            marginBottom: "32px",
+            fontSize: "28px",
+            color: "#ff0000",
+            marginBottom: "28px",
           }}
         >
           Ready to read?
