@@ -169,7 +169,7 @@ export default function DetailModal({ result, onClose }: { result: MangaResult; 
                 {result.genres.map(g => <span key={g} className="tag">{g}</span>)}
               </div>
             )}
-            <p className="m-syn">{result.description}</p>
+            <div className="m-syn" dangerouslySetInnerHTML={{ __html: result.description }} />
             <p className="m-ch-h">CHAPTERS ({totalChapters || result.chapters.length})</p>
             <ul className="m-ch">
               {result.chapters.length > 0 ? result.chapters.map((ch, i) => (

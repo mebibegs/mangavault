@@ -85,9 +85,7 @@ export default function HomeClient({ initialTrending }: { initialTrending: Manga
               <div className="whero-content">
                 <p className="whero-eyebrow">Featured Series</p>
                 <h1 className="whero-title">{hero.title}</h1>
-                <p className="whero-desc">
-                  {hero.description || hero.genres?.join(" · ") || "Read the latest episodes now"}
-                </p>
+                <div className="whero-desc" dangerouslySetInnerHTML={{ __html: hero.description || hero.genres?.join(" · ") || "Read the latest episodes now" }} />
               </div>
             </div>
           </section>

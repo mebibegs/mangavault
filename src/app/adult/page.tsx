@@ -242,7 +242,7 @@ export default function AdultPage() {
                 {selectedResult.genres.map(g => <span key={g} className="tag">{g}</span>)}
               </div>
             )}
-            <p className="m-syn">{selectedResult.description}</p>
+            <div className="m-syn" dangerouslySetInnerHTML={{ __html: selectedResult.description }} />
             <p className="m-ch-h">CHAPTERS ({selectedResult.chapterCount})</p>
             <ul className="m-ch">
               {chaptersLoading && <li><span style={{ color: "#888" }}>LOADING CHAPTERS…</span></li>}

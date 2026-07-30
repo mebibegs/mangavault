@@ -127,7 +127,7 @@ export default function TitleDetailClient({ initialResult, slug }: TitleDetailCl
                     <Link key={g} href={`/genres?genre=${encodeURIComponent(g)}`} style={{ background: "#f0f0f0", padding: "4px 12px", borderRadius: 4, fontSize: 12, color: "#666", textDecoration: "none", fontWeight: 500 }}>{g}</Link>
                   ))}
                 </div>
-                <p style={{ fontSize: 14, lineHeight: 1.7, color: "#666", margin: "0 0 16px", maxWidth: 560 }}>{result.description}</p>
+                <div style={{ fontSize: 14, lineHeight: 1.7, color: "#666", margin: "0 0 16px", maxWidth: 560 }} dangerouslySetInnerHTML={{ __html: result.description }} />
                 <div style={{ display: "flex", gap: 16, fontSize: 12, color: "#888", marginBottom: 16 }}>
                   {result.author && <span><strong style={{ color: "#1e1e1e" }}>Author:</strong> {result.author}</span>}
                   {result.artist && <span><strong style={{ color: "#1e1e1e" }}>Artist:</strong> {result.artist}</span>}
