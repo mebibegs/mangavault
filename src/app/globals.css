@@ -58,6 +58,8 @@ body {
 }
 .glink:hover { color: var(--accent); }
 .glink.on { color: var(--accent); border-bottom-color: var(--accent); }
+.glink.adult { color: var(--text-muted); }
+.glink.adult:hover { color: var(--accent); }
 
 .wt-header-right { display: flex; align-items: center; gap: 4px; margin-left: auto; }
 .wt-header-btn {
@@ -440,13 +442,12 @@ body {
   background: #fff; border: 1px solid var(--border);
   color: #333; cursor: pointer; display: flex;
   align-items: center; justify-content: center;
-  transition: box-shadow .2s, opacity .2s, background .2s;
-  opacity: 0; box-shadow: 0 2px 6px rgba(0,0,0,.08);
+  transition: box-shadow .2s, background .2s;
+  box-shadow: 0 2px 6px rgba(0,0,0,.08);
 }
-.wcarousel:hover .wcarousel-nav { opacity: 1; }
 .wcarousel-nav:hover { box-shadow: 0 4px 12px rgba(0,0,0,.15); background: #f8f8f8; }
-.wcarousel-nav.prev { left: -16px; }
-.wcarousel-nav.next { right: -16px; }
+.wcarousel-nav.prev { left: 8px; }
+.wcarousel-nav.next { right: 8px; }
 .wcarousel-nav svg { width: 16px; height: 16px; }
 
 /* WEBTOONS CARD */
