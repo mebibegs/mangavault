@@ -10,7 +10,7 @@ import "./globals.css";
 const PROD_URL = "https://www.mangavault.in";
 
 export const viewport: Viewport = {
-  themeColor: "#0a0a0a",
+  themeColor: "#000000",
   width: "device-width",
   initialScale: 1,
 };
@@ -68,7 +68,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           }}
         />
       </head>
-      <body className="bg-bg-primary text-text-primary antialiased min-h-screen">
+      <body className="antialiased min-h-screen">
         <noscript>
           <div style={{ position: "fixed", inset: 0, backgroundColor: "#0a0a0a", color: "#fff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", zIndex: 99999, padding: "20px", textAlign: "center" }}>
             <p style={{ fontSize: "24px", marginBottom: "16px", fontWeight: "bold" }}>JavaScript Required</p>

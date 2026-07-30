@@ -2,6 +2,8 @@
 
 import { memo, useRef, useEffect } from "react";
 import Image from "next/image";
+import ViewCount from "./ViewCount";
+import RankBadge from "./RankBadge";
 
 interface ChapterInfo { title: string; url: string; date: string; }
 export interface MangaResult {
@@ -9,7 +11,6 @@ export interface MangaResult {
   type: string; genres: string[]; chapters: ChapterInfo[];
   chapterCount: string; coverUrl: string; url: string;
   source: string; author: string; artist: string;
-  omegaSlug?: string; sourceSlug?: string;
 }
 
 export function useReveal<T extends HTMLElement>(delayIndex = 0) {
@@ -23,7 +24,7 @@ export function useReveal<T extends HTMLElement>(delayIndex = 0) {
       });
     }, { threshold: 0.1 });
     el.style.opacity = "0";
-    el.style.transition = "opacity .5s ease";
+    el.style.transition = "opacity .4s ease";
     io.observe(el);
     return () => io.disconnect();
   }, [delayIndex]);
@@ -39,60 +40,44 @@ const MangaCard = memo(function MangaCard({
 }: {
   result: MangaResult;
   onClick: () => void;
-  rank?: string;
+  rank?: number;
   index?: number;
   priority?: boolean;
 }) {
   const ref = useReveal<HTMLButtonElement>(index);
-
-  const statusClass = (() => {
-    const s = result.status.toLowerCase();
-    if (s === "ongoing") return "st-ongoing";
-    if (s === "completed" || s === "finished") return "st-completed";
-    if (s === "dropped" || s === "cancelled" || s === "canceled") return "st-dropped";
-    if (s === "hiatus" || s === "on hiatus") return "st-hiatus";
-    return "st-default";
-  })();
+  const seed = result.url || result.title;
 
   return (
     <button
       ref={ref}
-      className="card"
+      className="wcard"
       onClick={onClick}
       aria-label={result.title}
     >
-      <span className="cover-wrap">
-        <span className="cover-clip">
+      <span className="wcard-cover-wrap">
+        <span className="wcard-cover-clip">
           {result.coverUrl ? (
             <Image
               src={result.coverUrl}
               alt={`Cover of ${result.title}`}
               fill
-              sizes="(max-width: 640px) 46vw, (max-width: 1200px) 320px, 380px"
+              sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 220px"
               quality={75}
               priority={priority}
               onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
             />
           ) : (
-            <span className="cover-fallback">{result.title.slice(0, 1).toUpperCase()}</span>
+            <span className="wcard-fallback">{result.title.slice(0, 1).toUpperCase()}</span>
           )}
         </span>
-        {rank != null && (
-          <span className="card-badge">{rank}</span>
-        )}
+        {rank != null && <RankBadge rank={rank} seed={seed} />}
       </span>
-      <span className="card-body">
-        <h3 className="card-title">{result.title}</h3>
-        <div className="card-meta">
-          {result.rating !== "N/A" && <span className="rate">★ {result.rating}</span>}
-          <span>CH. {result.chapterCount && result.chapterCount !== "0" ? result.chapterCount : "—"}</span>
-          <span className={`st ${statusClass}`}>{result.status}</span>
-        </div>
+      <span className="wcard-body">
+        <h3 className="wcard-title">{result.title}</h3>
         {result.genres.length > 0 && (
-          <div className="tags" style={{ marginTop: 8 }}>
-            {result.genres.slice(0, 3).map(g => <span key={g} className="tag">{g}</span>)}
-          </div>
+          <span className="wcard-genre">{result.genres[0]}</span>
         )}
+        <ViewCount seed={seed} />
       </span>
     </button>
   );

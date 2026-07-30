@@ -99,7 +99,7 @@ export default function AdultPage() {
   const openDetail = async (r: MangaResult) => {
     setSelectedResult(r);
     setLoadedChapters([]);
-    const slug = r.omegaSlug || r.sourceSlug || "";
+    const slug = r.url ? r.url.split("/").filter(Boolean).pop() || "" : "";
     if (!slug) return;
     setChaptersLoading(true);
     try {
