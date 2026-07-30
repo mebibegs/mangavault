@@ -502,7 +502,7 @@ body {
   padding-bottom: 4px;
 }
 .originals-scroll::-webkit-scrollbar { display: none; }
-.original-card { min-width: 220px; }
+.original-card { min-width: 193px; }
 
 /* WEBTOONS CARD */
 .wcard {
