@@ -59,7 +59,7 @@ export default function SearchClient() {
 
   return (
     <VaultShell>
-      <main className="wmain" style={{ maxWidth: 960, margin: "0 auto" }}>
+      <main className="wmain">
         <section className="wsection">
           <div className="wsection-head">
             <h2>Search</h2>
@@ -93,7 +93,7 @@ export default function SearchClient() {
           {!loading && results.length > 0 && (
             <>
               <p style={{ fontSize: 13, color: "#999", marginBottom: 16 }}>{results.length} results for &ldquo;{q}&rdquo;</p>
-              <div className="wcard-grid">
+              <div className="results-grid">
                 {results.map((r, i) => (
                   <MangaCard key={`${r.title}-${r.source}-${i}`} result={r} onClick={() => setSelected(r)} index={i} priority={i < 4} />
                 ))}

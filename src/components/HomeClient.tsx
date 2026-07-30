@@ -6,7 +6,6 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import VaultShell from "@/components/vault/VaultShell";
 import MangaCard, { type MangaResult } from "@/components/vault/MangaCard";
-import WebtoonCarousel from "@/components/vault/WebtoonCarousel";
 
 export type { MangaResult };
 
@@ -56,46 +55,59 @@ export default function HomeClient({ initialTrending }: { initialTrending: Manga
 
   const genreFiltered = useMemo(() => {
     const items = trending.filter(r => r.genres.some(g => g.toLowerCase() === genreTab.toLowerCase()));
-    return items.length >= 4 ? items : trending.slice(0, 10);
+    if (items.length >= 6) return items;
+    return trending.slice(0, 12);
   }, [trending, genreTab]);
 
   const newlyReleased = useMemo(() => {
     const shuffled = shuffleArray(trending);
-    return shuffled.slice(0, 10);
+    return shuffled.slice(0, 12);
   }, [trending]);
 
   const daily = useMemo(() => {
-    return trending.slice(0, 10);
+    return trending.slice(0, 12);
   }, [trending]);
 
   const displayData = trendingTab === "trending" ? trending.slice(0, 10) : popularList;
+  const hero = trending[0];
 
   return (
     <VaultShell>
       <main className="wmain">
+        {/* ===== Hero Banner ===== */}
+        {hero && (
+          <section className="wsection">
+            <div className="whero" onClick={() => setSelected(hero)} style={{ cursor: "pointer" }}>
+              <div className="whero-bg">
+                {hero.coverUrl ? <img className="whero-bg-img" src={hero.coverUrl} alt="" /> : null}
+              </div>
+              <div className="whero-overlay" />
+              <div className="whero-content">
+                <p className="whero-eyebrow">Featured Series</p>
+                <h1 className="whero-title">{hero.title}</h1>
+                <p className="whero-desc">
+                  {hero.description || hero.genres?.join(" · ") || "Read the latest episodes now"}
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
+
         {/* ===== Trending & Popular Series ===== */}
         <section className="wsection">
           <div className="wsection-head">
             <h2>Trending &amp; Popular Series</h2>
-            <Link href="/genres?sort=trending">Trending View all</Link>
+            <Link href="/genres?sort=trending">View all</Link>
           </div>
           <div className="wtabs">
             <button className={`wtab${trendingTab === "trending" ? " on" : ""}`} onClick={() => setTrendingTab("trending")}>Trending</button>
             <button className={`wtab${trendingTab === "popular" ? " on" : ""}`} onClick={() => setTrendingTab("popular")}>Popular</button>
           </div>
-          <WebtoonCarousel key={trendingTab}>
+          <div className="trending-grid" key={trendingTab}>
             {displayData.map((r, i) => (
               <MangaCard key={`${r.title}-${i}`} result={r} onClick={() => setSelected(r)} rank={i + 1} index={i} priority={i < 4} />
             ))}
-          </WebtoonCarousel>
-        </section>
-
-        {/* ===== Now on MangaVault (banner) ===== */}
-        <section className="wsection">
-          <Link href="/genres" style={{ display: "block", background: "linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)", borderRadius: 12, padding: "32px 40px", textDecoration: "none", color: "#fff" }}>
-            <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", margin: "0 0 8px", opacity: .7 }}>Click to read stories on MangaVault!</p>
-            <p style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>One search across every source</p>
-          </Link>
+          </div>
         </section>
 
         {/* ===== Popular Series by Category ===== */}
@@ -109,11 +121,11 @@ export default function HomeClient({ initialTrending }: { initialTrending: Manga
               <button key={g} className={`wtab${genreTab === g ? " on" : ""}`} onClick={() => setGenreTab(g)}>{g}</button>
             ))}
           </div>
-          <WebtoonCarousel key={genreTab}>
+          <div className="category-grid" key={genreTab}>
             {genreFiltered.map((r, i) => (
               <MangaCard key={`${r.title}-${i}`} result={r} onClick={() => setSelected(r)} index={i} />
             ))}
-          </WebtoonCarousel>
+          </div>
         </section>
 
         {/* ===== Newly Released ===== */}
@@ -121,21 +133,13 @@ export default function HomeClient({ initialTrending }: { initialTrending: Manga
           <div className="wsection-head">
             <h2>Newly Released</h2>
           </div>
-          <WebtoonCarousel>
+          <div className="originals-scroll">
             {newlyReleased.map((r, i) => (
-              <button key={i} className="wt-card-sm" onClick={() => setSelected(r)} aria-label={r.title}>
-                <span className="wcard-cover-wrap">
-                  <span className="wcard-cover-clip">
-                    {r.coverUrl ? (
-                      <img src={r.coverUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                    ) : (
-                      <span className="wcard-fallback">{r.title.slice(0, 1).toUpperCase()}</span>
-                    )}
-                  </span>
-                </span>
-              </button>
+              <div key={i} className="original-card" onClick={() => setSelected(r)} style={{ cursor: "pointer" }}>
+                <MangaCard result={r} onClick={() => setSelected(r)} index={i} />
+              </div>
             ))}
-          </WebtoonCarousel>
+          </div>
         </section>
 
         {/* ===== Daily ===== */}
@@ -149,24 +153,11 @@ export default function HomeClient({ initialTrending }: { initialTrending: Manga
               <button key={d} className={`wtab${d === "Mon" ? " on" : ""}`}>{d}</button>
             ))}
           </div>
-          <WebtoonCarousel>
+          <div className="daily-grid">
             {daily.map((r, i) => (
-              <button key={i} className="wt-card-sm" onClick={() => setSelected(r)} aria-label={r.title}>
-                <span className="wcard-cover-wrap" style={{ marginBottom: 6 }}>
-                  <span className="wcard-cover-clip">
-                    {r.coverUrl ? (
-                      <img src={r.coverUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                    ) : (
-                      <span className="wcard-fallback">{r.title.slice(0, 1).toUpperCase()}</span>
-                    )}
-                  </span>
-                </span>
-                <span className="wt-up-badge">UP</span>
-                {r.genres.length > 0 && <span className="wcard-genre">{r.genres[0]}</span>}
-                <h3 className="wcard-title">{r.title}</h3>
-              </button>
+              <MangaCard key={`${r.title}-${i}`} result={r} onClick={() => setSelected(r)} index={i} />
             ))}
-          </WebtoonCarousel>
+          </div>
         </section>
       </main>
 

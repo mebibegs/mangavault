@@ -115,7 +115,7 @@ export default function GenresClient({ initialGenre, initialQuery, initialResult
               <div className="wsection-head">
                 <h2>Trending</h2>
               </div>
-              <div className="wcard-grid">
+              <div className="results-grid">
                 {results.slice(0, 10).map((r, i) => (
                   <MangaCard key={`${r.title}-${i}`} result={r} onClick={() => setSelected(r)} rank={i + 1} index={i} priority={i < 4} />
                 ))}
@@ -173,7 +173,7 @@ export default function GenresClient({ initialGenre, initialQuery, initialResult
             </div>
           ) : (
             <>
-              <div className="wcard-grid">
+              <div className="results-grid">
                 {results.map((r, i) => (
                   <MangaCard key={`${r.title}-${r.source}-${i}`} result={r} onClick={() => setSelected(r)} index={i} priority={i < 4} />
                 ))}

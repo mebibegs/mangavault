@@ -300,7 +300,7 @@ export default function AdultPage() {
           ) : results.length === 0 ? (
             <div style={{ textAlign: "center", padding: "60px 20px", color: "#999", fontSize: 14 }}>No results found.</div>
           ) : (
-            <div className="wcard-grid">
+            <div className="results-grid">
               {results.map((r, i) => (
                 <MangaCard key={`${r.title}-${i}`} result={r} onClick={() => openDetail(r)} index={i} priority={i < 4} />
               ))}
@@ -321,7 +321,7 @@ export default function AdultPage() {
       {detailModal}
 
       <footer className="wfooter">
-        <div className="wfooter-inner" style={{ maxWidth: 1050 }}>
+        <div className="wfooter-inner">
           <div className="wfooter-top">
             <div className="wfooter-brand" style={{ fontSize: 18 }}>MangaVault 18+</div>
             <div className="wfooter-links">
