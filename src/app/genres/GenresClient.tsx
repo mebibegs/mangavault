@@ -41,6 +41,7 @@ export default function GenresClient({ initialGenre, initialQuery, initialResult
     abortRef.current?.abort();
     const ac = new AbortController();
     abortRef.current = ac;
+    await Promise.resolve();
     if (append) setLoadingMore(true);
     else { setLoading(true); setResults([]); }
     try {
@@ -62,23 +63,24 @@ export default function GenresClient({ initialGenre, initialQuery, initialResult
   }, []);
 
   useEffect(() => {
-    if (query) {
-      const trimmed = query.trim();
-      if (trimmed.length < 2) return;
-      setResults([]); setTotal(0); setPage(1);
-      fetchResults("", trimmed, 1, sort, false);
-      return;
-    }
-    if (selectedGenre) {
-      if (selectedGenre === ssrGenreRef.current && initialResults.length > 0) {
-        ssrGenreRef.current = "";
+    const id = setTimeout(() => {
+      if (query) {
+        const trimmed = query.trim();
+        if (trimmed.length < 2) return;
+        fetchResults("", trimmed, 1, sort, false);
         return;
       }
-      setResults([]); setTotal(0); setPage(1);
-      fetchResults(selectedGenre, "", 1, sort, false);
-      return;
-    }
-    fetchResults("", "", page, sort, false);
+      if (selectedGenre) {
+        if (selectedGenre === ssrGenreRef.current && initialResults.length > 0) {
+          ssrGenreRef.current = "";
+          return;
+        }
+        fetchResults(selectedGenre, "", 1, sort, false);
+        return;
+      }
+      fetchResults("", "", page, sort, false);
+    }, 0);
+    return () => clearTimeout(id);
   }, [selectedGenre, query, sort, page, fetchResults, initialResults.length]);
 
   const selectGenre = (g: string) => {

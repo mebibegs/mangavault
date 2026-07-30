@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import type { ReactNode } from "react";
 import "./globals.css";
 
@@ -44,8 +45,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en">
       <head>
         {/* Google tag (gtag.js) */}
-        <script async src="https://www.googletagmanager.com/gtag/js?id=G-H4E2QSJZQF" />
-        <script dangerouslySetInnerHTML={{ __html: `
+        <Script async src="https://www.googletagmanager.com/gtag/js?id=G-H4E2QSJZQF" strategy="afterInteractive" />
+        <Script id="gtag" strategy="afterInteractive" dangerouslySetInnerHTML={{ __html: `
           window.dataLayer = window.dataLayer || [];
           function gtag(){dataLayer.push(arguments);}
           gtag('js', new Date());

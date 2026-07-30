@@ -34,16 +34,13 @@ export default function SearchClient() {
   };
 
   useEffect(() => {
-    setInput(q);
-    if (!q || q.trim().length < 2) {
-      setResults([]); setSearched(false); setLoading(false);
-      return;
-    }
+    if (!q || q.trim().length < 2) return;
     abortRef.current?.abort();
     const ac = new AbortController();
     abortRef.current = ac;
-    setLoading(true); setSearched(true);
     (async () => {
+      await Promise.resolve();
+      setLoading(true); setSearched(true);
       try {
         const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`, { signal: ac.signal });
         if (!res.ok) throw new Error("fetch failed");

@@ -1,5 +1,6 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element -- Reader panels need raw img for external dynamic URLs */
 import { useState } from "react";
 
 interface ReaderPanelProps {
