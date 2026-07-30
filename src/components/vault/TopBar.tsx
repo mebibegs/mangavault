@@ -6,10 +6,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
 const NAV_LINKS = [
-  { label: "ORIGINALS", href: "/genres" },
   { label: "CATEGORIES", href: "/genres" },
-  { label: "RANKINGS", href: "/genres?sort=popular" },
-  { label: "CANVAS", href: "/genres" },
+  { label: "18+", href: "/adult" },
 ];
 
 export default function TopBar() {
@@ -58,30 +56,25 @@ export default function TopBar() {
             <Link
               key={n.label}
               href={n.href}
-              className={`glink${pathname === n.href ? " on" : ""}`}
+              className={`glink${pathname === n.href ? " on" : ""}${n.label === "18+" ? " adult" : ""}`}
             >
               {n.label}
             </Link>
           ))}
         </nav>
 
-        <div className="wt-header-right">
-          <Link href="/genres" className="wt-header-btn">Shop</Link>
-          <Link href="/genres" className="wt-header-btn">Creators 101</Link>
-          <button type="button" className="wt-header-btn primary">Log In</button>
-
-          <button
-            type="button"
-            className="search-trigger"
-            aria-label="Search"
-            onClick={() => setSearchOpen(true)}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-              <circle cx="11" cy="11" r="7" />
-              <path d="M21 21l-4.3-4.3" strokeLinecap="round" />
-            </svg>
-          </button>
-        </div>
+        <button
+          type="button"
+          className="search-trigger"
+          aria-label="Search"
+          onClick={() => setSearchOpen(true)}
+          style={{ marginLeft: "auto" }}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+            <circle cx="11" cy="11" r="7" />
+            <path d="M21 21l-4.3-4.3" strokeLinecap="round" />
+          </svg>
+        </button>
 
         <button type="button" className="menubtn" aria-label="Menu" onClick={() => setMenuOpen(true)}>
           <span /><span /><span />
@@ -94,8 +87,6 @@ export default function TopBar() {
             {n.label}
           </Link>
         ))}
-        <Link href="/genres" onClick={() => setMenuOpen(false)}>Shop</Link>
-        <Link href="/genres" onClick={() => setMenuOpen(false)}>Creators 101</Link>
         <button onClick={() => setMenuOpen(false)}>CLOSE ✕</button>
       </div>
 

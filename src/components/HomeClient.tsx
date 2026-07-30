@@ -68,11 +68,6 @@ export default function HomeClient({ initialTrending }: { initialTrending: Manga
     return trending.slice(0, 10);
   }, [trending]);
 
-  const canvas = useMemo(() => {
-    const shuffled = shuffleArray(trending);
-    return shuffled.slice(0, 12);
-  }, [trending]);
-
   const displayData = trendingTab === "trending" ? trending.slice(0, 10) : popularList;
 
   return (
@@ -172,30 +167,6 @@ export default function HomeClient({ initialTrending }: { initialTrending: Manga
               </button>
             ))}
           </div>
-        </section>
-
-        {/* ===== Canvas: More stories ===== */}
-        <section className="wsection">
-          <div className="wsection-head">
-            <h2>More stories from indie creators</h2>
-            <Link href="/genres">View all</Link>
-          </div>
-          <WebtoonCarousel>
-            {canvas.map((r, i) => (
-              <button key={i} className="wt-card-sm" onClick={() => setSelected(r)} aria-label={r.title}>
-                <span className="wcard-cover-wrap">
-                  <span className="wcard-cover-clip">
-                    {r.coverUrl ? (
-                      <img src={r.coverUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                    ) : (
-                      <span className="wcard-fallback">{r.title.slice(0, 1).toUpperCase()}</span>
-                    )}
-                  </span>
-                </span>
-                <h3 className="wcard-title" style={{ fontSize: 12, marginTop: 6 }}>{r.title}</h3>
-              </button>
-            ))}
-          </WebtoonCarousel>
         </section>
       </main>
 
