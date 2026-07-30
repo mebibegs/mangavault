@@ -1,6 +1,6 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element -- Hero bg image needs raw img for CSS object-fit */
+/* eslint-disable @next/next/no-img-element */
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
@@ -12,10 +12,29 @@ export type { MangaResult };
 
 const DetailModal = dynamic(() => import("@/components/DetailModal"), { ssr: false });
 
+const GENRE_TABS = ["Drama", "Fantasy", "Comedy", "Action", "Romance"];
+const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun", "Completed"];
+
+function shuffleArray<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.abs(hashCode(String(i))) % (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function hashCode(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) { h = (h << 5) - h + s.charCodeAt(i); h |= 0; }
+  return Math.abs(h);
+}
+
 export default function HomeClient({ initialTrending }: { initialTrending: MangaResult[] }) {
   const [trending, setTrending] = useState<MangaResult[]>(initialTrending);
-  const [newlyReleased, setNewlyReleased] = useState<MangaResult[]>(initialTrending);
   const [selected, setSelected] = useState<MangaResult | null>(null);
+  const [trendingTab, setTrendingTab] = useState<"trending" | "popular">("trending");
+  const [genreTab, setGenreTab] = useState(GENRE_TABS[0]);
 
   useEffect(() => {
     if (initialTrending.length > 0) return;
@@ -25,135 +44,156 @@ export default function HomeClient({ initialTrending }: { initialTrending: Manga
         if (res.ok) {
           const d = await res.json();
           setTrending((d.results || []).slice(0, 30));
-          const shuffled = [...(d.results || [])].sort(() => Math.random() - 0.5);
-          setNewlyReleased(shuffled.slice(0, 10));
         }
       } catch { /* */ }
     })();
   }, [initialTrending]);
 
-  const byCategory = useMemo(() => {
-    if (trending.length === 0) return [];
-    const genresToShow = ["Drama", "Fantasy", "Action", "Romance", "Comedy"];
-    const cats: { genre: string; items: MangaResult[] }[] = [];
-    for (const g of genresToShow) {
-      const items = trending.filter(r => r.genres.some(rg => rg.toLowerCase() === g.toLowerCase()));
-      if (items.length >= 2) cats.push({ genre: g, items });
-    }
-    if (cats.length === 0 && trending.length > 0) {
-      cats.push({ genre: "Action", items: trending });
-    }
-    return cats;
+  const popularList = useMemo(() => {
+    if (trending.length >= 20) return trending.slice(10, 20);
+    return trending.slice(0, Math.min(10, trending.length));
   }, [trending]);
 
-  // Trending ranked list (numbered 1-10)
-  const trendingRanked = [...trending].slice(0, 10);
-  const popularList = trending.length > 10 ? trending.slice(10, 20) : trending.slice(0, 10);
-  const newReleases = newlyReleased.length > 0 ? newlyReleased.slice(0, 10) : trending.slice(0, 10);
-  const featured = trendingRanked[0] || trending[0];
+  const genreFiltered = useMemo(() => {
+    const items = trending.filter(r => r.genres.some(g => g.toLowerCase() === genreTab.toLowerCase()));
+    return items.length >= 4 ? items : trending.slice(0, 10);
+  }, [trending, genreTab]);
+
+  const newlyReleased = useMemo(() => {
+    const shuffled = shuffleArray(trending);
+    return shuffled.slice(0, 10);
+  }, [trending]);
+
+  const daily = useMemo(() => {
+    return trending.slice(0, 10);
+  }, [trending]);
+
+  const canvas = useMemo(() => {
+    const shuffled = shuffleArray(trending);
+    return shuffled.slice(0, 12);
+  }, [trending]);
+
+  const displayData = trendingTab === "trending" ? trending.slice(0, 10) : popularList;
 
   return (
     <VaultShell>
-      {/* ---------- HERO ---------- */}
-      {featured && (
-        <section className="whero">
-          <div className="whero-bg">
-            {featured.coverUrl && (
-              <img
-                src={featured.coverUrl}
-                alt=""
-                aria-hidden="true"
-                className="whero-bg-img"
-                referrerPolicy="no-referrer"
-                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-              />
-            )}
-            <div className="whero-overlay" />
-          </div>
-          <div className="whero-content">
-            <p className="whero-eyebrow">Featured #{featured.type}</p>
-            <h1 className="whero-title">{featured.title}</h1>
-            <p className="whero-desc">{featured.description || "Discover more on MangaVault…"}</p>
-            <button className="btn" onClick={() => setSelected(featured)}>
-              Start Reading
-            </button>
-          </div>
-        </section>
-      )}
-
       <main className="wmain">
-        {/* ---------- TRENDING & POPULAR ---------- */}
+        {/* ===== Trending & Popular Series ===== */}
         <section className="wsection">
-          <div className="grid" style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 20 }}>
-            <h2 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Trending & Popular Series</h2>
-            <Link href="/genres?sort=popular" style={{ color: "#FF0000", fontSize: 13, textDecoration: "none", fontWeight: 600 }}>View all</Link>
+          <div className="wsection-head">
+            <h2>Trending &amp; Popular Series</h2>
+            <Link href="/genres?sort=trending">Trending View all</Link>
           </div>
-          <WebtoonCarousel>
-            {trendingRanked.map((r, i) => (
-              <MangaCard
-                key={`${r.title}-${i}`}
-                result={r}
-                onClick={() => setSelected(r)}
-                rank={i + 1}
-                index={i}
-                priority={i < 4}
-              />
+          <div className="wtabs">
+            <button className={`wtab${trendingTab === "trending" ? " on" : ""}`} onClick={() => setTrendingTab("trending")}>Trending</button>
+            <button className={`wtab${trendingTab === "popular" ? " on" : ""}`} onClick={() => setTrendingTab("popular")}>Popular</button>
+          </div>
+          <WebtoonCarousel key={trendingTab}>
+            {displayData.map((r, i) => (
+              <MangaCard key={`${r.title}-${i}`} result={r} onClick={() => setSelected(r)} rank={i + 1} index={i} priority={i < 4} />
             ))}
           </WebtoonCarousel>
         </section>
 
-        {/* ---------- POPULAR SECONDARY ---------- */}
+        {/* ===== Now on MangaVault (banner) ===== */}
         <section className="wsection">
-          <div className="grid" style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 20 }}>
-            <h2 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Popular Series</h2>
-            <Link href="/genres?sort=popular" style={{ color: "#FF0000", fontSize: 13, textDecoration: "none", fontWeight: 600 }}>View all</Link>
+          <Link href="/genres" style={{ display: "block", background: "linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)", borderRadius: 12, padding: "32px 40px", textDecoration: "none", color: "#fff" }}>
+            <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", margin: "0 0 8px", opacity: .7 }}>Click to read stories on MangaVault!</p>
+            <p style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>One search across every source</p>
+          </Link>
+        </section>
+
+        {/* ===== Popular Series by Category ===== */}
+        <section className="wsection">
+          <div className="wsection-head">
+            <h2>Popular Series by Category</h2>
+            <Link href={`/genres?genre=${genreTab}`}>View all</Link>
           </div>
-          <WebtoonCarousel>
-            {popularList.map((r, i) => (
-              <MangaCard
-                key={`${r.title}-${i}`}
-                result={r}
-                onClick={() => setSelected(r)}
-                index={i}
-              />
+          <div className="wtabs">
+            {GENRE_TABS.map(g => (
+              <button key={g} className={`wtab${genreTab === g ? " on" : ""}`} onClick={() => setGenreTab(g)}>{g}</button>
+            ))}
+          </div>
+          <WebtoonCarousel key={genreTab}>
+            {genreFiltered.map((r, i) => (
+              <MangaCard key={`${r.title}-${i}`} result={r} onClick={() => setSelected(r)} index={i} />
             ))}
           </WebtoonCarousel>
         </section>
 
-        {/* ---------- POPULAR BY CATEGORY ---------- */}
-        {byCategory.map((cat) => (
-          <section className="wsection" key={cat.genre}>
-            <div className="grid" style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 20 }}>
-              <h2 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Popular Series — {cat.genre}</h2>
-              <Link href={`/genres?genre=${encodeURIComponent(cat.genre)}`} style={{ color: "#FF0000", fontSize: 13, textDecoration: "none", fontWeight: 600 }}>View all</Link>
-            </div>
-            <WebtoonCarousel>
-              {cat.items.map((r, i) => (
-                <MangaCard
-                  key={`${r.title}-${i}`}
-                  result={r}
-                  onClick={() => setSelected(r)}
-                  index={i}
-                />
-              ))}
-            </WebtoonCarousel>
-          </section>
-        ))}
-
-        {/* ---------- NEWLY RELEASED ---------- */}
+        {/* ===== Newly Released ===== */}
         <section className="wsection">
-          <div className="grid" style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 20 }}>
-            <h2 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Newly Released</h2>
-            <Link href="/genres?sort=latest" style={{ color: "#FF0000", fontSize: 13, textDecoration: "none", fontWeight: 600 }}>View all</Link>
+          <div className="wsection-head">
+            <h2>Newly Released</h2>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12 }}>
+            {newlyReleased.map((r, i) => (
+              <button key={i} className="wt-card-sm" onClick={() => setSelected(r)} aria-label={r.title}>
+                <span className="wcard-cover-wrap" style={{ aspectRatio: "2/3", marginBottom: 0 }}>
+                  <span className="wcard-cover-clip">
+                    {r.coverUrl ? (
+                      <img src={r.coverUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                    ) : (
+                      <span className="wcard-fallback">{r.title.slice(0, 1).toUpperCase()}</span>
+                    )}
+                  </span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* ===== Daily ===== */}
+        <section className="wsection">
+          <div className="wsection-head">
+            <h2>Daily</h2>
+            <Link href="/genres">View all</Link>
+          </div>
+          <div className="wtabs">
+            {DAYS.map(d => (
+              <button key={d} className={`wtab${d === "Mon" ? " on" : ""}`}>{d}</button>
+            ))}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 12 }}>
+            {daily.map((r, i) => (
+              <button key={i} className="wt-card-sm" onClick={() => setSelected(r)} aria-label={r.title} style={{ width: "100%" }}>
+                <span className="wcard-cover-wrap" style={{ marginBottom: 6 }}>
+                  <span className="wcard-cover-clip">
+                    {r.coverUrl ? (
+                      <img src={r.coverUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                    ) : (
+                      <span className="wcard-fallback">{r.title.slice(0, 1).toUpperCase()}</span>
+                    )}
+                  </span>
+                </span>
+                <span className="wt-up-badge">UP</span>
+                {r.genres.length > 0 && <span className="wcard-genre">{r.genres[0]}</span>}
+                <h3 className="wcard-title">{r.title}</h3>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* ===== Canvas: More stories ===== */}
+        <section className="wsection">
+          <div className="wsection-head">
+            <h2>More stories from indie creators</h2>
+            <Link href="/genres">View all</Link>
           </div>
           <WebtoonCarousel>
-            {newReleases.map((r, i) => (
-              <MangaCard
-                key={`${r.title}-${i}`}
-                result={r}
-                onClick={() => setSelected(r)}
-                index={i}
-              />
+            {canvas.map((r, i) => (
+              <button key={i} className="wt-card-sm" onClick={() => setSelected(r)} aria-label={r.title}>
+                <span className="wcard-cover-wrap">
+                  <span className="wcard-cover-clip">
+                    {r.coverUrl ? (
+                      <img src={r.coverUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                    ) : (
+                      <span className="wcard-fallback">{r.title.slice(0, 1).toUpperCase()}</span>
+                    )}
+                  </span>
+                </span>
+                <h3 className="wcard-title" style={{ fontSize: 12, marginTop: 6 }}>{r.title}</h3>
+              </button>
             ))}
           </WebtoonCarousel>
         </section>

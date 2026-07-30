@@ -18,7 +18,7 @@ export function useReveal<T extends HTMLElement>(delayIndex = 0) {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const io = new IntersectionObserver((es: IntersectionObserverEntry[]) => {
+    const io = new IntersectionObserver((es) => {
       es.forEach(e => {
         if (e.isIntersecting) { (e.target as HTMLElement).style.opacity = "1"; io.unobserve(e.target); }
       });
@@ -48,12 +48,7 @@ const MangaCard = memo(function MangaCard({
   const seed = result.url || result.title;
 
   return (
-    <button
-      ref={ref}
-      className="wcard"
-      onClick={onClick}
-      aria-label={result.title}
-    >
+    <button ref={ref} className="wcard" onClick={onClick} aria-label={result.title}>
       <span className="wcard-cover-wrap">
         <span className="wcard-cover-clip">
           {result.coverUrl ? (
@@ -61,7 +56,7 @@ const MangaCard = memo(function MangaCard({
               src={result.coverUrl}
               alt={`Cover of ${result.title}`}
               fill
-              sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 220px"
+              sizes="190px"
               quality={75}
               priority={priority}
               onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
@@ -70,7 +65,7 @@ const MangaCard = memo(function MangaCard({
             <span className="wcard-fallback">{result.title.slice(0, 1).toUpperCase()}</span>
           )}
         </span>
-        {rank != null && <RankBadge rank={rank} seed={seed} />}
+        {rank != null && <RankBadge rank={rank} />}
       </span>
       <span className="wcard-body">
         <h3 className="wcard-title">{result.title}</h3>
