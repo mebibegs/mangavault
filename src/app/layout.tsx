@@ -10,7 +10,7 @@ import "./globals.css";
 const PROD_URL = "https://www.mangavault.in";
 
 export const viewport: Viewport = {
-  themeColor: "#000000",
+  themeColor: "#ffffff",
   width: "device-width",
   initialScale: 1,
 };
@@ -41,7 +41,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en">
       <head>
         {/* Google tag (gtag.js) */}
         <script async src="https://www.googletagmanager.com/gtag/js?id=G-H4E2QSJZQF" />
@@ -70,9 +70,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       </head>
       <body className="antialiased min-h-screen">
         <noscript>
-          <div style={{ position: "fixed", inset: 0, backgroundColor: "#0a0a0a", color: "#fff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", zIndex: 99999, padding: "20px", textAlign: "center" }}>
+          <div style={{ position: "fixed", inset: 0, backgroundColor: "#fff", color: "#1e1e1e", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", zIndex: 99999, padding: "20px", textAlign: "center" }}>
             <p style={{ fontSize: "24px", marginBottom: "16px", fontWeight: "bold" }}>JavaScript Required</p>
-            <p style={{ color: "#888", maxWidth: "400px" }}>MangaVault requires JavaScript to function — please enable it and reload.</p>
+            <p style={{ color: "#666", maxWidth: "400px" }}>MangaVault requires JavaScript to function — please enable it and reload.</p>
           </div>
         </noscript>
         {children}

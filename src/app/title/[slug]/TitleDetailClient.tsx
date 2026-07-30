@@ -1,12 +1,11 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import VaultShell from "@/components/vault/VaultShell";
-import SectionHead from "@/components/vault/SectionHead";
 import MangaCard, { type MangaResult } from "@/components/vault/MangaCard";
-import { vaultFlash } from "@/components/vault/VaultFX";
 import ReaderPanel from "@/components/ReaderPanel";
 
 interface ChapterInfo { title: string; url: string; date: string; }
@@ -25,7 +24,6 @@ export default function TitleDetailClient({ initialResult, slug }: TitleDetailCl
   const [readerLoading, setReaderLoading] = useState(false);
   const [readerError, setReaderError] = useState("");
   const [currentChapterIndex, setCurrentChapterIndex] = useState<number | null>(null);
-  const [showNavButtons, setShowNavButtons] = useState(false);
   const readerScrollRef = useRef<HTMLDivElement>(null);
   const [loadedChapters, setLoadedChapters] = useState(false);
 
@@ -33,18 +31,6 @@ export default function TitleDetailClient({ initialResult, slug }: TitleDetailCl
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = ""; };
   }, []);
-
-  useEffect(() => {
-    const container = readerScrollRef.current;
-    if (!container || readerImages.length === 0) return;
-    const onScroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = container;
-      setShowNavButtons(scrollHeight - scrollTop - clientHeight < 600);
-    };
-    container.addEventListener("scroll", onScroll, { passive: true });
-    onScroll();
-    return () => container.removeEventListener("scroll", onScroll);
-  }, [readerImages]);
 
   const getChapterNumber = (chapter: ChapterInfo): number | null => {
     const title = chapter.title || "";
@@ -60,8 +46,7 @@ export default function TitleDetailClient({ initialResult, slug }: TitleDetailCl
 
   const openReader = async (chUrl: string, chapterIndex?: number) => {
     if (typeof chapterIndex === "number") setCurrentChapterIndex(chapterIndex);
-    vaultFlash();
-    setReaderUrl(chUrl); setReaderLoading(true); setReaderError(""); setReaderImages([]); setShowNavButtons(false);
+    setReaderUrl(chUrl); setReaderLoading(true); setReaderError(""); setReaderImages([]);
     if (readerScrollRef.current) readerScrollRef.current.scrollTop = 0;
     try {
       const res = await fetch(`/api/reader?url=${encodeURIComponent(chUrl)}`);
@@ -78,126 +63,115 @@ export default function TitleDetailClient({ initialResult, slug }: TitleDetailCl
 
   const hasRealChapterList = result.chapters.length > 0;
   const currentChapter = hasRealChapterList && currentChapterIndex !== null ? result.chapters[currentChapterIndex] ?? null : null;
-  const currentChapterNumber = currentChapter ? getChapterNumber(currentChapter) : null;
-  const chapterEntries = hasRealChapterList
-    ? result.chapters.map((chapter, index) => ({ chapter, index, number: getChapterNumber(chapter) })).filter(e => e.number !== null)
-    : [];
-  const prevEntry = currentChapterNumber === null ? null
-    : chapterEntries.filter(e => (e.number as number) < currentChapterNumber).sort((a, b) => (b.number as number) - (a.number as number))[0] ?? null;
-  const nextEntry = currentChapterNumber === null ? null
-    : chapterEntries.filter(e => (e.number as number) > currentChapterNumber).sort((a, b) => (a.number as number) - (b.number as number))[0] ?? null;
 
-  /* ---- READER ---- */
-  if (readerUrl) {
-    return (
-      <div className="reader">
-        <div className="reader-bar">
-          <button className="btn ghost sm" onClick={() => { setReaderUrl(null); setReaderImages([]); setReaderError(""); setCurrentChapterIndex(null); }}>← BACK</button>
-          <h3 className="reader-t">{result.title}</h3>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
-            {readerImages.length > 0 && (
-              <span className="rp-count"><b>{readerImages.length}</b> PANELS</span>
-            )}
-            <button className="m-close" style={{ position: "static" }} onClick={() => { setReaderUrl(null); setResult(initialResult); }} aria-label="Close reader">✕</button>
-          </div>
-        </div>
-        {readerLoading && (
-          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div className="rp-spinner" style={{ width: 40, height: 40 }} />
-          </div>
-        )}
-        {readerError && (
-          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 18, padding: 24, textAlign: "center" }}>
-            <p style={{ color: "#fff", fontSize: 13, letterSpacing: ".1em" }}>{readerError}</p>
-            <button className="btn" onClick={() => { setReaderUrl(null); setReaderError(""); }}>BACK TO CHAPTERS</button>
-          </div>
-        )}
-        {!readerLoading && !readerError && readerImages.length > 0 && (
-          <>
-            {prevEntry && showNavButtons && (
-              <div className="reader-nav" style={{ left: 20 }}>
-                <button className="btn ghost sm" onClick={() => openReader(prevEntry.chapter.url, prevEntry.index)}>← PREV</button>
-              </div>
-            )}
-            {nextEntry && showNavButtons && (
-              <div className="reader-nav" style={{ right: 20 }}>
-                <button className="btn ghost sm" onClick={() => openReader(nextEntry.chapter.url, nextEntry.index)}>NEXT →</button>
-              </div>
-            )}
-            <div ref={readerScrollRef} style={{ flex: 1, overflowY: "auto", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" }}>
-              <div style={{ maxWidth: 768, margin: "0 auto", display: "flex", flexDirection: "column", alignItems: "center" }}>
-                {readerImages.map((src, i) => (
-                  <ReaderPanel key={i} src={src} index={i} eager={i < 3} />
-                ))}
-                <div style={{ padding: "40px 0 60px", textAlign: "center" }}>
-                  <p style={{ color: "#888", fontSize: 10, letterSpacing: ".24em", marginBottom: 18 }}>END OF CHAPTER</p>
-                  <button className="btn" onClick={() => { setReaderUrl(null); setReaderImages([]); setCurrentChapterIndex(null); }}>BACK TO CHAPTERS</button>
-                </div>
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-    );
-  }
+  const goToChapter = (index: number) => {
+    const ch = result.chapters[index];
+    if (ch) openReader(ch.url, index);
+  };
 
-  /* ---- DETAIL PANEL ---- */
+  const handleReaderBack = () => {
+    setReaderUrl(null);
+    setReaderImages([]);
+    setReaderLoading(false);
+    setReaderError("");
+    setCurrentChapterIndex(null);
+  };
+
   return (
     <VaultShell>
-      <section className="wrap">
-        <SectionHead idx="SEC.XX" as="h1" title={<>{result.type}<br />{result.title.toUpperCase()}</>} right={`${result.chapterCount} CHAPTERS`} />
-
-        <div className="m-grid">
-          <div className="m-cover">
-            {result.coverUrl
-              ? <img src={result.coverUrl} alt="" referrerPolicy="no-referrer" />
-              : <span className="cover-fallback">{result.title.slice(0, 1).toUpperCase()}</span>}
-          </div>
-          <div className="m-body">
-            <p className="m-kicker">{result.type} · {result.source}</p>
-            <h3 className="m-title">{result.title}</h3>
-            <div className="m-stats">
-              {result.rating !== "N/A" && <span>RATING <b>★ {result.rating}</b></span>}
-              <span>CHAPTERS <b>{result.chapterCount}</b></span>
-              <span>STATUS <b>{result.status}</b></span>
-              {result.author !== "Unknown" && <span>AUTHOR <b>{result.author}</b></span>}
+      <main className="wmain">
+        {readerUrl ? (
+          <div className="reader">
+            <div className="reader-bar">
+              <button onClick={handleReaderBack} style={{ background: "none", border: "1px solid #333", color: "#fff", padding: "4px 12px", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>← Back</button>
+              <span className="reader-t">{result.title} — {currentChapter?.title || "Reader"}</span>
             </div>
-            {result.genres.length > 0 && (
-              <div className="tags" style={{ marginTop: 12 }}>
-                {result.genres.map(g => <span key={g} className="tag">{g}</span>)}
-              </div>
-            )}
-            <p className="m-syn">{result.description}</p>
-            <p className="m-ch-h">CHAPTERS ({result.chapterCount})</p>
-            <ul className="m-ch">
-              {hasRealChapterList ? result.chapters.map((ch, i) => (
-                <li key={i} style={{ padding: 0, border: 0 }}>
-                  <button onClick={() => openReader(ch.url, i)}>
-                    <span>{ch.title}</span>
-                    <span className="ch-date">{ch.date || "—"}</span>
-                  </button>
-                </li>
-              )) : (
-                <li>
-                  <span>CHAPTER LIST NOT AVAILABLE YET</span>
-                  <span className="ch-date">
-                    <a href={result.url} target="_blank" rel="noopener noreferrer" style={{ color: "#888" }}>VISIT SOURCE ↗</a>
-                  </span>
-                </li>
+            <div ref={readerScrollRef} style={{ flex: 1, overflowY: "auto", background: "#000" }}>
+              {readerLoading && (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh", color: "#666", fontSize: 14 }}>Loading...</div>
               )}
-            </ul>
+              {readerError && (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "60vh", gap: 12 }}>
+                  <p style={{ color: "#ff6b6b", fontSize: 14 }}>{readerError}</p>
+                  <button className="wt-header-btn" style={{ color: "#fff", background: "#333" }} onClick={() => currentChapter && openReader(currentChapter.url)}>Retry</button>
+                </div>
+              )}
+              {!readerLoading && !readerError && readerImages.map((img, i) => (
+                <ReaderPanel key={i} src={img} index={i} eager={i < 3} />
+              ))}
+            </div>
             {hasRealChapterList && (
-              <div className="m-actions">
-                <button className="btn" onClick={() => openReader(result.chapters[0].url, 0)}>READ LATEST</button>
-                <button className="btn ghost" onClick={() => openReader(result.chapters[result.chapters.length - 1].url, result.chapters.length - 1)}>START CH. 1</button>
+              <div className="reader-nav" style={{ position: "fixed", bottom: 20, left: "50%", transform: "translateX(-50%)", zIndex: 95, display: "flex", gap: 12 }}>
+                <button className="wt-header-btn" style={{ color: "#fff", background: "rgba(255,255,255,.1)" }} onClick={() => goToChapter(Math.max(0, (currentChapterIndex ?? 0) - 1))} disabled={!currentChapterIndex}>← Prev</button>
+                <button className="wt-header-btn" style={{ color: "#fff", background: "rgba(255,255,255,.1)" }} onClick={() => goToChapter(Math.min(result.chapters.length - 1, (currentChapterIndex ?? 0) + 1))} disabled={(currentChapterIndex ?? 0) >= result.chapters.length - 1}>Next →</button>
               </div>
             )}
-            <p style={{ marginTop: 24, color: "#555", fontSize: 11, letterSpacing: ".18em", textTransform: "uppercase" }}>
-              <a href={result.url} target="_blank" rel="noopener noreferrer" style={{ color: "#888" }}>VIEW ON {result.source.toUpperCase()} ↗</a>
-            </p>
           </div>
-        </div>
-      </section>
+        ) : (
+          <>
+            <section style={{ display: "flex", gap: 28, flexWrap: "wrap", marginBottom: 32 }}>
+              <div style={{ flex: "0 0 220px" }}>
+                <div style={{ position: "relative", width: "100%", aspectRatio: "2/3", borderRadius: 8, overflow: "hidden", background: "#f0f0f0", boxShadow: "0 2px 8px rgba(0,0,0,.08)" }}>
+                  {result.coverUrl ? (
+                    <img src={result.coverUrl} alt={result.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  ) : (
+                    <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, fontWeight: 700, color: "#ccc" }}>{result.title.slice(0, 1)}</div>
+                  )}
+                </div>
+              </div>
+              <div style={{ flex: 1, minWidth: 280 }}>
+                <p style={{ fontSize: 11, fontWeight: 600, color: "#999", textTransform: "uppercase", letterSpacing: ".08em", margin: "0 0 6px" }}>{result.type || "Series"}</p>
+                <h1 style={{ fontSize: 26, fontWeight: 700, margin: "0 0 12px", lineHeight: 1.2 }}>{result.title}</h1>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+                  {result.genres.map(g => (
+                    <Link key={g} href={`/genres?genre=${encodeURIComponent(g)}`} style={{ background: "#f0f0f0", padding: "4px 12px", borderRadius: 4, fontSize: 12, color: "#666", textDecoration: "none", fontWeight: 500 }}>{g}</Link>
+                  ))}
+                </div>
+                <p style={{ fontSize: 14, lineHeight: 1.7, color: "#666", margin: "0 0 16px", maxWidth: 560 }}>{result.description}</p>
+                <div style={{ display: "flex", gap: 16, fontSize: 12, color: "#888", marginBottom: 16 }}>
+                  {result.author && <span><strong style={{ color: "#1e1e1e" }}>Author:</strong> {result.author}</span>}
+                  {result.artist && <span><strong style={{ color: "#1e1e1e" }}>Artist:</strong> {result.artist}</span>}
+                  <span><strong style={{ color: "#1e1e1e" }}>Status:</strong> {result.status || "Unknown"}</span>
+                  <span><strong style={{ color: "#1e1e1e" }}>Chapters:</strong> {result.chapterCount || result.chapters.length}</span>
+                </div>
+                <Link href={`/genres?q=${encodeURIComponent(result.title)}`} className="wt-header-btn primary" style={{ display: "inline-flex", textDecoration: "none" }}>More</Link>
+              </div>
+            </section>
+
+            <section className="wsection">
+              <div className="wsection-head">
+                <h2>Chapters</h2>
+                <span style={{ fontSize: 13, color: "#999" }}>{result.chapters.length} chapters</span>
+              </div>
+              {result.chapters.length === 0 ? (
+                <p style={{ color: "#999", fontSize: 14, textAlign: "center", padding: "40px 0" }}>No chapters available.</p>
+              ) : (
+                <div style={{ borderTop: "1px solid #eee" }}>
+                  {result.chapters.map((ch, i) => (
+                    <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: "1px solid #eee", gap: 12 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ fontWeight: 500, fontSize: 14, color: "#1e1e1e" }}>{ch.title}</span>
+                        {ch.date && <span style={{ marginLeft: 12, fontSize: 11, color: "#bbb" }}>{ch.date}</span>}
+                      </div>
+                      <button className="wt-header-btn" style={{ flexShrink: 0 }} onClick={() => openReader(ch.url, i)}>Read</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            {result.chapters.length >= 5 && (
+              <section className="wsection">
+                <div className="wsection-head">
+                  <h2>You may also like</h2>
+                  <Link href="/genres" style={{ color: "var(--accent)", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>View all</Link>
+                </div>
+                <p style={{ color: "#ccc", fontSize: 13, fontStyle: "italic" }}>Related content coming soon...</p>
+              </section>
+            )}
+          </>
+        )}
+      </main>
     </VaultShell>
   );
 }

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import VaultShell from "@/components/vault/VaultShell";
 import MangaCard, { type MangaResult } from "@/components/vault/MangaCard";
+import { Loader } from "@/components/vault/Loader";
 
 const DetailModal = dynamic(() => import("@/components/DetailModal"), { ssr: false });
 
@@ -19,6 +20,7 @@ export default function SearchClient() {
   const [searched, setSearched] = useState(false);
   const [selected, setSelected] = useState<MangaResult | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const doSearch = (query: string) => {
     const trimmed = query.trim();
@@ -33,20 +35,14 @@ export default function SearchClient() {
 
   useEffect(() => {
     setInput(q);
-
     if (!q || q.trim().length < 2) {
-      setResults([]);
-      setSearched(false);
-      setLoading(false);
+      setResults([]); setSearched(false); setLoading(false);
       return;
     }
-
     abortRef.current?.abort();
     const ac = new AbortController();
     abortRef.current = ac;
-    setLoading(true);
-    setSearched(true);
-
+    setLoading(true); setSearched(true);
     (async () => {
       try {
         const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`, { signal: ac.signal });
@@ -56,65 +52,56 @@ export default function SearchClient() {
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") return;
         setResults([]);
-      } finally {
-        setLoading(false);
-      }
+      } finally { setLoading(false); }
     })();
-
     return () => ac.abort();
   }, [q]);
 
   return (
     <VaultShell>
-      <section className="wrap" style={{ maxWidth: 960, margin: "0 auto" }}>
-        <h1 className="search-page-title">SEARCH</h1>
-
-        <form onSubmit={handleSubmit} style={{ marginBottom: 40 }}>
-          <label className="search-label">
+      <main className="wmain" style={{ maxWidth: 960, margin: "0 auto" }}>
+        <section className="wsection">
+          <div className="wsection-head">
+            <h2>Search</h2>
+          </div>
+          <form onSubmit={handleSubmit} style={{ display: "flex", gap: 8, marginBottom: 24 }}>
             <input
+              ref={inputRef}
               type="text"
-              className="input"
-              required
-              placeholder="Type here..."
+              placeholder="Search titles..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
               autoComplete="off"
               aria-label="Search manga"
+              style={{ flex: 1, border: "1px solid #ddd", borderRadius: 8, padding: "10px 14px", fontSize: 14, outline: "none" }}
             />
-            <kbd className="slash-icon">/</kbd>
-            <svg className="search-icon" xmlns="http://www.w3.org/2000/svg" version="1.1" width="512" height="512" x="0" y="0" viewBox="0 0 56.966 56.966" style={{ enableBackground: "new 0 0 512 512" } as React.CSSProperties} xmlSpace="preserve">
-              <g>
-                <path d="M55.146 51.887 41.588 37.786A22.926 22.926 0 0 0 46.984 23c0-12.682-10.318-23-23-23s-23 10.318-23 23 10.318 23 23 23c4.761 0 9.298-1.436 13.177-4.162l13.661 14.208c.571.593 1.339.92 2.162.92.779 0 1.518-.297 2.079-.837a3.004 3.004 0 0 0 .083-4.242zM23.984 6c9.374 0 17 7.626 17 17s-7.626 17-17 17-17-7.626-17-17 7.626-17 17-17z" fill="currentColor" />
-              </g>
-            </svg>
-          </label>
-        </form>
+            <button type="submit" className="wt-header-btn primary" style={{ padding: "10px 20px" }}>Search</button>
+          </form>
 
-        {loading && (
-          <div style={{ display: "flex", justifyContent: "center", padding: "60px 0" }}>
-            <div className="search-loader" />
-          </div>
-        )}
+          {loading && (
+            <div style={{ display: "flex", justifyContent: "center", padding: "60px 0" }}>
+              <Loader size={24} />
+            </div>
+          )}
 
-        {!loading && searched && results.length === 0 && (
-          <div className="empty">NO RESULTS FOUND — TRY A DIFFERENT QUERY.</div>
-        )}
+          {!loading && searched && results.length === 0 && (
+            <div style={{ textAlign: "center", padding: "60px 20px", color: "#999", fontSize: 14 }}>
+              No results found. Try a different query.
+            </div>
+          )}
 
-        {!loading && results.length > 0 && (
-          <div className="comic-grid">
-            {results.map((r, i) => (
-              <MangaCard
-                key={`${r.title}-${r.source}-${i}`}
-                result={r}
-                onClick={() => setSelected(r)}
-                index={i}
-                priority={i < 4}
-              />
-            ))}
-          </div>
-        )}
-      </section>
-
+          {!loading && results.length > 0 && (
+            <>
+              <p style={{ fontSize: 13, color: "#999", marginBottom: 16 }}>{results.length} results for &ldquo;{q}&rdquo;</p>
+              <div className="wcard-grid">
+                {results.map((r, i) => (
+                  <MangaCard key={`${r.title}-${r.source}-${i}`} result={r} onClick={() => setSelected(r)} index={i} priority={i < 4} />
+                ))}
+              </div>
+            </>
+          )}
+        </section>
+      </main>
       {selected && <DetailModal result={selected} onClose={() => setSelected(null)} />}
     </VaultShell>
   );

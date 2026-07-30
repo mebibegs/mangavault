@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 
 export default function SearchPage() {
   return (
-    <Suspense fallback={<div className="empty wrap" style={{ marginTop: 140, display: "flex", alignItems: "center", justifyContent: "center" }}><Loader size={48} /></div>}>
+    <Suspense fallback={<div style={{ marginTop: 140, display: "flex", alignItems: "center", justifyContent: "center" }}><Loader size={48} /></div>}>
       <SearchClient />
     </Suspense>
   );

@@ -32,7 +32,7 @@ export default async function GenresPage({
 
   return (
     <Suspense
-      fallback={<div className="empty wrap" style={{ marginTop: 140, display: "flex", alignItems: "center", justifyContent: "center" }}><Loader size={48} /></div>}
+      fallback={<div style={{ marginTop: 140, display: "flex", alignItems: "center", justifyContent: "center" }}><Loader size={48} /></div>}
     >
       <GenresClient
         initialGenre={genre}

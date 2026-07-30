@@ -4,7 +4,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import VaultFX, { vaultFlash } from "@/components/vault/VaultFX";
-import SectionHead from "@/components/vault/SectionHead";
 import MangaCard, { type MangaResult } from "@/components/vault/MangaCard";
 import { Loader } from "@/components/vault/Loader";
 
@@ -268,45 +267,28 @@ export default function AdultPage() {
   /* ─── Main Page ─── */
   return (
     <>
-      <VaultFX />
-      {/* standalone 18+ header — separate chrome from the main vault */}
       <header id="topbar">
-        <Link className="logo" href="/adult">MANGAVAULT<span className="logo-dot" style={{ color: "#ff0000" }}>18+</span></Link>
-        <form id="search" role="search" style={{ marginLeft: "auto" }} onSubmit={handleSearch}>
-          <div className="searchbox">
-            <span className="s-ic" aria-hidden="true">⌖</span>
-            <input
-              id="q"
-              type="text"
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              placeholder="SEARCH ADULT TITLES…"
-              autoComplete="off"
-              aria-label="Search adult titles"
-            />
-            <button type="submit" className="s-go">GO</button>
-          </div>
+        <Link className="logo" href="/adult">
+          <span style={{ fontWeight: 800, fontSize: 20 }}>MangaVault</span>
+          <span style={{ color: "var(--accent)", fontWeight: 800, fontSize: 20 }}>18+</span>
+        </Link>
+        <form style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }} onSubmit={handleSearch}>
+          <input type="text" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search adult titles…" autoComplete="off" aria-label="Search" style={{ border: "1px solid #ddd", borderRadius: 20, padding: "6px 14px", fontSize: 13, width: 200, outline: "none" }} />
+          <button type="submit" className="wt-header-btn primary" style={{ fontSize: 12 }}>GO</button>
         </form>
-        <Link href="/" className="btn ghost sm" style={{ flexShrink: 0 }}>← HOME</Link>
+        <Link href="/" className="wt-header-btn" style={{ flexShrink: 0 }}>HOME</Link>
       </header>
 
-      <div className="vault-content">
-        <main className="wrap">
-          <SectionHead
-            idx="SEC.18+"
-            as="h1"
-            title={<>THE RED<br />VAULT</>}
-            right={loading ? "SCANNING…" : `${total} TITLES${genre !== "All" ? ` · ${genre.toUpperCase()}` : ""}`}
-          />
+      <main className="wmain">
+          <section className="wsection">
+            <div className="wsection-head">
+              <h2>Adult <span style={{ color: "var(--accent)" }}>18+</span></h2>
+              <span style={{ fontSize: 13, color: "#999" }}>{loading ? "Scanning…" : `${total} titles${genre !== "All" ? ` · ${genre}` : ""}`}</span>
+            </div>
 
-          <div className="mq" aria-hidden="true" style={{ marginTop: 0, marginBottom: 30 }}>
-            <div className="mq-in">{"RESTRICTED SECTION ✦ 18+ ONLY ✦ MATURE CONTENT ✦ ".repeat(4)}</div>
-          </div>
-
-          {/* Genre chips */}
-          <div className="chips">
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 20 }}>
             {ADULT_GENRES.map(g => (
-              <button key={g} className={`chip${g === genre ? " on" : ""}`} onClick={() => { vaultFlash(); setGenre(g); setPage(1); }}>
+              <button key={g} className={`wt-header-btn${g === genre ? " primary" : ""}`} onClick={() => { vaultFlash(); setGenre(g); setPage(1); }}>
                 {g}
               </button>
             ))}
@@ -314,11 +296,11 @@ export default function AdultPage() {
 
           {/* Results */}
           {loading ? (
-            <div className="empty">SCANNING THE RED VAULT…</div>
+            <div style={{ textAlign: "center", padding: "60px 20px", color: "#999", fontSize: 14 }}>Scanning…</div>
           ) : results.length === 0 ? (
-            <div className="empty">NO RESULTS FOUND.</div>
+            <div style={{ textAlign: "center", padding: "60px 20px", color: "#999", fontSize: 14 }}>No results found.</div>
           ) : (
-            <div className="comic-grid">
+            <div className="wcard-grid">
               {results.map((r, i) => (
                 <MangaCard key={`${r.title}-${i}`} result={r} onClick={() => openDetail(r)} index={i} priority={i < 4} />
               ))}
@@ -327,31 +309,31 @@ export default function AdultPage() {
 
           {/* Pagination */}
           {(hasMore || page > 1) && (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 18, marginTop: 40 }}>
-              <button className="btn ghost sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}>← PREV</button>
-              <span style={{ color: "#888", fontSize: 11, letterSpacing: ".2em" }}>PAGE {String(page).padStart(2, "0")}</span>
-              <button className="btn ghost sm" onClick={() => setPage(p => p + 1)} disabled={!hasMore}>NEXT →</button>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 32 }}>
+              <button className="wt-header-btn" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}>Prev</button>
+              <span style={{ color: "#999", fontSize: 12 }}>Page {page}</span>
+              <button className="wt-header-btn" onClick={() => setPage(p => p + 1)} disabled={!hasMore}>Next</button>
             </div>
           )}
-        </main>
+        </section>
+      </main>
 
-        {detailModal}
+      {detailModal}
 
-        <footer className="vfooter wrap">
-          <span className="f-word outline">RED VAULT</span>
-          <div className="f-grid">
-            <div>RESTRICTED SECTION<br />18+ ONLY</div>
-            <div>
-              <Link href="/">HOME</Link><br />
-              <Link href="/privacy">PRIVACY</Link>
-            </div>
-            <div>
-              <Link href="/terms">TERMS</Link><br />
+      <footer className="wfooter">
+        <div className="wfooter-inner" style={{ maxWidth: 1050 }}>
+          <div className="wfooter-top">
+            <div className="wfooter-brand" style={{ fontSize: 18 }}>MangaVault 18+</div>
+            <div className="wfooter-links">
+              <Link href="/">Home</Link>
+              <Link href="/privacy">Privacy</Link>
+              <Link href="/terms">Terms</Link>
               <Link href="/dmca">DMCA</Link>
             </div>
           </div>
-        </footer>
-      </div>
+          <div className="wfooter-bottom">Restricted section — 18+ only</div>
+        </div>
+      </footer>
     </>
   );
 }
