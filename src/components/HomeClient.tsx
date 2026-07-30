@@ -101,7 +101,7 @@ export default function HomeClient({ initialTrending }: { initialTrending: Manga
             <button className={`wtab${trendingTab === "trending" ? " on" : ""}`} onClick={() => setTrendingTab("trending")}>Trending</button>
             <button className={`wtab${trendingTab === "popular" ? " on" : ""}`} onClick={() => setTrendingTab("popular")}>Popular</button>
           </div>
-          <div className="trending-grid" key={trendingTab}>
+          <div className="grid-6" key={trendingTab}>
             {displayData.map((r, i) => (
               <MangaCard key={`${r.title}-${i}`} result={r} onClick={() => setSelected(r)} rank={i + 1} index={i} priority={i < 4} />
             ))}
@@ -119,7 +119,7 @@ export default function HomeClient({ initialTrending }: { initialTrending: Manga
               <button key={g} className={`wtab${genreTab === g ? " on" : ""}`} onClick={() => setGenreTab(g)}>{g}</button>
             ))}
           </div>
-          <div className="category-grid" key={genreTab}>
+          <div className="grid-6" key={genreTab}>
             {genreFiltered.map((r, i) => (
               <MangaCard key={`${r.title}-${i}`} result={r} onClick={() => setSelected(r)} index={i} />
             ))}
@@ -131,11 +131,9 @@ export default function HomeClient({ initialTrending }: { initialTrending: Manga
           <div className="wsection-head">
             <h2>Newly Released</h2>
           </div>
-          <div className="originals-scroll">
+          <div className="grid-6">
             {newlyReleased.map((r, i) => (
-              <div key={i} className="original-card" onClick={() => setSelected(r)} style={{ cursor: "pointer" }}>
-                <MangaCard result={r} onClick={() => setSelected(r)} index={i} />
-              </div>
+              <MangaCard key={i} result={r} onClick={() => setSelected(r)} index={i} />
             ))}
           </div>
         </section>
@@ -151,7 +149,7 @@ export default function HomeClient({ initialTrending }: { initialTrending: Manga
               <button key={d} className={`wtab${d === "Mon" ? " on" : ""}`}>{d}</button>
             ))}
           </div>
-          <div className="daily-grid">
+          <div className="grid-6">
             {daily.map((r, i) => (
               <MangaCard key={`${r.title}-${i}`} result={r} onClick={() => setSelected(r)} index={i} />
             ))}
