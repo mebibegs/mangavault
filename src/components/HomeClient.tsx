@@ -49,8 +49,8 @@ export default function HomeClient({ initialTrending }: { initialTrending: Manga
   }, [initialTrending]);
 
   const popularList = useMemo(() => {
-    if (trending.length >= 20) return trending.slice(10, 20);
-    return trending.slice(0, Math.min(10, trending.length));
+    if (trending.length >= 24) return trending.slice(12, 24);
+    return trending.slice(0, Math.min(12, trending.length));
   }, [trending]);
 
   const genreFiltered = useMemo(() => {
@@ -68,7 +68,7 @@ export default function HomeClient({ initialTrending }: { initialTrending: Manga
     return trending.slice(0, 12);
   }, [trending]);
 
-  const displayData = trendingTab === "trending" ? trending.slice(0, 10) : popularList;
+  const displayData = trendingTab === "trending" ? trending.slice(0, 12) : popularList;
   const hero = trending[0];
 
   return (

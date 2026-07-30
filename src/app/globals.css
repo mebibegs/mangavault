@@ -473,8 +473,8 @@ body {
 /* Trending & Popular grid */
 .trending-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 24px;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 20px;
 }
 
 /* Popular Series by Category grid */
@@ -557,13 +557,11 @@ body {
 /* Results grid (category/search pages) */
 .results-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  grid-template-columns: repeat(6, 1fr);
   gap: 20px;
 }
-@media (min-width: 640px) { .results-grid { grid-template-columns: repeat(3, 1fr); } }
-@media (min-width: 820px) { .results-grid { grid-template-columns: repeat(4, 1fr); } }
-@media (min-width: 1050px) { .results-grid { grid-template-columns: repeat(5, 1fr); } }
-@media (min-width: 1280px) { .results-grid { grid-template-columns: repeat(6, 1fr); } }
+@media (max-width: 1024px) { .results-grid { grid-template-columns: repeat(4, 1fr); } }
+@media (max-width: 768px) { .results-grid { grid-template-columns: repeat(2, 1fr); } }
 
 /* WEBTOONS FOOTER */
 .wfooter {
