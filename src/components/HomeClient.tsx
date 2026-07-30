@@ -121,10 +121,10 @@ export default function HomeClient({ initialTrending }: { initialTrending: Manga
           <div className="wsection-head">
             <h2>Newly Released</h2>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12 }}>
+          <WebtoonCarousel>
             {newlyReleased.map((r, i) => (
               <button key={i} className="wt-card-sm" onClick={() => setSelected(r)} aria-label={r.title}>
-                <span className="wcard-cover-wrap" style={{ aspectRatio: "2/3", marginBottom: 0 }}>
+                <span className="wcard-cover-wrap">
                   <span className="wcard-cover-clip">
                     {r.coverUrl ? (
                       <img src={r.coverUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
@@ -135,7 +135,7 @@ export default function HomeClient({ initialTrending }: { initialTrending: Manga
                 </span>
               </button>
             ))}
-          </div>
+          </WebtoonCarousel>
         </section>
 
         {/* ===== Daily ===== */}
@@ -149,9 +149,9 @@ export default function HomeClient({ initialTrending }: { initialTrending: Manga
               <button key={d} className={`wtab${d === "Mon" ? " on" : ""}`}>{d}</button>
             ))}
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 12 }}>
+          <WebtoonCarousel>
             {daily.map((r, i) => (
-              <button key={i} className="wt-card-sm" onClick={() => setSelected(r)} aria-label={r.title} style={{ width: "100%" }}>
+              <button key={i} className="wt-card-sm" onClick={() => setSelected(r)} aria-label={r.title}>
                 <span className="wcard-cover-wrap" style={{ marginBottom: 6 }}>
                   <span className="wcard-cover-clip">
                     {r.coverUrl ? (
@@ -166,7 +166,7 @@ export default function HomeClient({ initialTrending }: { initialTrending: Manga
                 <h3 className="wcard-title">{r.title}</h3>
               </button>
             ))}
-          </div>
+          </WebtoonCarousel>
         </section>
       </main>
 
