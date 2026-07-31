@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useRef, useEffect } from "react";
+import { memo, useRef, useEffect, useState } from "react";
 import Image from "next/image";
 import ViewCount from "./ViewCount";
 import RankBadge from "./RankBadge";
@@ -46,20 +46,21 @@ const MangaCard = memo(function MangaCard({
 }) {
   const ref = useReveal<HTMLButtonElement>(index);
   const seed = result.url || result.title;
+  const [imgFailed, setImgFailed] = useState(false);
 
   return (
     <button ref={ref} className="wcard" onClick={onClick} aria-label={result.title}>
       <span className="wcard-cover-wrap">
         <span className="wcard-cover-clip">
-          {result.coverUrl ? (
+          {result.coverUrl && !imgFailed ? (
             <Image
               src={result.coverUrl}
               alt={`Cover of ${result.title}`}
               fill
-              sizes="190px"
+              sizes="(max-width: 520px) 45vw, (max-width: 768px) 30vw, (max-width: 1100px) 22vw, 192px"
               quality={75}
               priority={priority}
-              onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+              onError={() => setImgFailed(true)}
             />
           ) : (
             <span className="wcard-fallback">{result.title.slice(0, 1).toUpperCase()}</span>
