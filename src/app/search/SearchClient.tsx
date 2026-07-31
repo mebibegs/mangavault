@@ -90,7 +90,7 @@ export default function SearchClient() {
           {!loading && results.length > 0 && (
             <>
               <p style={{ fontSize: 13, color: "#999", marginBottom: 16 }}>{results.length} results for &ldquo;{q}&rdquo;</p>
-              <div className="results-grid">
+              <div className="grid-6">
                 {results.map((r, i) => (
                   <MangaCard key={`${r.title}-${r.source}-${i}`} result={r} onClick={() => setSelected(r)} index={i} priority={i < 4} />
                 ))}

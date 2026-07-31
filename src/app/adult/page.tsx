@@ -300,7 +300,7 @@ export default function AdultPage() {
           ) : results.length === 0 ? (
             <div style={{ textAlign: "center", padding: "60px 20px", color: "#999", fontSize: 14 }}>No results found.</div>
           ) : (
-            <div className="results-grid">
+            <div className="grid-6">
               {results.map((r, i) => (
                 <MangaCard key={`${r.title}-${i}`} result={r} onClick={() => openDetail(r)} index={i} priority={i < 4} />
               ))}

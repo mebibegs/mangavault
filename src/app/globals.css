@@ -210,16 +210,6 @@ body {
   padding: 3px 8px; border-radius: 4px; letter-spacing: .04em;
 }
 
-/* ================= GRID LAYOUTS ================= */
-.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
-.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
-.grid-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
-.grid-responsive { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
-@media (min-width: 640px) { .grid-responsive { grid-template-columns: repeat(3, 1fr); } }
-@media (min-width: 1024px) { .grid-responsive { grid-template-columns: repeat(4, 1fr); gap: 20px; } }
-@media (min-width: 1280px) { .grid-responsive { grid-template-columns: repeat(5, 1fr); } }
-
 /* ================= MARQUEE ================= */
 .marquee {
   overflow: hidden; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
@@ -524,15 +514,6 @@ body {
   background: rgba(0,213,100,.1); padding: 2px 6px; border-radius: 4px;
   letter-spacing: .04em; text-transform: uppercase; margin-bottom: 2px;
 }
-
-/* Results grid (category/search pages) */
-.results-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 16px;
-}
-@media (max-width: 1024px) { .results-grid { grid-template-columns: repeat(4, 1fr); } }
-@media (max-width: 768px) { .results-grid { grid-template-columns: repeat(2, 1fr); } }
 
 /* WEBTOONS FOOTER */
 .wfooter {
