@@ -69,9 +69,9 @@ const MangaCard = memo(function MangaCard({
       </span>
       <span className="wcard-body">
         <h3 className="wcard-title">{result.title}</h3>
-        {result.genres.length > 0 && (
-          <span className="wcard-genre">{result.genres[0]}</span>
-        )}
+        {/* Always render the genre line (falling back to type) so every card's
+            body is exactly the same height and rows stay aligned. */}
+        <span className="wcard-genre">{result.genres[0] || result.type || "\u00A0"}</span>
         <ViewCount seed={seed} />
       </span>
     </button>
